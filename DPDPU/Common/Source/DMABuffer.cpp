@@ -78,7 +78,7 @@ bool DMABuffer::Allocate(
 	// Connect to the back end
 	//
 	//
-	RDMC_Connect(Connector, QPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth);
+	RDMC_Connect(Connector, QPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, BUFF_CONN_PRIV_DATA);
 	RDMC_CompleteConnect(Connector, &Ov);
 
 	//

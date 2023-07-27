@@ -39,13 +39,13 @@
     <ClInclude Include="RingBufferProgressive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DMABuffer.h">
+    <ClInclude Include="..\..\Common\Include\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RDMC.h">
+    <ClInclude Include="..\..\Common\Include\MsgType.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MsgType.h">
+    <ClInclude Include="..\..\Common\Include\RDMC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -65,10 +65,10 @@
     <ClCompile Include="BackEndBridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DMABuffer.cpp">
+    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RDMC.cpp">
+    <ClCompile Include="..\..\Common\Source\RDMC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

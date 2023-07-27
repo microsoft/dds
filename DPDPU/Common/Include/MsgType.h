@@ -2,6 +2,9 @@
 
 #define MSG_CTXT ((void *) 0x5000)
 
+#define CTRL_CONN_PRIV_DATA ((void *) 0xcc)
+#define BUFF_CONN_PRIV_DATA ((void *) 0xcb)
+
 #define CTRL_MSG_SIZE 64
 #define BUFF_MSG_SIZE 64
 

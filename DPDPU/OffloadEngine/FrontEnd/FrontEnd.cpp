@@ -12,11 +12,17 @@ char*
 FrontEnd::AllocateBuffer(
 	const size_t Capacity
 ) {
+	/*
 	if (BackEnd.Connect()) {
 		Buffer = new DMABuffer(BackEnd.BackEndAddr, BackEnd.BackEndPort, Capacity, BackEnd.ClientId);
 		if (Buffer->Allocate(BackEnd.LocalSock, BackEnd.BackEndSock, BackEnd.QueueDepth, BackEnd.MaxSge, BackEnd.InlineThreshold)) {
 			return Buffer->BufferAddress;
 		}
+	}
+	*/
+
+	if (BackEnd.ConnectTest()) {
+		printf("BackEnd.ConnectTest returns true\n");
 	}
 	
 	return NULL;

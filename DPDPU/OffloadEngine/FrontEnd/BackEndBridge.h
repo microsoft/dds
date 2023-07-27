@@ -10,6 +10,8 @@
 #define BACKEND_TYPE_DMA 2
 #define BACKEND_TYPE BACKEND_TYPE_DMA
 
+#define BACKEND_BRIDGE_VERBOSE
+
 //
 // Connector that fowards requests to and receives responses from the back end
 //
@@ -55,6 +57,9 @@ public:
     //
     bool
     Connect();
+
+    bool
+    ConnectTest();
 
     //
     // Disconnect from the backend

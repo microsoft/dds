@@ -131,7 +131,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)\BackEndLib;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\BackEndLib;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;$(SolutionDir)\..\Common\Include</AdditionalIncludeDirectories>
       <LanguageStandard>Default</LanguageStandard>
     </ClCompile>
     <Link>
@@ -142,26 +142,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
+    <ClInclude Include="..\..\Common\Include\MsgType.h" />
+    <ClInclude Include="..\..\Common\Include\RDMC.h" />
     <ClInclude Include="BackEndBridge.h" />
     <ClInclude Include="DDSDir.h" />
     <ClInclude Include="DDSFile.h" />
     <ClInclude Include="DDSFrontEnd.h" />
     <ClInclude Include="DDSFrontEndInterface.h" />
-    <ClInclude Include="DMABuffer.h" />
     <ClInclude Include="LinkedList.h" />
-    <ClInclude Include="MsgType.h" />
-    <ClInclude Include="RDMC.h" />
     <ClInclude Include="RingBuffer.h" />
     <ClInclude Include="RingBufferProgressive.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp" />
+    <ClCompile Include="..\..\Common\Source\RDMC.cpp" />
     <ClCompile Include="BackEndBridge.cpp" />
     <ClCompile Include="DDSDir.cpp" />
     <ClCompile Include="DDSFile.cpp" />
     <ClCompile Include="DDSFrontEnd.cpp" />
-    <ClCompile Include="DMABuffer.cpp" />
     <ClCompile Include="LinkedList.cpp" />
-    <ClCompile Include="RDMC.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BackEndLib\BackEndLib.vcxproj">
