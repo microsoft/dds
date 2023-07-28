@@ -71,7 +71,6 @@ jobs:
 
     #   If the Autobuild fails above, remove it and uncomment the following three lines.
     #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
-    - name: Build network path
     - run: sudo apt-get install -y build-essential meson ninja-build
     - run: |
        echo "Run, Build Application using script"
