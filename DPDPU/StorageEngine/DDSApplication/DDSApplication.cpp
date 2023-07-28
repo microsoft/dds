@@ -314,7 +314,7 @@ int main()
         auto prevClock = high_resolution_clock::now();
         // this_thread::sleep_for(nanoseconds((int64_t)(sleepSecs * 1e9)));
 
-        BOOL bSuccess = SetWaitableTimerEx(timer, &due, 0, NULL, NULL, NULL, 0);
+        BOOL bSuccess = SetWaitableTimer(timer, &due, 0, NULL, NULL, 0);
         WaitForSingleObject(timer, INFINITE);
         
         auto nextClock = high_resolution_clock::now();

@@ -164,6 +164,12 @@
     <ClCompile Include="LinkedList.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
+      <Project>{fc7cbd5d-8104-4e77-b17a-08fe588adb84}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NDSPI\src\ndutil\ndutil.vcxproj">
+      <Project>{6955ed94-3b21-4835-838a-a797aff63183}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\BackEndLib\BackEndLib.vcxproj">
       <Project>{a4ef26df-a0c6-49ec-8469-302bebc540a6}</Project>
     </ProjectReference>
