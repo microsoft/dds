@@ -15,6 +15,7 @@
 #define DDS_CTRL_MSG_SIZE 64
 #define DDS_CACHE_LINE_SIZE 64
 #define DDS_LISTEN_BACKLOG 64
+#define RESOLVE_TIMEOUT_MS 2000
 
 //
 // The global config for (R)DMA
@@ -56,7 +57,7 @@ struct CtrlConnConfig {
     struct ibv_sge SendSgl;
     struct ibv_mr *SendMr;
     char SendBuff[DDS_CTRL_MSG_SIZE];
-}
+};
 
 //
 // The configuration for a buffer connection
@@ -109,7 +110,7 @@ struct BuffConnConfig {
     uint64_t RemoteAddr;
     uint32_t AccessToken;
     uint32_t Capacity;
-}
+};
 
 //
 // Back end configuration

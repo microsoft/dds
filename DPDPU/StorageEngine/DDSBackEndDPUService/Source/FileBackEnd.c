@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,6 +14,27 @@
 #include "FileBackEnd.h"
 
 static volatile int ForceQuitFileBackEnd = 0;
+
+//
+// Set a CM channel to be non-blocking
+//
+//
+int SetNonblocking(
+    struct rdma_event_channel *Channel
+) {
+    int flags = fcntl(Channel->fd, F_GETFL, 0);
+    if (flags == -1) {
+        perror("fcntl F_GETFL");
+        return -1;
+    }
+
+    if (fcntl(Channel->fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl F_SETFL O_NONBLOCK");
+        return -1;
+    }
+
+    return 0;
+}
 
 //
 // Initialize DMA
@@ -33,7 +56,7 @@ InitDMA(
         return ret;
     }
 
-    ret = set_nonblocking(Config->CmChannel);
+    ret = SetNonblocking(Config->CmChannel);
     if (ret) {
         fprintf(stderr, "failed to set non-blocking\n");
         rdma_destroy_event_channel(Config->CmChannel);
@@ -83,7 +106,7 @@ InitDMA(
 //
 static void
 TermDMA(
-    struct DMAConfig* Config,
+    struct DMAConfig* Config
 ) {
     if (Config->CmId) {
         rdma_destroy_id(Config->CmId);
@@ -100,20 +123,22 @@ TermDMA(
 //
 static int
 AllocConns(struct BackEndConfig* Config) {
-    Config->CtrlConns = (struct CtrlConn*)malloc(sizeof(struct CtrlConn) * Config->MaxClients);
+    Config->CtrlConns = (struct CtrlConnConfig*)malloc(sizeof(struct CtrlConnConfig) * Config->MaxClients);
     if (!Config->CtrlConns) {
         fprintf(stderr, "Failed to allocate CtrlConns\n");
         return ENOMEM;
     }
-    memset(Config->CtrlConns, 0, sizeof(struct CtrlConn) * Config->MaxClients);
+    memset(Config->CtrlConns, 0, sizeof(struct CtrlConnConfig) * Config->MaxClients);
 
-    Config->BuffConns = (struct BuffConn*)malloc(sizeof(struct BuffConn) * Config->MaxClients);
+    Config->BuffConns = (struct BuffConnConfig*)malloc(sizeof(struct BuffConnConfig) * Config->MaxClients);
     if (!Config->BuffConns) {
         fprintf(stderr, "Failed to allocate BuffConns\n");
         free(Config->CtrlConns);
         return ENOMEM;
     }
-    memset(Config->BuffConns, 0, sizeof(struct BuffConn) * Config->MaxClients);
+    memset(Config->BuffConns, 0, sizeof(struct BuffConnConfig) * Config->MaxClients);
+
+    return 0;
 }
 
 //
@@ -155,8 +180,6 @@ ProcessCmEvents(
     struct rdma_cm_event *Event
 ) {
     int ret = 0;
-    struct ibv_recv_wr *bad_wr;
-    struct ibv_send_wr *bad_send_wr;
 
     switch(Event->event) {
         case RDMA_CM_EVENT_ADDR_RESOLVED:
@@ -185,7 +208,7 @@ ProcessCmEvents(
             // Check the type of this connection
             //
             //
-            if (Event->param->conn->private_data == CTRL_CONN_PRIV_DATA) {
+            if (Event->param.conn.private_data == CTRL_CONN_PRIV_DATA) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: Get a new control connection\n");
 #endif
@@ -226,7 +249,7 @@ ProcessCmEvents(
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
             fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED\n");
 #endif
-            rdma_ack_cm_event(event);
+            rdma_ack_cm_event(Event);
             break;
         }
         case RDMA_CM_EVENT_DEVICE_REMOVAL:
@@ -235,7 +258,7 @@ ProcessCmEvents(
             fprintf(stderr, "CM: RDMA_CM_EVENT_DEVICE_REMOVAL\n");
 #endif
             ret = -1;
-            rdma_ack_cm_event(event);
+            rdma_ack_cm_event(Event);
             break;
         }
         default:
@@ -243,7 +266,7 @@ ProcessCmEvents(
             fprintf(stderr, "oof bad type!\n");
 #endif
             ret = -1;
-            rdma_ack_cm_event(event);
+            rdma_ack_cm_event(Event);
             break;
     }
 
@@ -302,7 +325,7 @@ int RunFileBackEnd(
     // Listen for incoming connections
     //
     //
-    ret = rdma_listen(config, DDS_LISTEN_BACKLOG);
+    ret = rdma_listen(config.DMAConf.CmId, DDS_LISTEN_BACKLOG);
     if (ret) {
         ret = errno;
         fprintf(stderr, "rdma_listen error %d\n", ret);

@@ -1,5 +1,5 @@
 project('DDSFileBackEnd', 'C', 'CPP',
-        version: 0.1,
+        version: '0.1',
         license: 'Proprietary',
         default_options: ['buildtype=release'],
         meson_version: '>= 0.61.2'
@@ -23,9 +23,7 @@ add_project_arguments('-Wno-address-of-packed-member', language: languages)
 add_project_arguments('-Wno-deprecated-declarations', language: languages)
 
 base_app_dependencies = []
-base_app_dependencies += dependency('pthread')
-base_app_dependencies += dependency('rdmacm')
-base_app_dependencies += dependency('libverbs')
+base_app_dependencies += dependency('threads')
 
 base_app_inc_dirs = [
         include_directories('Include/'),
