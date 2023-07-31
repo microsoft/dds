@@ -329,7 +329,7 @@ int RunFileBackEnd(
     // Listen for incoming connections
     //
     //
-    ret = rdma_listen(config.DMAConf.CmId, DDS_LISTEN_BACKLOG);
+    ret = rdma_listen(config.DMAConf.CmId, LISTEN_BACKLOG);
     if (ret) {
         ret = errno;
         fprintf(stderr, "rdma_listen error %d\n", ret);

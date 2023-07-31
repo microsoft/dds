@@ -7,14 +7,11 @@
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
 
+#include "MsgType.h"
+
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
-#define CTRL_CONN_PRIV_DATA 42
-#define BUFF_CONN_PRIV_DATA 24
-
-#define DDS_CTRL_MSG_SIZE 64
-#define DDS_CACHE_LINE_SIZE 64
-#define DDS_LISTEN_BACKLOG 64
+#define LISTEN_BACKLOG 64
 #define RESOLVE_TIMEOUT_MS 2000
 
 //
@@ -51,12 +48,12 @@ struct CtrlConnConfig {
     struct ibv_recv_wr RecvWr;
     struct ibv_sge RecvSgl;
     struct ibv_mr *RecvMr;
-    char RecvBuff[DDS_CTRL_MSG_SIZE];
+    char RecvBuff[CTRL_MSG_SIZE];
 
     struct ibv_send_wr SendWr;
     struct ibv_sge SendSgl;
     struct ibv_mr *SendMr;
-    char SendBuff[DDS_CTRL_MSG_SIZE];
+    char SendBuff[CTRL_MSG_SIZE];
 };
 
 //
@@ -85,12 +82,12 @@ struct BuffConnConfig {
     struct ibv_recv_wr RecvWr;
     struct ibv_sge RecvSgl;
     struct ibv_mr *RecvMr;
-    char RecvBuff[DDS_CTRL_MSG_SIZE];
+    char RecvBuff[CTRL_MSG_SIZE];
 
     struct ibv_send_wr SendWr;
     struct ibv_sge SendSgl;
     struct ibv_mr *SendMr;
-    char SendBuff[DDS_CTRL_MSG_SIZE];
+    char SendBuff[CTRL_MSG_SIZE];
 
     //
     // Setup for data exchange
