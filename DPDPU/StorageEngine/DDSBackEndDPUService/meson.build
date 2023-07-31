@@ -29,6 +29,10 @@ base_app_inc_dirs = [
         include_directories('Include/'),
 ]
 
+app_link_args = []
+app_link_args += ['-libverbs']
+app_link_args += ['-lrdmacm']
+
 APP_NAME = 'DDSFileBackEnd'
 
 app_dependencies = base_app_dependencies
@@ -47,5 +51,6 @@ executable(APP_NAME,
         cpp_args : base_cpp_args,
         dependencies : [app_dependencies],
         include_directories : app_inc_dirs,
+	link_args : app_link_args,
         install: install_apps
 )
