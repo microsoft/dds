@@ -217,7 +217,8 @@ BackEndBridge::Connect() {
     CtrlSgl[0].BufferLength = CTRL_MSG_SIZE;
     CtrlSgl[0].MemoryRegionToken = CtrlMemRegion->GetLocalToken();
 
-    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, CTRL_CONN_PRIV_DATA);
+    uint8_t privData = CTRL_CONN_PRIV_DATA;
+    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_Connect succeeded\n");
 #endif
@@ -456,7 +457,8 @@ BackEndBridge::ConnectTest() {
     CtrlSgl[0].BufferLength = CTRL_MSG_SIZE;
     CtrlSgl[0].MemoryRegionToken = CtrlMemRegion->GetLocalToken();
 
-    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, CTRL_CONN_PRIV_DATA);
+    uint8_t privData = CTRL_CONN_PRIV_DATA;
+    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_Connect succeeded\n");
 #endif
