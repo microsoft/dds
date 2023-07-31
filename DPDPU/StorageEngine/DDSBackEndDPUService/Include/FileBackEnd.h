@@ -9,8 +9,8 @@
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
-#define CTRL_CONN_PRIV_DATA ((void *) 0xcc)
-#define BUFF_CONN_PRIV_DATA ((void *) 0xcb)
+#define CTRL_CONN_PRIV_DATA 42
+#define BUFF_CONN_PRIV_DATA 24
 
 #define DDS_CTRL_MSG_SIZE 64
 #define DDS_CACHE_LINE_SIZE 64

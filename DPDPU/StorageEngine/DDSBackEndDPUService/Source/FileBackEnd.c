@@ -208,16 +208,20 @@ ProcessCmEvents(
             // Check the type of this connection
             //
             //
-            if (Event->param.conn.private_data == CTRL_CONN_PRIV_DATA) {
+	    uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
+            if (privData == CTRL_CONN_PRIV_DATA) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: Get a new control connection\n");
 #endif
             }
-            else {
+            else if (privData == BUFF_CONN_PRIV_DATA) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: Get a new buffer connection\n");
 #endif
             }
+	    else {
+                fprintf(stderr, "CM: unrecognized connection type\n");
+	    }
             rdma_ack_cm_event(Event);
             break;
         }
