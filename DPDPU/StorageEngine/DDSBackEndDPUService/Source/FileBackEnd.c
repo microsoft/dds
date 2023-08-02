@@ -406,7 +406,7 @@ ProcessCtrlCmEvents(
                 {
                     struct CtrlConnConfig *ctrlConn = NULL;
 
-                    for (int index = 1; index < Config->MaxClients; index++) {
+                    for (int index = 0; index < Config->MaxClients; index++) {
                         if (!Config->CtrlConns[index].InUse) {
                             ctrlConn = &Config->CtrlConns[index];
                             break;
@@ -539,11 +539,13 @@ ProcessCtrlCmEvents(
         case RDMA_CM_EVENT_DISCONNECTED:
         {
             int ctrlConnId = FindCtrlConnId(Config, Event->id);
-            if (ctrlConnId >= 0 && Config->CtrlConns[ctrlConnId].InUse) {
+            if (ctrlConnId >= 0) {
+		if (Config->CtrlConns[ctrlConnId].InUse) {
                 struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
                 DestroyCtrlRegionsAndBuffers(ctrlConn);
                 DestroyCtrlQPair(ctrlConn);
                 ctrlConn->InUse = 0;
+		}
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Conn#%d\n", ctrlConnId);
 #endif
@@ -591,6 +593,17 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQUEST_ID: {
             CtrlMsgB2FRespondId *resp = (CtrlMsgB2FRespondId *)(msgOut + 1);
             struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+	    //
+	    // Post a receiv first
+	    //
+	    //
+	    ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
+                ret = -1;
+            }
 
             //
             // Send the request ID
@@ -605,6 +618,7 @@ CtrlMsgHandler(
                 ret = -1;
             }
         }
+            break;
         case CTRL_MSG_F2B_TERMINATE: {
             CtrlMsgF2BTerminate *req = (CtrlMsgF2BTerminate *)(msgOut + 1);
 
