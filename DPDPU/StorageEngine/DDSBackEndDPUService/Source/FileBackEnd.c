@@ -217,7 +217,7 @@ SetUpCtrlQPair(
     ret = ibv_req_notify_cq(CtrlConn->CompQ, 0);
     if (ret) {
         fprintf(stderr, "ibv_req_notify_cq failed\n");
-        goto destroy_compq_return;
+        goto DestroyCompQReturn;
     }
 
     memset(&initAttr, 0, sizeof(initAttr));
@@ -236,7 +236,7 @@ SetUpCtrlQPair(
     else {
         fprintf(stderr, "rdma_create_qp failed\n");
         ret = -1;
-        goto destroy_compq_return;
+        goto DestroyCompQReturn;
     }
 
     return 0;
@@ -354,7 +354,7 @@ FindCtrlConnId(
     struct rdma_cm_id *CmId
 ) {
     int i;
-    for (i = 0; i < Config->NumCtrlConns; i++) {
+    for (i = 0; i < Config->MaxClients; i++) {
         if (Config->CtrlConns[i].RemoteCmId == CmId) {
             return i;
         }
@@ -538,18 +538,18 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED\n");
-#endif
             int ctrlConnId = FindCtrlConnId(Config, Event->id);
             if (ctrlConnId >= 0) {
                 struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
                 DestroyCtrlRegionsAndBuffers(ctrlConn);
                 DestroyCtrlQPair(ctrlConn);
                 ctrlConn->InUse = 0;
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Conn#%d\n", ctrlConnId);
+#endif
             }
             else {
-                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED: no such connection\n");
+                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for unrecognized connection\n");
             }
             rdma_ack_cm_event(Event);
             break;
