@@ -406,7 +406,7 @@ ProcessCtrlCmEvents(
                 {
                     struct CtrlConnConfig *ctrlConn = NULL;
 
-                    for (int index = 0; index < Config->MaxClients; index++) {
+                    for (int index = 1; index < Config->MaxClients; index++) {
                         if (!Config->CtrlConns[index].InUse) {
                             ctrlConn = &Config->CtrlConns[index];
                             break;
@@ -584,12 +584,12 @@ CtrlMsgHandler(
     struct CtrlConnConfig *CtrlConn
 ) {
     int ret = 0;
-    struct MsgHeader* msgIn = (struct MsgHeader*)CtrlConn->RecvBuff;
-    struct MsgHeader* msgOut = (struct MsgHeader*)CtrlConn->SendBuff;
+    MsgHeader* msgIn = (MsgHeader*)CtrlConn->RecvBuff;
+    MsgHeader* msgOut = (MsgHeader*)CtrlConn->SendBuff;
 
     switch(msgIn->MsgId) {
         case CTRL_MSG_F2B_REQUEST_ID: {
-            struct CtrlMsgB2FRespondId *resp = (struct CtrlMsgB2FRespondId *)(msgOut + 1);
+            CtrlMsgB2FRespondId *resp = (CtrlMsgB2FRespondId *)(msgOut + 1);
             struct ibv_send_wr *badSendWr = NULL;
 
             //
@@ -598,8 +598,8 @@ CtrlMsgHandler(
             //
             msgOut->MsgId = CTRL_MSG_B2F_RESPOND_ID;
             resp->ClientId = CtrlConn->CtrlId;
-            CtrlConn->SendSgl->length = sizeof(struct MsgHeader) + sizeof(struct CtrlMsgB2FRespondId);
-            ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FRespondId);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "ibv_post_send failed: %d\n", ret);
                 ret = -1;
@@ -621,7 +621,7 @@ CtrlMsgHandler(
 //
 static int inline
 ProcessCtrlCqEvents(
-    struct BackEndConfig *Config,
+    struct BackEndConfig *Config
 ) {
     int ret = 0;
     struct CtrlConnConfig *ctrlConn = NULL;
