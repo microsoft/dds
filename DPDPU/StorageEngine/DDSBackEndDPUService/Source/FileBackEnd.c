@@ -349,8 +349,8 @@ ProcessCmEvents(
                         ctrlConn->SendSgl.addr = (uint64_t)ctrlConn->SendBuff;
                         ctrlConn->SendSgl.length = CTRL_MSG_SIZE;
                         ctrlConn->SendSgl.lkey = ctrlConn->SendMr->lkey;
-                        ctrlConn->SendMr.opcode = IBV_WR_SEND;
-                        ctrlConn->SendMr.send_flags = IBV_SEND_SIGNALED;
+                        ctrlConn->SendWr.opcode = IBV_WR_SEND;
+                        ctrlConn->SendWr.send_flags = IBV_SEND_SIGNALED;
                         ctrlConn->SendWr.sg_list = &ctrlConn->SendSgl;
                         ctrlConn->SendWr.num_sge = 1;
 
@@ -358,7 +358,7 @@ ProcessCmEvents(
                         // Post a receive
                         //
                         //
-                        ret = ibv_post_recv(ctrlConn->QPair, &ctrlConn->RecvMr, &badRecvWr);
+                        ret = ibv_post_recv(ctrlConn->QPair, &ctrlConn->RecvWr, &badRecvWr);
                         if (ret) {
                             fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
                             ibv_dereg_mr(ctrlConn->SendMr);
@@ -394,6 +394,7 @@ ProcessCmEvents(
                         //
                         //
                         ctrlConn->InUse = 1;
+			fprintf(stdout, "Connection #%d is accepted\n", ctrlConn->CtrlId);
                     }
                     else {
                         fprintf(stderr, "No available control connection\n");
