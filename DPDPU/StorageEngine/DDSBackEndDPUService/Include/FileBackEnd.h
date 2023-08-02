@@ -9,10 +9,13 @@
 
 #include "MsgType.h"
 
-#define DDS_STORAGE_FILE_BACKEND_VERBOSE
-
 #define LISTEN_BACKLOG 64
 #define RESOLVE_TIMEOUT_MS 2000
+#define CTRL_COMPQ_DEPTH 16
+#define CTRL_SENDQ_DEPTH 16
+#define CTRL_RECVQ_DEPTH 16
+
+#define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
 //
 // The global config for (R)DMA

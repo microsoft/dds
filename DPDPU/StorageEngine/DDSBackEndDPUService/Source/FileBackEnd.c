@@ -129,6 +129,9 @@ AllocConns(struct BackEndConfig* Config) {
         return ENOMEM;
     }
     memset(Config->CtrlConns, 0, sizeof(struct CtrlConnConfig) * Config->MaxClients);
+    for (int c = 0; c < Config->MaxClients; c++) {
+        Config->CtrlConns[c].CtrlId = c;
+    }
 
     Config->BuffConns = (struct BuffConnConfig*)malloc(sizeof(struct BuffConnConfig) * Config->MaxClients);
     if (!Config->BuffConns) {
@@ -137,6 +140,9 @@ AllocConns(struct BackEndConfig* Config) {
         return ENOMEM;
     }
     memset(Config->BuffConns, 0, sizeof(struct BuffConnConfig) * Config->MaxClients);
+    for (int c = 0; c < Config->MaxBuffs; c++) {
+        Config->BuffConns[c].BuffId = c;
+    }
 
     return 0;
 }
@@ -208,21 +214,223 @@ ProcessCmEvents(
             // Check the type of this connection
             //
             //
-	    uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
-            if (privData == CTRL_CONN_PRIV_DATA) {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stdout, "CM: Get a new control connection\n");
-#endif
+            uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
+            switch (privData) {
+                case CTRL_CONN_PRIV_DATA:
+                {
+                    struct CtrlConnConfig *ctrlConn = NULL;
+
+                    for (int index = 0; index < Config->MaxClients; index++) {
+                        if (!Config->CtrlConns[index].InUse) {
+                            ctrlConn = &Config->CtrlConns[index];
+                            break;
+                        }
+                    }
+
+                    if (ctrlConn) {
+                        struct ibv_qp_init_attr initAttr;
+                        struct rdma_conn_param connParam;
+                        struct ibv_recv_wr *badRecvWr;
+                        ctrlConn->RemoteCmId = Event->id;
+                        rdma_ack_cm_event(Event);
+
+                        //
+                        // Set up QPair
+                        //
+                        //
+                        ctrlConn->PDomain = ibv_alloc_pd(ctrlConn->RemoteCmId->verbs);
+                        if (!ctrlConn->PDomain) {
+                            fprintf(stderr, "ibv_alloc_pd failed\n");
+                            ret = -1;
+                            break;
+                        }
+
+                        ctrlConn->Channel = ibv_create_comp_channel(ctrlConn->RemoteCmId->verbs);
+                        if (!ctrlConn->Channel) {
+                            fprintf(stderr, "ibv_create_comp_channel failed\n");
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            ret = -1;
+                            break;
+                        }
+
+                        ctrlConn->CompQ = ibv_create_cq(
+                            ctrlConn->RemoteCmId->verbs,
+                            CTRL_COMPQ_DEPTH * 2,
+                            ctrlConn,
+                            ctrlConn->Channel,
+                            0
+                        );
+                        if (!ctrlConn->CompQ) {
+                            fprintf(stderr, "ibv_create_cq failed\n");
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            ret = -1;
+                            break;
+                        }
+
+                        ret = ibv_req_notify_cq(ctrlConn->CompQ, 0);
+                        if (ret) {
+                            fprintf(stderr, "ibv_req_notify_cq failed\n");
+                            ibv_destroy_cq(ctrlConn->CompQ);
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            break;
+                        }
+
+                        memset(&initAttr, 0, sizeof(initAttr));
+                        initAttr.cap.max_send_wr = CTRL_SENDQ_DEPTH;
+                        initAttr.cap.max_recv_wr = CTRL_RECVQ_DEPTH;
+                        initAttr.cap.max_recv_sge = 1;
+                        initAttr.cap.max_send_sge = 1;
+                        initAttr.qp_type = IBV_QPT_RC;
+                        initAttr.send_cq = ctrlConn->CompQ;
+                        initAttr.recv_cq = ctrlConn->CompQ;
+
+                        ret = rdma_create_qp(ctrlConn->RemoteCmId, ctrlConn->PDomain, &initAttr);
+                        if (!ret) {
+                            ctrlConn->QPair = ctrlConn->RemoteCmId->qp;
+                        }
+                        else {
+                            fprintf(stderr, "rdma_create_qp failed\n");
+                            ibv_destroy_cq(ctrlConn->CompQ);
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            ret = -1;
+                            break;
+                        }
+
+                        //
+                        // Set up buffers
+                        //
+                        //
+                        ctrlConn->RecvMr = ibv_reg_mr(
+                            ctrlConn->PDomain,
+                            ctrlConn->RecvBuff,
+                            CTRL_MSG_SIZE,
+                            IBV_ACCESS_LOCAL_WRITE
+                        );
+                        if (!ctrlConn->RecvMr) {
+                            fprintf(stderr, "ibv_reg_mr failed\n");
+                            ibv_destroy_qp(ctrlConn->QPair);
+                            ibv_destroy_cq(ctrlConn->CompQ);
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            ret = -1;
+                            break;
+                        }
+
+                        ctrlConn->SendMr = ibv_reg_mr(
+                            ctrlConn->PDomain,
+                            ctrlConn->SendBuff,
+                            CTRL_MSG_SIZE,
+                            0
+                        );
+                        if (!ctrlConn->SendMr) {
+                            fprintf(stderr, "ibv_reg_mr failed\n");
+                            ibv_dereg_mr(ctrlConn->RecvMr);
+                            ibv_destroy_qp(ctrlConn->QPair);
+                            ibv_destroy_cq(ctrlConn->CompQ);
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            ret = -1;
+                            break;
+                        }
+
+                        //
+                        // Set up work requests
+                        //
+                        //
+                        ctrlConn->RecvSgl.addr = (uint64_t)ctrlConn->RecvBuff;
+                        ctrlConn->RecvSgl.length = CTRL_MSG_SIZE;
+                        ctrlConn->RecvSgl.lkey = ctrlConn->RecvMr->lkey;
+                        ctrlConn->RecvWr.sg_list = &ctrlConn->RecvSgl;
+                        ctrlConn->RecvWr.num_sge = 1;
+
+                        ctrlConn->SendSgl.addr = (uint64_t)ctrlConn->SendBuff;
+                        ctrlConn->SendSgl.length = CTRL_MSG_SIZE;
+                        ctrlConn->SendSgl.lkey = ctrlConn->SendMr->lkey;
+                        ctrlConn->SendMr.opcode = IBV_WR_SEND;
+                        ctrlConn->SendMr.send_flags = IBV_SEND_SIGNALED;
+                        ctrlConn->SendWr.sg_list = &ctrlConn->SendSgl;
+                        ctrlConn->SendWr.num_sge = 1;
+
+                        //
+                        // Post a receive
+                        //
+                        //
+                        ret = ibv_post_recv(ctrlConn->QPair, &ctrlConn->RecvMr, &badRecvWr);
+                        if (ret) {
+                            fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
+                            ibv_dereg_mr(ctrlConn->SendMr);
+                            ibv_dereg_mr(ctrlConn->RecvMr);
+                            ibv_destroy_qp(ctrlConn->QPair);
+                            ibv_destroy_cq(ctrlConn->CompQ);
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            break;
+                        }
+
+                        //
+                        // Accept the connection
+                        //
+                        //
+                        memset(&connParam, 0, sizeof(connParam));
+                        connParam.responder_resources = CTRL_RECVQ_DEPTH;
+                        connParam.initiator_depth = CTRL_SENDQ_DEPTH;
+                        ret = rdma_accept(ctrlConn->RemoteCmId, &connParam);
+                        if (ret) {
+                            fprintf(stderr, "rdma_accept failed: %d\n", ret);
+                            ibv_dereg_mr(ctrlConn->SendMr);
+                            ibv_dereg_mr(ctrlConn->RecvMr);
+                            ibv_destroy_qp(ctrlConn->QPair);
+                            ibv_destroy_cq(ctrlConn->CompQ);
+                            ibv_destroy_comp_channel(ctrlConn->Channel);
+                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            break;
+                        }
+
+                        //
+                        // Mark this connection unavailable
+                        //
+                        //
+                        ctrlConn->InUse = 1;
+                    }
+                    else {
+                        fprintf(stderr, "No available control connection\n");
+                        rdma_ack_cm_event(Event);
+                    }
+
+                    break;
+                }
+                case BUFF_CONN_PRIV_DATA:
+                {
+                    struct BuffConnConfig *buffConn = NULL;
+                    int index;
+
+                    for (index = 0; index < Config->MaxClients; index++) {
+                        if (!Config->BuffConns[index].InUse) {
+                            buffConn = &Config->BuffConns[index];
+                            break;
+                        }
+                    }
+
+                    if (buffConn) {
+
+                    }
+                    else {
+                        fprintf(stderr, "No available buffer connection\n");
+                        rdma_ack_cm_event(Event);
+                    }
+
+                    break;
+                }
+                default:
+                {
+                    fprintf(stderr, "CM: unrecognized connection type\n");
+                    rdma_ack_cm_event(Event);
+                    break;
+                }
             }
-            else if (privData == BUFF_CONN_PRIV_DATA) {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stdout, "CM: Get a new buffer connection\n");
-#endif
-            }
-	    else {
-                fprintf(stderr, "CM: unrecognized connection type\n");
-	    }
-            rdma_ack_cm_event(Event);
             break;
         }
         case RDMA_CM_EVENT_ESTABLISHED:
