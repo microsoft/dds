@@ -540,12 +540,12 @@ ProcessCtrlCmEvents(
         {
             int ctrlConnId = FindCtrlConnId(Config, Event->id);
             if (ctrlConnId >= 0) {
-		if (Config->CtrlConns[ctrlConnId].InUse) {
-                struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
-                DestroyCtrlRegionsAndBuffers(ctrlConn);
-                DestroyCtrlQPair(ctrlConn);
-                ctrlConn->InUse = 0;
-		}
+                if (Config->CtrlConns[ctrlConnId].InUse) {
+                    struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
+                    DestroyCtrlRegionsAndBuffers(ctrlConn);
+                    DestroyCtrlQPair(ctrlConn);
+                    ctrlConn->InUse = 0;
+                }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Conn#%d\n", ctrlConnId);
 #endif
@@ -595,11 +595,11 @@ CtrlMsgHandler(
             struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
-	    //
-	    // Post a receiv first
-	    //
-	    //
-	    ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            //
+            // Post a receiv first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
             if (ret) {
                 fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
                 ret = -1;
@@ -670,26 +670,26 @@ ProcessCtrlCqEvents(
                 continue;
             }
 
+            //
+            // Only receive events are expected
+            //
+            //
             switch(wc.opcode) {
                 case IBV_WC_RECV: {
                     ret = CtrlMsgHandler(ctrlConn);
                     if (ret) {
-                        fprintf(stderr, "CtrlMsgHandler failed\n");
+                        fprintf(stderr, "ProcessCtrlCqEvents [error]: CtrlMsgHandler failed\n");
                         goto ProcessCtrlCqEventsReturn;
                     }
                 }
                     break;
-                 case IBV_WC_SEND:
-                    break;
-
+                case IBV_WC_SEND:
                 case IBV_WC_RDMA_WRITE:
-                    break;
-
                 case IBV_WC_RDMA_READ:
                     break;
 
                 default:
-                    fprintf(stderr, "Unknown completion!\n");
+                    fprintf(stderr, "ProcessCtrlCqEvents [error]: unknown completion\n");
                     ret = -1;
                     break;
             }
