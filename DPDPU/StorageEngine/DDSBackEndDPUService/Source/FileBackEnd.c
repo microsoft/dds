@@ -539,7 +539,7 @@ ProcessCtrlCmEvents(
         case RDMA_CM_EVENT_DISCONNECTED:
         {
             int ctrlConnId = FindCtrlConnId(Config, Event->id);
-            if (ctrlConnId >= 0) {
+            if (ctrlConnId >= 0 && Config->CtrlConns[ctrlConnId].InUse) {
                 struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
                 DestroyCtrlRegionsAndBuffers(ctrlConn);
                 DestroyCtrlQPair(ctrlConn);
@@ -605,9 +605,24 @@ CtrlMsgHandler(
                 ret = -1;
             }
         }
+        case CTRL_MSG_F2B_TERMINATE: {
+            CtrlMsgF2BTerminate *req = (CtrlMsgF2BTerminate *)(msgOut + 1);
+
+            if (req->ClientId == CtrlConn->CtrlId) {
+                DestroyCtrlRegionsAndBuffers(CtrlConn);
+                DestroyCtrlQPair(CtrlConn);
+                CtrlConn->InUse = 0;
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stderr, "CtrlMsgHandler [info]: Conn#%d is disconnected\n", req->ClientId);
+#endif
+            }
+            else {
+                fprintf(stderr, "CtrlMsgHandler [error]: mismatched client id\n");
+            }
+        }
             break;
         default:
-            fprintf(stderr, "Unrecognized control message\n");
+            fprintf(stderr, "CtrlMsgHandler [error]: unrecognized control message\n");
             ret = -1;
             break;
     }
