@@ -177,6 +177,192 @@ SignalHandler(
 }
 
 //
+// Set up queue pairs for a control connection
+//
+//
+static int
+SetUpCtrlQPair(
+    struct CtrlConnConfig* CtrlConn
+) {
+    int ret = 0;
+    struct ibv_qp_init_attr initAttr;
+
+    CtrlConn->PDomain = ibv_alloc_pd(CtrlConn->RemoteCmId->verbs);
+    if (!CtrlConn->PDomain) {
+        fprintf(stderr, "ibv_alloc_pd failed\n");
+        ret = -1;
+        goto SetUpCtrlQPairReturn;
+    }
+
+    CtrlConn->Channel = ibv_create_comp_channel(CtrlConn->RemoteCmId->verbs);
+    if (!CtrlConn->Channel) {
+        fprintf(stderr, "ibv_create_comp_channel failed\n");
+        ret = -1;
+        goto DeallocPdReturn;
+    }
+
+    CtrlConn->CompQ = ibv_create_cq(
+        CtrlConn->RemoteCmId->verbs,
+        CTRL_COMPQ_DEPTH * 2,
+        CtrlConn,
+        CtrlConn->Channel,
+        0
+    );
+    if (!CtrlConn->CompQ) {
+        fprintf(stderr, "ibv_create_cq failed\n");
+        ret = -1;
+        goto DestroyCommChannelReturn;
+    }
+
+    ret = ibv_req_notify_cq(CtrlConn->CompQ, 0);
+    if (ret) {
+        fprintf(stderr, "ibv_req_notify_cq failed\n");
+        goto destroy_compq_return;
+    }
+
+    memset(&initAttr, 0, sizeof(initAttr));
+    initAttr.cap.max_send_wr = CTRL_SENDQ_DEPTH;
+    initAttr.cap.max_recv_wr = CTRL_RECVQ_DEPTH;
+    initAttr.cap.max_recv_sge = 1;
+    initAttr.cap.max_send_sge = 1;
+    initAttr.qp_type = IBV_QPT_RC;
+    initAttr.send_cq = CtrlConn->CompQ;
+    initAttr.recv_cq = CtrlConn->CompQ;
+
+    ret = rdma_create_qp(CtrlConn->RemoteCmId, CtrlConn->PDomain, &initAttr);
+    if (!ret) {
+        CtrlConn->QPair = CtrlConn->RemoteCmId->qp;
+    }
+    else {
+        fprintf(stderr, "rdma_create_qp failed\n");
+        ret = -1;
+        goto destroy_compq_return;
+    }
+
+    return 0;
+
+DestroyCompQReturn:
+    ibv_destroy_cq(CtrlConn->CompQ);
+
+DestroyCommChannelReturn:
+    ibv_destroy_comp_channel(CtrlConn->Channel);
+
+DeallocPdReturn:
+    ibv_dealloc_pd(CtrlConn->PDomain);
+
+SetUpCtrlQPairReturn:
+    return ret;
+}
+
+//
+// Destrory queue pairs for a control connection
+//
+//
+static void
+DestroyCtrlQPair(
+    struct CtrlConnConfig* CtrlConn
+) {
+    rdma_destroy_qp(CtrlConn->RemoteCmId);
+    ibv_destroy_cq(CtrlConn->CompQ);
+    ibv_destroy_comp_channel(CtrlConn->Channel);
+    ibv_dealloc_pd(CtrlConn->PDomain);
+}
+
+//
+// Set up regions and buffers for a control connection
+//
+//
+static int
+SetUpCtrlRegionsAndBuffers(
+    struct CtrlConnConfig* CtrlConn
+) {
+    int ret = 0;
+    CtrlConn->RecvMr = ibv_reg_mr(
+        CtrlConn->PDomain,
+        CtrlConn->RecvBuff,
+        CTRL_MSG_SIZE,
+        IBV_ACCESS_LOCAL_WRITE
+    );
+    if (!CtrlConn->RecvMr) {
+        fprintf(stderr, "ibv_reg_mr failed\n");
+        ret = -1;
+        goto SetUpCtrlRegionsAndBuffersReturn;
+    }
+
+    CtrlConn->SendMr = ibv_reg_mr(
+        CtrlConn->PDomain,
+        CtrlConn->SendBuff,
+        CTRL_MSG_SIZE,
+        0
+    );
+    if (!CtrlConn->SendMr) {
+        fprintf(stderr, "ibv_reg_mr failed\n");
+        ret = -1;
+        goto DeregisterRecvMrReturn;
+    }
+
+    //
+    // Set up work requests
+    //
+    //
+    CtrlConn->RecvSgl.addr = (uint64_t)CtrlConn->RecvBuff;
+    CtrlConn->RecvSgl.length = CTRL_MSG_SIZE;
+    CtrlConn->RecvSgl.lkey = CtrlConn->RecvMr->lkey;
+    CtrlConn->RecvWr.sg_list = &CtrlConn->RecvSgl;
+    CtrlConn->RecvWr.num_sge = 1;
+
+    CtrlConn->SendSgl.addr = (uint64_t)CtrlConn->SendBuff;
+    CtrlConn->SendSgl.length = CTRL_MSG_SIZE;
+    CtrlConn->SendSgl.lkey = CtrlConn->SendMr->lkey;
+    CtrlConn->SendWr.opcode = IBV_WR_SEND;
+    CtrlConn->SendWr.send_flags = IBV_SEND_SIGNALED;
+    CtrlConn->SendWr.sg_list = &CtrlConn->SendSgl;
+    CtrlConn->SendWr.num_sge = 1;
+
+    return 0;
+
+DeregisterRecvMrReturn:
+    ibv_dereg_mr(CtrlConn->RecvMr);
+
+SetUpCtrlRegionsAndBuffersReturn:
+    return ret;
+}
+
+//
+// Destrory regions and buffers for a control connection
+//
+//
+static void
+DestroyCtrlRegionsAndBuffers(
+    struct CtrlConnConfig* CtrlConn
+) {
+    ibv_dereg_mr(CtrlConn->SendMr);
+    ibv_dereg_mr(CtrlConn->RecvMr);
+    memset(&CtrlConn->RecvSgl, 0, sizeof(CtrlConn->RecvSgl));
+    memset(&CtrlConn->SendSgl, 0, sizeof(CtrlConn->SendSgl));
+    memset(&CtrlConn->RecvWr, 0, sizeof(CtrlConn->RecvWr));
+    memset(&CtrlConn->SendWr, 0, sizeof(CtrlConn->SendWr));
+}
+
+//
+// Find the id of a control connection
+//
+//
+static int
+FindCtrlConnId(
+    struct BackEndConfig *Config,
+    struct rdma_cm_id *CmId
+) {
+    int i;
+    for (i = 0; i < Config->NumCtrlConns; i++) {
+        if (Config->CtrlConns[i].RemoteCmId == CmId) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+//
 // Process communication channel events
 //
 //
@@ -228,7 +414,6 @@ ProcessCmEvents(
                     }
 
                     if (ctrlConn) {
-                        struct ibv_qp_init_attr initAttr;
                         struct rdma_conn_param connParam;
                         struct ibv_recv_wr *badRecvWr;
                         ctrlConn->RemoteCmId = Event->id;
@@ -238,121 +423,22 @@ ProcessCmEvents(
                         // Set up QPair
                         //
                         //
-                        ctrlConn->PDomain = ibv_alloc_pd(ctrlConn->RemoteCmId->verbs);
-                        if (!ctrlConn->PDomain) {
-                            fprintf(stderr, "ibv_alloc_pd failed\n");
-                            ret = -1;
-                            break;
-                        }
-
-                        ctrlConn->Channel = ibv_create_comp_channel(ctrlConn->RemoteCmId->verbs);
-                        if (!ctrlConn->Channel) {
-                            fprintf(stderr, "ibv_create_comp_channel failed\n");
-                            ibv_dealloc_pd(ctrlConn->PDomain);
-                            ret = -1;
-                            break;
-                        }
-
-                        ctrlConn->CompQ = ibv_create_cq(
-                            ctrlConn->RemoteCmId->verbs,
-                            CTRL_COMPQ_DEPTH * 2,
-                            ctrlConn,
-                            ctrlConn->Channel,
-                            0
-                        );
-                        if (!ctrlConn->CompQ) {
-                            fprintf(stderr, "ibv_create_cq failed\n");
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
-                            ret = -1;
-                            break;
-                        }
-
-                        ret = ibv_req_notify_cq(ctrlConn->CompQ, 0);
+                        ret = SetUpCtrlQPair(ctrlConn);
                         if (ret) {
-                            fprintf(stderr, "ibv_req_notify_cq failed\n");
-                            ibv_destroy_cq(ctrlConn->CompQ);
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
-                            break;
-                        }
-
-                        memset(&initAttr, 0, sizeof(initAttr));
-                        initAttr.cap.max_send_wr = CTRL_SENDQ_DEPTH;
-                        initAttr.cap.max_recv_wr = CTRL_RECVQ_DEPTH;
-                        initAttr.cap.max_recv_sge = 1;
-                        initAttr.cap.max_send_sge = 1;
-                        initAttr.qp_type = IBV_QPT_RC;
-                        initAttr.send_cq = ctrlConn->CompQ;
-                        initAttr.recv_cq = ctrlConn->CompQ;
-
-                        ret = rdma_create_qp(ctrlConn->RemoteCmId, ctrlConn->PDomain, &initAttr);
-                        if (!ret) {
-                            ctrlConn->QPair = ctrlConn->RemoteCmId->qp;
-                        }
-                        else {
-                            fprintf(stderr, "rdma_create_qp failed\n");
-                            ibv_destroy_cq(ctrlConn->CompQ);
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
-                            ret = -1;
+                            fprintf(stderr, "SetUpCtrlQPair failed\n");
                             break;
                         }
 
                         //
-                        // Set up buffers
+                        // Set up regions and buffers
                         //
                         //
-                        ctrlConn->RecvMr = ibv_reg_mr(
-                            ctrlConn->PDomain,
-                            ctrlConn->RecvBuff,
-                            CTRL_MSG_SIZE,
-                            IBV_ACCESS_LOCAL_WRITE
-                        );
-                        if (!ctrlConn->RecvMr) {
-                            fprintf(stderr, "ibv_reg_mr failed\n");
-                            ibv_destroy_qp(ctrlConn->QPair);
-                            ibv_destroy_cq(ctrlConn->CompQ);
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
-                            ret = -1;
+                        ret = SetUpCtrlRegionsAndBuffers(ctrlConn);
+                        if (ret) {
+                            fprintf(stderr, "SetUpCtrlRegionsAndBuffers failed\n");
+                            DestroyCtrlQPair(ctrlConn);
                             break;
                         }
-
-                        ctrlConn->SendMr = ibv_reg_mr(
-                            ctrlConn->PDomain,
-                            ctrlConn->SendBuff,
-                            CTRL_MSG_SIZE,
-                            0
-                        );
-                        if (!ctrlConn->SendMr) {
-                            fprintf(stderr, "ibv_reg_mr failed\n");
-                            ibv_dereg_mr(ctrlConn->RecvMr);
-                            ibv_destroy_qp(ctrlConn->QPair);
-                            ibv_destroy_cq(ctrlConn->CompQ);
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
-                            ret = -1;
-                            break;
-                        }
-
-                        //
-                        // Set up work requests
-                        //
-                        //
-                        ctrlConn->RecvSgl.addr = (uint64_t)ctrlConn->RecvBuff;
-                        ctrlConn->RecvSgl.length = CTRL_MSG_SIZE;
-                        ctrlConn->RecvSgl.lkey = ctrlConn->RecvMr->lkey;
-                        ctrlConn->RecvWr.sg_list = &ctrlConn->RecvSgl;
-                        ctrlConn->RecvWr.num_sge = 1;
-
-                        ctrlConn->SendSgl.addr = (uint64_t)ctrlConn->SendBuff;
-                        ctrlConn->SendSgl.length = CTRL_MSG_SIZE;
-                        ctrlConn->SendSgl.lkey = ctrlConn->SendMr->lkey;
-                        ctrlConn->SendWr.opcode = IBV_WR_SEND;
-                        ctrlConn->SendWr.send_flags = IBV_SEND_SIGNALED;
-                        ctrlConn->SendWr.sg_list = &ctrlConn->SendSgl;
-                        ctrlConn->SendWr.num_sge = 1;
 
                         //
                         // Post a receive
@@ -361,12 +447,8 @@ ProcessCmEvents(
                         ret = ibv_post_recv(ctrlConn->QPair, &ctrlConn->RecvWr, &badRecvWr);
                         if (ret) {
                             fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
-                            ibv_dereg_mr(ctrlConn->SendMr);
-                            ibv_dereg_mr(ctrlConn->RecvMr);
-                            ibv_destroy_qp(ctrlConn->QPair);
-                            ibv_destroy_cq(ctrlConn->CompQ);
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            DestroyCtrlRegionsAndBuffers(ctrlConn);
+                            DestroyCtrlQPair(ctrlConn);
                             break;
                         }
 
@@ -380,12 +462,8 @@ ProcessCmEvents(
                         ret = rdma_accept(ctrlConn->RemoteCmId, &connParam);
                         if (ret) {
                             fprintf(stderr, "rdma_accept failed: %d\n", ret);
-                            ibv_dereg_mr(ctrlConn->SendMr);
-                            ibv_dereg_mr(ctrlConn->RecvMr);
-                            ibv_destroy_qp(ctrlConn->QPair);
-                            ibv_destroy_cq(ctrlConn->CompQ);
-                            ibv_destroy_comp_channel(ctrlConn->Channel);
-                            ibv_dealloc_pd(ctrlConn->PDomain);
+                            DestroyCtrlRegionsAndBuffers(ctrlConn);
+                            DestroyCtrlQPair(ctrlConn);
                             break;
                         }
 
@@ -394,7 +472,7 @@ ProcessCmEvents(
                         //
                         //
                         ctrlConn->InUse = 1;
-			fprintf(stdout, "Connection #%d is accepted\n", ctrlConn->CtrlId);
+                        fprintf(stdout, "Connection #%d is accepted\n", ctrlConn->CtrlId);
                     }
                     else {
                         fprintf(stderr, "No available control connection\n");
@@ -437,7 +515,8 @@ ProcessCmEvents(
         case RDMA_CM_EVENT_ESTABLISHED:
         {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED\n");
+            int ctrlConnId = FindCtrlConnId(Config, Event->id);
+            fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Conn#%d\n", ctrlConnId);
 #endif
             rdma_ack_cm_event(Event);
             
@@ -462,6 +541,16 @@ ProcessCmEvents(
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
             fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED\n");
 #endif
+            int ctrlConnId = FindCtrlConnId(Config, Event->id);
+            if (ctrlConnId >= 0) {
+                struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
+                DestroyCtrlRegionsAndBuffers(ctrlConn);
+                DestroyCtrlQPair(ctrlConn);
+                ctrlConn->InUse = 0;
+            }
+            else {
+                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED: no such connection\n");
+            }
             rdma_ack_cm_event(Event);
             break;
         }
