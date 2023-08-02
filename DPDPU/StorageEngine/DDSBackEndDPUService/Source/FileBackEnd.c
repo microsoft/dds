@@ -367,7 +367,7 @@ FindCtrlConnId(
 //
 //
 static int inline
-ProcessCmEvents(
+ProcessCtrlCmEvents(
     struct BackEndConfig *Config,
     struct rdma_cm_event *Event
 ) {
@@ -576,6 +576,102 @@ ProcessCmEvents(
 }
 
 //
+// Control message handler
+//
+//
+static inline int
+CtrlMsgHandler(
+    struct CtrlConnConfig *CtrlConn
+) {
+    int ret = 0;
+    struct MsgHeader* msgIn = (struct MsgHeader*)CtrlConn->RecvBuff;
+    struct MsgHeader* msgOut = (struct MsgHeader*)CtrlConn->SendBuff;
+
+    switch(msgIn->MsgId) {
+        case CTRL_MSG_F2B_REQUEST_ID: {
+            struct CtrlMsgB2FRespondId *resp = (struct CtrlMsgB2FRespondId *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+
+            //
+            // Send the request ID
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_RESPOND_ID;
+            resp->ClientId = CtrlConn->CtrlId;
+            CtrlConn->SendSgl->length = sizeof(struct MsgHeader) + sizeof(struct CtrlMsgB2FRespondId);
+            ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "ibv_post_send failed: %d\n", ret);
+                ret = -1;
+            }
+        }
+            break;
+        default:
+            fprintf(stderr, "Unrecognized control message\n");
+            ret = -1;
+            break;
+    }
+
+    return ret;
+}
+
+//
+// Process communication channel events for contorl connections
+//
+//
+static int inline
+ProcessCtrlCqEvents(
+    struct BackEndConfig *Config,
+) {
+    int ret = 0;
+    struct CtrlConnConfig *ctrlConn = NULL;
+    struct ibv_wc wc;
+
+    for (int i = 0; i != Config->MaxClients; i++) {
+        ctrlConn = &Config->CtrlConns[i];
+        if (!ctrlConn->InUse) {
+            continue;
+        }
+
+        if ((ret = ibv_poll_cq(ctrlConn->CompQ, 1, &wc)) == 1) {
+            ret = 0;
+            if (wc.status != IBV_WC_SUCCESS) {
+                fprintf(stderr, "ibv_poll_cq failed status %d\n", wc.status);
+                ret = -1;
+                continue;
+            }
+
+            switch(wc.opcode) {
+                case IBV_WC_RECV: {
+                    ret = CtrlMsgHandler(ctrlConn);
+                    if (ret) {
+                        fprintf(stderr, "CtrlMsgHandler failed\n");
+                        goto ProcessCtrlCqEventsReturn;
+                    }
+                }
+                    break;
+                 case IBV_WC_SEND:
+                    break;
+
+                case IBV_WC_RDMA_WRITE:
+                    break;
+
+                case IBV_WC_RDMA_READ:
+                    break;
+
+                default:
+                    fprintf(stderr, "Unknown completion!\n");
+                    ret = -1;
+                    break;
+            }
+        }
+    }
+
+ProcessCtrlCqEventsReturn:
+    return ret;
+}
+
+//
 // The entry point for the back end
 //
 //
@@ -638,6 +734,10 @@ int RunFileBackEnd(
     signal(SIGTERM, SignalHandler);
 
     while (ForceQuitFileBackEnd == 0) {
+        //
+        // Process connection events
+        //
+        //
         ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
         if (ret && errno != EAGAIN) {
             ret = errno;
@@ -651,11 +751,21 @@ int RunFileBackEnd(
                 (event->id == config.DMAConf.CmId) ? "parent" : "child");
 #endif
 
-            ret = ProcessCmEvents(&config, event);
+            ret = ProcessCtrlCmEvents(&config, event);
             if (ret) {
-                fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+                fprintf(stderr, "ProcessCtrlCmEvents error %d\n", ret);
                 SignalHandler(SIGTERM);
             }
+        }
+
+        //
+        // Process RDMA events for control connections
+        //
+        //
+        ret = ProcessCtrlCqEvents(&config);
+        if (ret) {
+            fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
+            SignalHandler(SIGTERM);
         }
     }
 
