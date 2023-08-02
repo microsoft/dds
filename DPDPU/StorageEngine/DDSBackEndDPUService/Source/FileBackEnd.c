@@ -189,14 +189,14 @@ SetUpCtrlQPair(
 
     CtrlConn->PDomain = ibv_alloc_pd(CtrlConn->RemoteCmId->verbs);
     if (!CtrlConn->PDomain) {
-        fprintf(stderr, "ibv_alloc_pd failed\n");
+        fprintf(stderr, "%s [error]: ibv_alloc_pd failed\n", __func__);
         ret = -1;
         goto SetUpCtrlQPairReturn;
     }
 
     CtrlConn->Channel = ibv_create_comp_channel(CtrlConn->RemoteCmId->verbs);
     if (!CtrlConn->Channel) {
-        fprintf(stderr, "ibv_create_comp_channel failed\n");
+        fprintf(stderr, "%s [error]: ibv_create_comp_channel failed\n", __func__);
         ret = -1;
         goto DeallocPdReturn;
     }
@@ -209,14 +209,14 @@ SetUpCtrlQPair(
         0
     );
     if (!CtrlConn->CompQ) {
-        fprintf(stderr, "ibv_create_cq failed\n");
+        fprintf(stderr, "%s [error]: ibv_create_cq failed\n", __func__);
         ret = -1;
         goto DestroyCommChannelReturn;
     }
 
     ret = ibv_req_notify_cq(CtrlConn->CompQ, 0);
     if (ret) {
-        fprintf(stderr, "ibv_req_notify_cq failed\n");
+        fprintf(stderr, "%s [error]: ibv_req_notify_cq failed\n", __func__);
         goto DestroyCompQReturn;
     }
 
@@ -234,7 +234,7 @@ SetUpCtrlQPair(
         CtrlConn->QPair = CtrlConn->RemoteCmId->qp;
     }
     else {
-        fprintf(stderr, "rdma_create_qp failed\n");
+        fprintf(stderr, "%s [error]: rdma_create_qp failed\n", __func__);
         ret = -1;
         goto DestroyCompQReturn;
     }
@@ -284,7 +284,7 @@ SetUpCtrlRegionsAndBuffers(
         IBV_ACCESS_LOCAL_WRITE
     );
     if (!CtrlConn->RecvMr) {
-        fprintf(stderr, "ibv_reg_mr failed\n");
+        fprintf(stderr, "%s [error]: ibv_reg_mr for receive failed\n", __func__);
         ret = -1;
         goto SetUpCtrlRegionsAndBuffersReturn;
     }
@@ -296,7 +296,7 @@ SetUpCtrlRegionsAndBuffers(
         0
     );
     if (!CtrlConn->SendMr) {
-        fprintf(stderr, "ibv_reg_mr failed\n");
+        fprintf(stderr, "%s [error]: ibv_reg_mr for send failed\n", __func__);
         ret = -1;
         goto DeregisterRecvMrReturn;
     }
@@ -338,10 +338,260 @@ DestroyCtrlRegionsAndBuffers(
 ) {
     ibv_dereg_mr(CtrlConn->SendMr);
     ibv_dereg_mr(CtrlConn->RecvMr);
-    memset(&CtrlConn->RecvSgl, 0, sizeof(CtrlConn->RecvSgl));
     memset(&CtrlConn->SendSgl, 0, sizeof(CtrlConn->SendSgl));
-    memset(&CtrlConn->RecvWr, 0, sizeof(CtrlConn->RecvWr));
+    memset(&CtrlConn->RecvSgl, 0, sizeof(CtrlConn->RecvSgl));
     memset(&CtrlConn->SendWr, 0, sizeof(CtrlConn->SendWr));
+    memset(&CtrlConn->RecvWr, 0, sizeof(CtrlConn->RecvWr));
+}
+
+//
+// Set up queue pairs for a buffer connection
+//
+//
+static int
+SetUpBuffQPair(
+    struct BuffConnConfig* BuffConn
+) {
+    int ret = 0;
+    struct ibv_qp_init_attr initAttr;
+
+    BuffConn->PDomain = ibv_alloc_pd(BuffConn->RemoteCmId->verbs);
+    if (!BuffConn->PDomain) {
+        fprintf(stderr, "%s [error]: ibv_alloc_pd failed\n", __func__);
+        ret = -1;
+        goto SetUpBuffQPairReturn;
+    }
+
+    BuffConn->Channel = ibv_create_comp_channel(BuffConn->RemoteCmId->verbs);
+    if (!BuffConn->Channel) {
+        fprintf(stderr, "%s [error]: ibv_create_comp_channel failed\n", __func__);
+        ret = -1;
+        goto DeallocBuffPdReturn;
+    }
+
+    BuffConn->CompQ = ibv_create_cq(
+        BuffConn->RemoteCmId->verbs,
+        BUFF_COMPQ_DEPTH * 2,
+        BuffConn,
+        BuffConn->Channel,
+        0
+    );
+    if (!BuffConn->CompQ) {
+        fprintf(stderr, "%s [error]: ibv_create_cq failed\n", __func__);
+        ret = -1;
+        goto DestroyBuffCommChannelReturn;
+    }
+
+    ret = ibv_req_notify_cq(BuffConn->CompQ, 0);
+    if (ret) {
+        fprintf(stderr, "%s [error]: ibv_req_notify_cq failed\n", __func__);
+        goto DestroyBuffCompQReturn;
+    }
+
+    memset(&initAttr, 0, sizeof(initAttr));
+    initAttr.cap.max_send_wr = BUFF_SENDQ_DEPTH;
+    initAttr.cap.max_recv_wr = BUFF_RECVQ_DEPTH;
+    initAttr.cap.max_recv_sge = 1;
+    initAttr.cap.max_send_sge = 1;
+    initAttr.qp_type = IBV_QPT_RC;
+    initAttr.send_cq = BuffConn->CompQ;
+    initAttr.recv_cq = BuffConn->CompQ;
+
+    ret = rdma_create_qp(BuffConn->RemoteCmId, BuffConn->PDomain, &initAttr);
+    if (!ret) {
+        BuffConn->QPair = BuffConn->RemoteCmId->qp;
+    }
+    else {
+        fprintf(stderr, "%s [error]: rdma_create_qp failed\n", __func__);
+        ret = -1;
+        goto DestroyBuffCompQReturn;
+    }
+
+    return 0;
+
+DestroyBuffCompQReturn:
+    ibv_destroy_cq(BuffConn->CompQ);
+
+DestroyBuffCommChannelReturn:
+    ibv_destroy_comp_channel(BuffConn->Channel);
+
+DeallocBuffPdReturn:
+    ibv_dealloc_pd(BuffConn->PDomain);
+
+SetUpBuffQPairReturn:
+    return ret;
+}
+
+//
+// Destrory queue pairs for a buffer connection
+//
+//
+static void
+DestroyBuffQPair(
+    struct BuffConnConfig* BuffConn
+) {
+    rdma_destroy_qp(BuffConn->RemoteCmId);
+    ibv_destroy_cq(BuffConn->CompQ);
+    ibv_destroy_comp_channel(BuffConn->Channel);
+    ibv_dealloc_pd(BuffConn->PDomain);
+}
+
+//
+// Set up regions and buffers for a buffer connection
+//
+//
+static int
+SetUpBuffRegionsAndBuffers(
+    struct BuffConnConfig* BuffConn
+) {
+    int ret = 0;
+
+    //
+    // Receive buffer and region
+    //
+    //
+    BuffConn->RecvMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->RecvBuff,
+        CTRL_MSG_SIZE,
+        IBV_ACCESS_LOCAL_WRITE
+    );
+    if (!BuffConn->RecvMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for receive failed\n", __func__);
+        ret = -1;
+        goto SetUpBuffRegionsAndBuffersReturn;
+    }
+
+    //
+    // Send buffer and region
+    //
+    //
+    BuffConn->SendMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->SendBuff,
+        CTRL_MSG_SIZE,
+        0
+    );
+    if (!BuffConn->SendMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for send failed\n", __func__);
+        ret = -1;
+        goto DeregisterBuffRecvMrReturn;
+    }
+
+    //
+    // Read data buffer and region
+    //
+    //
+    BuffConn->DMAReadDataBuff = malloc(BACKEND_MAX_DMA_SIZE);
+    if (!BuffConn->DMAReadDataBuff) {
+        fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
+        ret = -1;
+        goto DeregisterBuffSendMrReturn;
+    }
+    BuffConn->DMAReadDataMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->DMAReadDataBuff,
+        BACKEND_MAX_DMA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->DMAReadDataMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read data failed\n", __func__);
+        ret = -1;
+        goto FreeBuffDMAReadDataBuffReturn;
+    }
+
+    //
+    // Read meta buffer and region
+    //
+    //
+    BuffConn->DMAReadMetaMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->DMAReadMetaBuff,
+        RING_BUFFER_META_DATA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->DMAReadMetaMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read data failed\n", __func__);
+        ret = -1;
+        goto DeregisterBuffReadDataMrReturn;
+    }
+
+    //
+    // Set up work requests
+    //
+    //
+    BuffConn->RecvSgl.addr = (uint64_t)BuffConn->RecvBuff;
+    BuffConn->RecvSgl.length = CTRL_MSG_SIZE;
+    BuffConn->RecvSgl.lkey = BuffConn->RecvMr->lkey;
+    BuffConn->RecvWr.sg_list = &BuffConn->RecvSgl;
+    BuffConn->RecvWr.num_sge = 1;
+
+    BuffConn->SendSgl.addr = (uint64_t)BuffConn->SendBuff;
+    BuffConn->SendSgl.length = CTRL_MSG_SIZE;
+    BuffConn->SendSgl.lkey = BuffConn->SendMr->lkey;
+    BuffConn->SendWr.opcode = IBV_WR_SEND;
+    BuffConn->SendWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->SendWr.sg_list = &BuffConn->SendSgl;
+    BuffConn->SendWr.num_sge = 1;
+
+    BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
+    BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
+    BuffConn->DMAReadDataSgl.opcode = IBV_WR_RDMA_READ;
+    BuffConn->DMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->DMAReadDataWr.sg_list = &BuffConn->DMAReadSgl;
+    BuffConn->DMAReadDataWr.num_sge = 1;
+
+    BuffConn->DMAReadMetaSgl.addr = (uint64_t)BuffConn->DMAReadMetaBuff;
+    BuffConn->DMAReadMetaSgl.length = RING_BUFFER_META_DATA_SIZE;
+    BuffConn->DMAReadMetaSgl.lkey = BuffConn->DMAReadMetaMr->lkey;
+    BuffConn->DMAReadMetaSgl.opcode = IBV_WR_RDMA_READ;
+    BuffConn->DMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->DMAReadMetaWr.sg_list = &BuffConn->DMAReadMetaSgl;
+    BuffConn->DMAReadMetaWr.num_sge = 1;
+
+    return 0;
+
+DeregisterBuffReadDataMrReturn:
+    ibv_dereg_mr(Buffer->DMAReadDataMr);
+
+FreeBuffDMAReadDataBuffReturn:
+    free(Buffer->DMAReadDataBuff);
+
+DeregisterBuffSendMrReturn:
+    ibv_dereg_mr(Buffer->SendMr);
+
+DeregisterBuffRecvMrReturn:
+    ibv_dereg_mr(CtrlConn->RecvMr);
+
+SetUpBuffRegionsAndBuffersReturn:
+    return ret;
+}
+
+//
+// Destrory regions and buffers for a buffer connection
+//
+//
+static void
+DestroyBuffRegionsAndBuffers(
+    struct BuffConnConfig* BuffConn
+) {
+    free(BuffConn->DMAReadDataBuff);
+
+    ibv_dereg_mr(BuffConn->DMAReadMetaMr);
+    ibv_dereg_mr(BuffConn->DMAReadDataMr);
+    ibv_dereg_mr(BuffConn->SendMr);
+    ibv_dereg_mr(BuffConn->RecvMr);
+
+    memset(&BuffConn->DMAReadMetaSgl, 0, sizeof(BuffConn->DMAReadMetaSgl));
+    memset(&BuffConn->DMAReadDataSgl, 0, sizeof(BuffConn->DMAReadDataSgl));
+    memset(&BuffConn->SendSgl, 0, sizeof(BuffConn->SendSgl));
+    memset(&BuffConn->RecvSgl, 0, sizeof(BuffConn->RecvSgl));
+    
+    memset(&BuffConn->DMAReadMetaWr, 0, sizeof(BuffConn->DMAReadMetaWr));
+    memset(&BuffConn->DMAReadDataWr, 0, sizeof(BuffConn->DMAReadDataWr));
+    memset(&BuffConn->SendWr, 0, sizeof(BuffConn->SendWr));
+    memset(&BuffConn->RecvWr, 0, sizeof(BuffConn->RecvWr));
 }
 
 //
@@ -349,16 +599,27 @@ DestroyCtrlRegionsAndBuffers(
 //
 //
 static int
-FindCtrlConnId(
+FindConnId(
     struct BackEndConfig *Config,
-    struct rdma_cm_id *CmId
+    struct rdma_cm_id *CmId,
+    bool IsCtrl
 ) {
     int i;
-    for (i = 0; i < Config->MaxClients; i++) {
-        if (Config->CtrlConns[i].RemoteCmId == CmId) {
-            return i;
+    if (IsCtrl) {
+        for (i = 0; i < Config->MaxClients; i++) {
+            if (Config->CtrlConns[i].RemoteCmId == CmId) {
+                return i;
+            }
         }
     }
+    else {
+        for (i = 0; i < Config->MaxBuffs; i++) {
+            if (Config->BuffConns[i].RemoteCmId == CmId) {
+                return i;
+            }
+        }
+    }
+
     return -1;
 }
 
@@ -367,7 +628,7 @@ FindCtrlConnId(
 //
 //
 static int inline
-ProcessCtrlCmEvents(
+ProcessCmEvents(
     struct BackEndConfig *Config,
     struct rdma_cm_event *Event
 ) {
@@ -425,7 +686,7 @@ ProcessCtrlCmEvents(
                         //
                         ret = SetUpCtrlQPair(ctrlConn);
                         if (ret) {
-                            fprintf(stderr, "SetUpCtrlQPair failed\n");
+                            fprintf(stderr, "%s [error]: SetUpCtrlQPair failed\n", __func__);
                             break;
                         }
 
@@ -435,7 +696,7 @@ ProcessCtrlCmEvents(
                         //
                         ret = SetUpCtrlRegionsAndBuffers(ctrlConn);
                         if (ret) {
-                            fprintf(stderr, "SetUpCtrlRegionsAndBuffers failed\n");
+                            fprintf(stderr, "%s [error]: SetUpCtrlRegionsAndBuffers failed\n", __func__);
                             DestroyCtrlQPair(ctrlConn);
                             break;
                         }
@@ -446,7 +707,7 @@ ProcessCtrlCmEvents(
                         //
                         ret = ibv_post_recv(ctrlConn->QPair, &ctrlConn->RecvWr, &badRecvWr);
                         if (ret) {
-                            fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
+                            fprintf(stderr, "%s [error]: ibv_post_recv failed %d\n", __func__, ret);
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
                             break;
@@ -461,7 +722,7 @@ ProcessCtrlCmEvents(
                         connParam.initiator_depth = CTRL_SENDQ_DEPTH;
                         ret = rdma_accept(ctrlConn->RemoteCmId, &connParam);
                         if (ret) {
-                            fprintf(stderr, "rdma_accept failed: %d\n", ret);
+                            fprintf(stderr, "%s [error]: rdma_accept failed %d\n", __func__, ret);
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
                             break;
@@ -472,10 +733,10 @@ ProcessCtrlCmEvents(
                         //
                         //
                         ctrlConn->InUse = 1;
-                        fprintf(stdout, "Connection #%d is accepted\n", ctrlConn->CtrlId);
+                        fprintf(stdout, "Control connection #%d is accepted\n", ctrlConn->CtrlId);
                     }
                     else {
-                        fprintf(stderr, "No available control connection\n");
+                        fprintf(stderr, "%s [error]: no available control connection\n", __func__);
                         rdma_ack_cm_event(Event);
                     }
 
@@ -494,7 +755,66 @@ ProcessCtrlCmEvents(
                     }
 
                     if (buffConn) {
+                        struct rdma_conn_param connParam;
+                        struct ibv_recv_wr *badRecvWr;
+                        buffConn->RemoteCmId = Event->id;
+                        rdma_ack_cm_event(Event);
 
+                        //
+                        // Set up QPair
+                        //
+                        //
+                        ret = SetUpBuffQPair(buffConn);
+                        if (ret) {
+                            fprintf(stderr, "%s [error]: SetUpBuffQPair failed\n", __func__);
+                            break;
+                        }
+
+                        //
+                        // Set up regions and buffers
+                        //
+                        //
+                        ret = SetUpBuffRegionsAndBuffers(buffConn);
+                        if (ret) {
+                            fprintf(stderr, "%s [error]: SetUpCtrlRegionsAndBuffers failed\n", __func__);
+                            DestroyBuffQPair(buffConn);
+                            break;
+                        }
+
+                        //
+                        // Post a receive
+                        //
+                        //
+                        ret = ibv_post_recv(buffConn->QPair, &buffConn->RecvWr, &badRecvWr);
+                        if (ret) {
+                            fprintf(stderr, "%s [error]: ibv_post_recv failed %d\n", __func__, ret);
+                            DestroyBuffRegionsAndBuffers(ctrlConn);
+                            DestroyBuffQPair(ctrlConn);
+                            break;
+                        }
+
+                        //
+                        // Accept the connection
+                        //
+                        //
+                        memset(&connParam, 0, sizeof(connParam));
+                        connParam.responder_resources = BUFF_RECVQ_DEPTH;
+                        connParam.initiator_depth = BUFF_SENDQ_DEPTH;
+                        ret = rdma_accept(buffConn->RemoteCmId, &connParam);
+                        if (ret) {
+                            fprintf(stderr, "%s [error]: rdma_accept failed %d\n", __func__, ret);
+                            DestroyBuffRegionsAndBuffers(buffConn);
+                            DestroyBuffQPair(buffConn);
+                            break;
+                        }
+
+                        //
+                        // Mark this connection unavailable
+                        //
+                        //
+                        buffConn->InUse = 1;
+                        buffConn->Prefetching = Config->Prefetching;
+                        fprintf(stdout, "Buffer connection #%d is accepted\n", buffConn->BuffId);
                     }
                     else {
                         fprintf(stderr, "No available buffer connection\n");
@@ -514,12 +834,30 @@ ProcessCtrlCmEvents(
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
+            uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
+            switch (privData) {
+            case CTRL_CONN_PRIV_DATA:
+            {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            int ctrlConnId = FindCtrlConnId(Config, Event->id);
-            fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Conn#%d\n", ctrlConnId);
+                int ctrlConnId = FindConnId(Config, Event->id, true);
+                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", ctrlConnId);
 #endif
+            }
+                break;
+            case BUFF_CONN_PRIV_DATA:
+            {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                int buffConnId = FindConnId(Config, Event->id, false);
+                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", buffConnId);
+            }
+#endif
+                break;
+            default:
+                fprintf(stderr, "CM: unrecognized connection type\n");
+                break;
+            }
+
             rdma_ack_cm_event(Event);
-            
             break;
         }
         case RDMA_CM_EVENT_ADDR_ERROR:
@@ -538,21 +876,51 @@ ProcessCtrlCmEvents(
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-            int ctrlConnId = FindCtrlConnId(Config, Event->id);
-            if (ctrlConnId >= 0) {
-                if (Config->CtrlConns[ctrlConnId].InUse) {
-                    struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
-                    DestroyCtrlRegionsAndBuffers(ctrlConn);
-                    DestroyCtrlQPair(ctrlConn);
-                    ctrlConn->InUse = 0;
-                }
+            uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
+            switch (privData) {
+            case CTRL_CONN_PRIV_DATA:
+            {
+                int ctrlConnId = FindConnId(Config, Event->id, true);
+                if (ctrlConnId >= 0) {
+                    if (Config->CtrlConns[ctrlConnId].InUse) {
+                        struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
+                        DestroyCtrlRegionsAndBuffers(ctrlConn);
+                        DestroyCtrlQPair(ctrlConn);
+                        ctrlConn->InUse = 0;
+                    }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Conn#%d\n", ctrlConnId);
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", ctrlConnId);
 #endif
+                }
+                else {
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for unrecognized control connection\n");
+                }
             }
-            else {
-                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for unrecognized connection\n");
+                break;
+            case BUFF_CONN_PRIV_DATA:
+            {
+                int buffConnId = FindConnId(Config, Event->id, false);
+                if (buffConnId >= 0) {
+                    if (Config->BuffConns[buffConnId].InUse) {
+                        struct BuffConnConfig *buffConn = &Config->BuffConns[buffConnId];
+                        DestroyBuffRegionsAndBuffers(buffConn);
+                        DestroyBuffQPair(buffConn);
+                        buffConn->InUse = 0;
+                    }
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", buffConnId);
+#endif
+                }
+                else {
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for unrecognized buffer connection\n");
+                }
             }
+                break;
+            default:
+                fprintf(stderr, "CM: unrecognized connection type\n");
+                break;
+            }
+                
             rdma_ack_cm_event(Event);
             break;
         }
@@ -601,12 +969,12 @@ CtrlMsgHandler(
             //
             ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
             if (ret) {
-                fprintf(stderr, "ibv_post_recv failed: %d\n", ret);
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
                 ret = -1;
             }
 
             //
-            // Send the request ID
+            // Send the request id
             //
             //
             msgOut->MsgId = CTRL_MSG_B2F_RESPOND_ID;
@@ -614,29 +982,29 @@ CtrlMsgHandler(
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FRespondId);
             ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
             if (ret) {
-                fprintf(stderr, "ibv_post_send failed: %d\n", ret);
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                 ret = -1;
             }
         }
             break;
         case CTRL_MSG_F2B_TERMINATE: {
-            CtrlMsgF2BTerminate *req = (CtrlMsgF2BTerminate *)(msgOut + 1);
+            CtrlMsgF2BTerminate *req = (CtrlMsgF2BTerminate *)(msgIn + 1);
 
             if (req->ClientId == CtrlConn->CtrlId) {
                 DestroyCtrlRegionsAndBuffers(CtrlConn);
                 DestroyCtrlQPair(CtrlConn);
                 CtrlConn->InUse = 0;
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stderr, "CtrlMsgHandler [info]: Conn#%d is disconnected\n", req->ClientId);
+                fprintf(stdout, "%s [info]: Control Conn#%d is disconnected\n", __func__, req->ClientId);
 #endif
             }
             else {
-                fprintf(stderr, "CtrlMsgHandler [error]: mismatched client id\n");
+                fprintf(stderr, "%s [error]: mismatched client id\n", __func__);
             }
         }
             break;
         default:
-            fprintf(stderr, "CtrlMsgHandler [error]: unrecognized control message\n");
+            fprintf(stderr, "%s [error]: unrecognized control message\n", __func__);
             ret = -1;
             break;
     }
@@ -665,7 +1033,7 @@ ProcessCtrlCqEvents(
         if ((ret = ibv_poll_cq(ctrlConn->CompQ, 1, &wc)) == 1) {
             ret = 0;
             if (wc.status != IBV_WC_SUCCESS) {
-                fprintf(stderr, "ibv_poll_cq failed status %d\n", wc.status);
+                fprintf(stderr, "%s [error]: ibv_poll_cq failed status %d\n", __func__, wc.status);
                 ret = -1;
                 continue;
             }
@@ -678,7 +1046,7 @@ ProcessCtrlCqEvents(
                 case IBV_WC_RECV: {
                     ret = CtrlMsgHandler(ctrlConn);
                     if (ret) {
-                        fprintf(stderr, "ProcessCtrlCqEvents [error]: CtrlMsgHandler failed\n");
+                        fprintf(stderr, "%s [error]: CtrlMsgHandler failed\n", __func__);
                         goto ProcessCtrlCqEventsReturn;
                     }
                 }
@@ -689,7 +1057,7 @@ ProcessCtrlCqEvents(
                     break;
 
                 default:
-                    fprintf(stderr, "ProcessCtrlCqEvents [error]: unknown completion\n");
+                    fprintf(stderr, "%s [error]: unknown completion\n", __func__);
                     ret = -1;
                     break;
             }
@@ -701,6 +1069,142 @@ ProcessCtrlCqEventsReturn:
 }
 
 //
+// Buffer message handler
+//
+//
+static inline int
+BuffMsgHandler(
+    struct BuffConnConfig *BuffConn
+) {
+    int ret = 0;
+    MsgHeader* msgIn = (MsgHeader*)BuffConn->RecvBuff;
+    MsgHeader* msgOut = (MsgHeader*)BuffConn->SendBuff;
+
+    switch(msgIn->MsgId) {
+        case BUFF_MSG_F2B_REQUEST_ID: {
+            BuffMsgF2BRequestId *req = (BuffMsgF2BRequestId *)(msgIn + 1);
+            BuffMsgB2FRespondId *resp = (BuffMsgB2FRespondId *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receiv first
+            //
+            //
+            ret = ibv_post_recv(BuffConn->QPair, &BuffConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // Update config and send the buffer id
+            //
+            //
+            BuffConn->ClientId = req->ClientId;
+            BuffConn->RemoteAddr = req->BufferAddress;
+            BuffConn->AccessToken = req->AccessToken;
+            BuffConn->Capacity = req->Capacity;
+
+            msgOut->MsgId = BUFF_MSG_B2F_RESPOND_ID;
+            resp->BufferId = BuffConn->BuffId;
+            BuffConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(BuffMsgB2FRespondId);
+            ret = ibv_post_send(BuffConn->QPair, &BuffConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+            
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+            fprintf(stdout, "%s [info]: Buffer Conn#%d is for Client#%d\n", __func__, req->BufferId, req->ClientId);
+            fprintf(stdout, "- Buffer address: %p\n", BuffConn->RemoteAddr);
+            fprintf(stdout, "- Buffer capacity: %u\n", BuffConn->Capacity);
+            fprintf(stdout, "- Access token: %u\n", BuffConn->AccessToken);
+#endif
+            // TODO: start polling
+        }
+            break;
+        case BUFF_MSG_F2B_RELEASE: {
+            BuffMsgF2BRelease *req = (BuffMsgF2BRelease *)(msgIn + 1);
+
+            if (req->BufferId == BuffConn->BuffId && req->ClientId == BuffConn->ClientId) {
+                DestroyBuffRegionsAndBuffers(BuffConn);
+                DestroyBuffQPair(BuffConn);
+                BuffConn->InUse = 0;
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stdout, "%s [info]: Buffer Conn#%d (Client#%d) is disconnected\n", __func__, req->BufferId, req->ClientId);
+#endif
+            }
+            else {
+                fprintf(stderr, "%s [error]: mismatched client id\n", __func__);
+            }
+        }
+            break;
+        default:
+            fprintf(stderr, "%s [error]: unrecognized control message\n", __func__);
+            ret = -1;
+            break;
+    }
+
+    return ret;
+}
+
+//
+// Process communication channel events for buffer connections
+//
+//
+static int inline
+ProcessBuffCqEvents(
+    struct BackEndConfig *Config
+) {
+    int ret = 0;
+    struct BuffConnConfig *buffConn = NULL;
+    struct ibv_wc wc;
+
+    for (int i = 0; i != Config->MaxBuffs; i++) {
+        buffConn = &Config->BuffConns[i];
+        if (!buffConn->InUse) {
+            continue;
+        }
+
+        if ((ret = ibv_poll_cq(buffConn->CompQ, 1, &wc)) == 1) {
+            ret = 0;
+            if (wc.status != IBV_WC_SUCCESS) {
+                fprintf(stderr, "%s [error]: ibv_poll_cq failed status %d\n", __func__, wc.status);
+                ret = -1;
+                continue;
+            }
+
+            switch(wc.opcode) {
+                case IBV_WC_RECV: {
+                    ret = BuffMsgHandler(buffConn);
+                    if (ret) {
+                        fprintf(stderr, "%s [error]: BuffMsgHandler failed\n", __func__);
+                        goto ProcessBuffCqEventsReturn;
+                    }
+                }
+                    break;
+                case IBV_WC_RDMA_READ: {
+                    // TODO: handle read completion
+                }
+                    break;
+                case IBV_WC_SEND:
+                case IBV_WC_RDMA_WRITE:
+                    break;
+
+                default:
+                    fprintf(stderr, "%s [error]: unknown completion\n", __func__);
+                    ret = -1;
+                    break;
+            }
+        }
+    }
+
+ProcessBuffCqEventsReturn:
+    return ret;
+}
+
+//
 // The entry point for the back end
 //
 //
@@ -708,7 +1212,8 @@ int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
-    const uint32_t MaxBuffs
+    const uint32_t MaxBuffs,
+    const bool Prefetching
 ) {
     struct BackEndConfig config;
     struct rdma_cm_event *event;
@@ -726,6 +1231,7 @@ int RunFileBackEnd(
     config.BuffConns = NULL;
     config.DMAConf.CmChannel = NULL;
     config.DMAConf.CmId = NULL;
+    config.Prefetching = Prefetching;
 
     //
     // Initialize DMA
@@ -780,9 +1286,9 @@ int RunFileBackEnd(
                 (event->id == config.DMAConf.CmId) ? "parent" : "child");
 #endif
 
-            ret = ProcessCtrlCmEvents(&config, event);
+            ret = ProcessCmEvents(&config, event);
             if (ret) {
-                fprintf(stderr, "ProcessCtrlCmEvents error %d\n", ret);
+                fprintf(stderr, "ProcessCmEvents error %d\n", ret);
                 SignalHandler(SIGTERM);
             }
         }
@@ -794,6 +1300,16 @@ int RunFileBackEnd(
         ret = ProcessCtrlCqEvents(&config);
         if (ret) {
             fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
+            SignalHandler(SIGTERM);
+        }
+
+        //
+        // Process RDMA events for buffer connections
+        //
+        //
+        ret = ProcessBuffCqEvents(&config);
+        if (ret) {
+            fprintf(stderr, "ProcessBuffCqEvents error %d\n", ret);
             SignalHandler(SIGTERM);
         }
     }
@@ -809,5 +1325,5 @@ int RunFileBackEnd(
 }
 
 int main() {
-    return RunFileBackEnd("192.168.200.32", 4242, 32, 32);
+    return RunFileBackEnd("192.168.200.32", 4242, 32, 32, true);
 }

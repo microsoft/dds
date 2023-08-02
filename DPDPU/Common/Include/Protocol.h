@@ -1,0 +1,13 @@
+#pragma once
+
+#define DDS_CACHE_LINE_SIZE 64
+#define DDS_CACHE_LINE_SIZE_BY_INT 16
+#define DDS_CACHE_LINE_SIZE_BY_POINTER 8
+#define RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT 1048576
+#define BACKEND_MAX_DMA_SIZE RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT
+
+//
+// We have three pointers, each occupying one cache line
+//
+//
+#define RING_BUFFER_META_DATA_SIZE 192

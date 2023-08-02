@@ -8,12 +8,16 @@
 #include <infiniband/ib.h>
 
 #include "MsgType.h"
+#include "Protocol.h"
 
 #define LISTEN_BACKLOG 64
 #define RESOLVE_TIMEOUT_MS 2000
 #define CTRL_COMPQ_DEPTH 16
 #define CTRL_SENDQ_DEPTH 16
 #define CTRL_RECVQ_DEPTH 16
+#define BUFF_COMPQ_DEPTH 16
+#define BUFF_SENDQ_DEPTH 16
+#define BUFF_RECVQ_DEPTH 16
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
@@ -67,6 +71,7 @@ struct BuffConnConfig {
     uint32_t BuffId;
     uint32_t CtrlId;
     uint8_t InUse;
+    uint8_t Prefetching;
 
     //
     // Setup for a DMA channel
@@ -96,12 +101,17 @@ struct BuffConnConfig {
     // Setup for data exchange
     // Every time we poll progess, we fetch two cache lines
     // One for the progress, one for the tail
+    // Also, we separate pointers and content to enable prefetching
     //
     //
-    struct ibv_send_wr DMAWr;
-    struct ibv_sge DMASgl;
-    struct ibv_mr *DMAMr;
-    char* DMABuff;
+    struct ibv_send_wr DMAReadDataWr;
+    struct ibv_sge DMAReadDataSgl;
+    struct ibv_mr *DMAReadDataMr;
+    char* DMAReadDataBuff;
+    struct ibv_send_wr DMAReadMetaWr;
+    struct ibv_sge DMAReadMetaSgl;
+    struct ibv_mr *DMAReadMetaMr;
+    char DMAReadMetaBuff[RING_BUFFER_META_DATA_SIZE];
 
     //
     // Setup for the remote buffer
@@ -124,6 +134,7 @@ struct BackEndConfig {
     struct DMAConfig DMAConf;
     struct CtrlConnConfig* CtrlConns;
     struct BuffConnConfig* BuffConns;
+    uint8_t Prefetching;
 };
 
 //

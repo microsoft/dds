@@ -38,6 +38,7 @@ typedef struct {
     int ClientId;
     uint64_t BufferAddress;
     uint32_t AccessToken;
+    uint32_t Capacity;
 } BuffMsgF2BRequestId;
 
 typedef struct {
