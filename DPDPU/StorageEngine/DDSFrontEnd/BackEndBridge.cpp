@@ -61,12 +61,22 @@ BackEndBridge::Connect() {
         printf("BackEndBridge: failed to initialize Windows Sockets: %d\n", ret);
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("BackEndBridge: succeeded to initialize Windows Sockets\n");
+    }
+#endif
 
     HRESULT hr = NdStartup();
     if (FAILED(hr)) {
         printf("NdStartup failed with %08x\n", hr);
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("NdStartup succeeded\n");
+    }
+#endif
 
     wchar_t wstrManagerAddr[32];
     mbstowcs(wstrManagerAddr, BackEndAddr, strlen(BackEndAddr) + 1);
@@ -84,6 +94,11 @@ BackEndBridge::Connect() {
         printf("BackEndBridge: bad address for the backend\n");
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("BackEndBridge: good address for the backend\n");
+    }
+#endif
 
     BackEndSock.sin_port = htons(BackEndPort);
 
@@ -94,6 +109,11 @@ BackEndBridge::Connect() {
         printf("NdResolveAddress failed with %08x\n", hr);
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("NdResolveAddress succeeded\n");
+    }
+#endif
 
     hr = NdOpenAdapter(
         IID_IND2Adapter,
@@ -105,12 +125,22 @@ BackEndBridge::Connect() {
         printf("NdOpenAdapter failed with %08x\n", hr);
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("NdOpenAdapter succeeded\n");
+    }
+#endif
 
     Ov.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (Ov.hEvent == nullptr) {
         printf("BackEndBridge: failed to allocate event for overlapped operations\n");
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("BackEndBridge: succeeded to allocate event for overlapped operations\n");
+    }
+#endif
 
     hr = Adapter->CreateOverlappedFile(&AdapterFileHandle);
     if (FAILED(hr))
@@ -118,6 +148,11 @@ BackEndBridge::Connect() {
         printf("CreateOverlappedFile failed with %08x\n", hr);
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("CreateOverlappedFile succeeded\n");
+    }
+#endif
 
     AdapterInfo.InfoVersion = ND_VERSION_2;
     ULONG adapterInfoSize = sizeof(AdapterInfo);
@@ -126,11 +161,21 @@ BackEndBridge::Connect() {
         printf("IND2Adapter::GetAdapterInfo failed with %08x\n", hr);
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("IND2Adapter::GetAdapterInfo failed succeeded\n");
+    }
+#endif
 
     if ((AdapterInfo.AdapterFlags & ND_ADAPTER_FLAG_IN_ORDER_DMA_SUPPORTED) == 0) {
         printf("Adapter does not support in-order RDMA\n");
         return false;
     }
+#ifdef BACKEND_BRIDGE_VERBOSE
+    else {
+        printf("Adapter supports in-order RDMA\n");
+    }
+#endif
 
     QueueDepth = AdapterInfo.MaxCompletionQueueDepth;
     QueueDepth = min(QueueDepth, AdapterInfo.MaxInitiatorQueueDepth);
@@ -138,40 +183,89 @@ BackEndBridge::Connect() {
     MaxSge = min(AdapterInfo.MaxInitiatorSge, AdapterInfo.MaxReadSge);
     InlineThreshold = AdapterInfo.InlineRequestThreshold;
 
+    printf("BackEndBridge: adapter information\n");
+    printf("- Queue depth = %llu\n", QueueDepth);
+    printf("- Max SGE = %llu\n", MaxSge);
+    printf("- Inline threshold = %llu\n", InlineThreshold);
+
     //
     // Connect to the back end
     //
     //
-    RDMC_OpenAdapter(&Adapter, &BackEndSock, &AdapterFileHandle, &Ov);
+    RDMC_OpenAdapter(&Adapter, &LocalSock, &AdapterFileHandle, &Ov);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_OpenAdapter succeeded\n");
+#endif
+
     RDMC_CreateConnector(Adapter, AdapterFileHandle, &CtrlConnector);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_CreateConnector succeeded\n");
+#endif
+
     RDMC_CreateCQ(Adapter, AdapterFileHandle, (DWORD)QueueDepth, &CtrlCompQ);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_CreateCQ succeeded\n");
+#endif
+
     RDMC_CreateQueuePair(Adapter, CtrlCompQ, (DWORD)QueueDepth, (DWORD)MaxSge, (DWORD)InlineThreshold, &CtrlQPair);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_CreateQueuePair succeeded\n");
+#endif
 
     RDMC_CreateMR(Adapter, AdapterFileHandle, &CtrlMemRegion);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_CreateMR succeeded\n");
+#endif
+
     unsigned long flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
     RDMC_RegisterDataBuffer(CtrlMemRegion, CtrlMsgBuf, CTRL_MSG_SIZE, flags, &Ov);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_RegisterDataBuffer succeeded\n");
+#endif
 
     CtrlSgl = new ND2_SGE[1];
     CtrlSgl[0].Buffer = CtrlMsgBuf;
     CtrlSgl[0].BufferLength = CTRL_MSG_SIZE;
     CtrlSgl[0].MemoryRegionToken = CtrlMemRegion->GetLocalToken();
 
-    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, (DWORD)QueueDepth);
+    uint8_t privData = CTRL_CONN_PRIV_DATA;
+    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, (DWORD)QueueDepth, &privData, sizeof(privData));
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_Connect succeeded\n");
+#endif
+
     RDMC_CompleteConnect(CtrlConnector, &Ov);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_CompleteConnect succeeded\n");
+#endif
 
     //
     // Request client id and wait for response
     //
     //
     ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQUEST_ID;
-    ((CtrlMsgF2BRequestId*)(CtrlMsgBuf + sizeof(MsgHeader)))->Dummy = 0;
+    ((CtrlMsgF2BRequestId*)(CtrlMsgBuf + sizeof(MsgHeader)))->Dummy = 42;
     CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BRequestId);
     RDMC_Send(CtrlQPair, CtrlSgl, 1, 0, MSG_CTXT);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_Send succeeded\n");
+#endif
+
     RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_WaitForCompletionAndCheckContext succeeded\n");
+#endif
 
     CtrlSgl->BufferLength = CTRL_MSG_SIZE;
     RDMC_PostReceive(CtrlQPair, CtrlSgl, 1, MSG_CTXT);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_PostReceive succeeded\n");
+#endif
+
     RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
+#ifdef BACKEND_BRIDGE_VERBOSE
+    printf("RDMC_WaitForCompletionAndCheckContext succeeded\n");
+#endif
 
     if (((MsgHeader*)CtrlMsgBuf)->MsgId == CTRL_MSG_B2F_RESPOND_ID) {
         ClientId = ((CtrlMsgB2FRespondId*)(CtrlMsgBuf + sizeof(MsgHeader)))->ClientId;
@@ -212,7 +306,7 @@ BackEndBridge::Disconnect() {
         CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BTerminate);
         RDMC_Send(CtrlQPair, CtrlSgl, 1, 0, MSG_CTXT);
         RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
-        printf("BackEndBridge: signaled the back end to exit\n");
+        printf("BackEndBridge: disconnected from the back end\n");
     }
 
     //
@@ -223,28 +317,28 @@ BackEndBridge::Disconnect() {
         CtrlConnector->Disconnect(&Ov);
         CtrlConnector->Release();
     }
-    
+
     if (CtrlMemRegion) {
         CtrlMemRegion->Deregister(&Ov);
         CtrlMemRegion->Release();
     }
-    
+
     if (CtrlCompQ) {
         CtrlCompQ->Release();
     }
-    
+
     if (CtrlQPair) {
         CtrlQPair->Release();
     }
-    
+
     if (AdapterFileHandle) {
         CloseHandle(AdapterFileHandle);
     }
-    
+
     if (Adapter) {
         Adapter->Release();
     }
-    
+
     if (Ov.hEvent) {
         CloseHandle(Ov.hEvent);
     }
@@ -271,6 +365,8 @@ BackEndBridge::Disconnect() {
     WSACleanup();
 
     return DDS_ERROR_CODE_SUCCESS;
+#else
+    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 #endif
 }
 

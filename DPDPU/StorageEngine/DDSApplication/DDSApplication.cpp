@@ -284,6 +284,7 @@ DWORD WINAPI SleepThread(LPVOID lpParam) {
 
 int main()
 {
+    /*
     // atomic test
     std::atomic<int> ai = 0;
     cout << "Size of atomic<int> is " << sizeof(ai) << endl;
@@ -322,6 +323,7 @@ int main()
         prevClock = nextClock;
     }
     return 0;
+    */
 
     const char* storeName = "DDS-Store0";
     const char* rootDirName = "/data";
@@ -330,8 +332,8 @@ int main()
     const DDS_FrontEnd::FileAccessT fileAccess = 0;
     const DDS_FrontEnd::FileShareModeT shareMode = 0;
     const DDS_FrontEnd::FileAttributesT fileAttributes = 0;
-    DDS_FrontEnd::DirIdT rootDirId;
-    DDS_FrontEnd::FileIdT fileId;
+    DDS_FrontEnd::DirIdT rootDirId = DDS_DIR_INVALID;
+    DDS_FrontEnd::FileIdT fileId = DDS_FILE_INVALID;
 
     DDS_FrontEnd::DDSFrontEnd store(storeName);
 
@@ -343,7 +345,7 @@ int main()
         cout << "DDS front end initialized " << endl;
     }
 
-    // result = store.CreateDirectory(rootDirName, &rootDirId);
+    result = store.CreateDirectory(rootDirName, &rootDirId);
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to create directory" << endl;
     }
@@ -351,13 +353,13 @@ int main()
         cout << "Directory created: " << rootDirId << endl;
     }
 
-    // result = store.CreateFile(
-    //    fileName,
-    //    fileAccess,
-    //    shareMode,
-    //    fileAttributes,
-    //    &fileId
-    // );
+    result = store.CreateFile(
+        fileName,
+        fileAccess,
+        shareMode,
+        fileAttributes,
+        &fileId
+    );
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to create file" << endl;
     }
