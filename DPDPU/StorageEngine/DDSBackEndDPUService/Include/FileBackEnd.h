@@ -145,7 +145,8 @@ int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
-    const uint32_t MaxBuffs
+    const uint32_t MaxBuffs,
+    const uint8_t Prefetching
 );
 
 #endif // DDS_STORAGE_FILE_BACKEND_H

@@ -13,6 +13,9 @@
 
 #include "FileBackEnd.h"
 
+#define TRUE 1
+#define FALSE 0
+
 static volatile int ForceQuitFileBackEnd = 0;
 
 //
@@ -537,15 +540,15 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
     BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
-    BuffConn->DMAReadDataSgl.opcode = IBV_WR_RDMA_READ;
+    BuffConn->DMAReadDataWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
-    BuffConn->DMAReadDataWr.sg_list = &BuffConn->DMAReadSgl;
+    BuffConn->DMAReadDataWr.sg_list = &BuffConn->DMAReadDataSgl;
     BuffConn->DMAReadDataWr.num_sge = 1;
 
     BuffConn->DMAReadMetaSgl.addr = (uint64_t)BuffConn->DMAReadMetaBuff;
     BuffConn->DMAReadMetaSgl.length = RING_BUFFER_META_DATA_SIZE;
     BuffConn->DMAReadMetaSgl.lkey = BuffConn->DMAReadMetaMr->lkey;
-    BuffConn->DMAReadMetaSgl.opcode = IBV_WR_RDMA_READ;
+    BuffConn->DMAReadMetaWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->DMAReadMetaWr.sg_list = &BuffConn->DMAReadMetaSgl;
     BuffConn->DMAReadMetaWr.num_sge = 1;
@@ -553,16 +556,16 @@ SetUpBuffRegionsAndBuffers(
     return 0;
 
 DeregisterBuffReadDataMrReturn:
-    ibv_dereg_mr(Buffer->DMAReadDataMr);
+    ibv_dereg_mr(BuffConn->DMAReadDataMr);
 
 FreeBuffDMAReadDataBuffReturn:
-    free(Buffer->DMAReadDataBuff);
+    free(BuffConn->DMAReadDataBuff);
 
 DeregisterBuffSendMrReturn:
-    ibv_dereg_mr(Buffer->SendMr);
+    ibv_dereg_mr(BuffConn->SendMr);
 
 DeregisterBuffRecvMrReturn:
-    ibv_dereg_mr(CtrlConn->RecvMr);
+    ibv_dereg_mr(BuffConn->RecvMr);
 
 SetUpBuffRegionsAndBuffersReturn:
     return ret;
@@ -602,23 +605,21 @@ static int
 FindConnId(
     struct BackEndConfig *Config,
     struct rdma_cm_id *CmId,
-    bool IsCtrl
+    uint8_t *IsCtrl
 ) {
     int i;
-    if (IsCtrl) {
         for (i = 0; i < Config->MaxClients; i++) {
             if (Config->CtrlConns[i].RemoteCmId == CmId) {
+                *IsCtrl = TRUE;
                 return i;
             }
         }
-    }
-    else {
         for (i = 0; i < Config->MaxBuffs; i++) {
             if (Config->BuffConns[i].RemoteCmId == CmId) {
+                *IsCtrl = FALSE;
                 return i;
             }
         }
-    }
 
     return -1;
 }
@@ -788,8 +789,8 @@ ProcessCmEvents(
                         ret = ibv_post_recv(buffConn->QPair, &buffConn->RecvWr, &badRecvWr);
                         if (ret) {
                             fprintf(stderr, "%s [error]: ibv_post_recv failed %d\n", __func__, ret);
-                            DestroyBuffRegionsAndBuffers(ctrlConn);
-                            DestroyBuffQPair(ctrlConn);
+                            DestroyBuffRegionsAndBuffers(buffConn);
+                            DestroyBuffQPair(buffConn);
                             break;
                         }
 
@@ -834,28 +835,19 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
-            uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
-            switch (privData) {
-            case CTRL_CONN_PRIV_DATA:
-            {
+            uint8_t privData;
+	    int connId = FindConnId(Config, Event->id, &privData);
+            if (privData) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                int ctrlConnId = FindConnId(Config, Event->id, true);
-                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", ctrlConnId);
+                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
 #endif
             }
-                break;
-            case BUFF_CONN_PRIV_DATA:
+	    else
             {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                int buffConnId = FindConnId(Config, Event->id, false);
-                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", buffConnId);
+                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
             }
 #endif
-                break;
-            default:
-                fprintf(stderr, "CM: unrecognized connection type\n");
-                break;
-            }
 
             rdma_ack_cm_event(Event);
             break;
@@ -876,50 +868,35 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-            uint8_t privData = *(uint8_t*)Event->param.conn.private_data;
-            switch (privData) {
-            case CTRL_CONN_PRIV_DATA:
-            {
-                int ctrlConnId = FindConnId(Config, Event->id, true);
-                if (ctrlConnId >= 0) {
-                    if (Config->CtrlConns[ctrlConnId].InUse) {
-                        struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[ctrlConnId];
+            uint8_t privData;
+	    int connId = FindConnId(Config, Event->id, &privData);
+	    if (connId >= 0) {
+            if (privData) {
+                    if (Config->CtrlConns[connId].InUse) {
+                        struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
                         DestroyCtrlRegionsAndBuffers(ctrlConn);
                         DestroyCtrlQPair(ctrlConn);
                         ctrlConn->InUse = 0;
                     }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", ctrlConnId);
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", connId);
 #endif
-                }
-                else {
-                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for unrecognized control connection\n");
-                }
             }
-                break;
-            case BUFF_CONN_PRIV_DATA:
-            {
-                int buffConnId = FindConnId(Config, Event->id, false);
-                if (buffConnId >= 0) {
-                    if (Config->BuffConns[buffConnId].InUse) {
-                        struct BuffConnConfig *buffConn = &Config->BuffConns[buffConnId];
+	    else {
+                    if (Config->BuffConns[connId].InUse) {
+                        struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
                         DestroyBuffRegionsAndBuffers(buffConn);
                         DestroyBuffQPair(buffConn);
                         buffConn->InUse = 0;
                     }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", buffConnId);
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", connId);
 #endif
-                }
+            }
+	    }
                 else {
-                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for unrecognized buffer connection\n");
+                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized control connection\n");
                 }
-            }
-                break;
-            default:
-                fprintf(stderr, "CM: unrecognized connection type\n");
-                break;
-            }
                 
             rdma_ack_cm_event(Event);
             break;
@@ -1101,7 +1078,7 @@ BuffMsgHandler(
             // Update config and send the buffer id
             //
             //
-            BuffConn->ClientId = req->ClientId;
+            BuffConn->CtrlId = req->ClientId;
             BuffConn->RemoteAddr = req->BufferAddress;
             BuffConn->AccessToken = req->AccessToken;
             BuffConn->Capacity = req->Capacity;
@@ -1116,10 +1093,10 @@ BuffMsgHandler(
             }
             
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            fprintf(stdout, "%s [info]: Buffer Conn#%d is for Client#%d\n", __func__, req->BufferId, req->ClientId);
-            fprintf(stdout, "- Buffer address: %p\n", BuffConn->RemoteAddr);
+            fprintf(stdout, "%s [info]: Buffer Conn#%d is for Client#%d\n", __func__, BuffConn->BuffId, BuffConn->CtrlId);
+            fprintf(stdout, "- Buffer address: %p\n", (void*)BuffConn->RemoteAddr);
             fprintf(stdout, "- Buffer capacity: %u\n", BuffConn->Capacity);
-            fprintf(stdout, "- Access token: %u\n", BuffConn->AccessToken);
+            fprintf(stdout, "- Access token: %x\n", BuffConn->AccessToken);
 #endif
             // TODO: start polling
         }
@@ -1127,7 +1104,7 @@ BuffMsgHandler(
         case BUFF_MSG_F2B_RELEASE: {
             BuffMsgF2BRelease *req = (BuffMsgF2BRelease *)(msgIn + 1);
 
-            if (req->BufferId == BuffConn->BuffId && req->ClientId == BuffConn->ClientId) {
+            if (req->BufferId == BuffConn->BuffId && req->ClientId == BuffConn->CtrlId) {
                 DestroyBuffRegionsAndBuffers(BuffConn);
                 DestroyBuffQPair(BuffConn);
                 BuffConn->InUse = 0;
@@ -1213,7 +1190,7 @@ int RunFileBackEnd(
     const int ServerPort,
     const uint32_t MaxClients,
     const uint32_t MaxBuffs,
-    const bool Prefetching
+    const uint8_t Prefetching
 ) {
     struct BackEndConfig config;
     struct rdma_cm_event *event;
@@ -1325,5 +1302,5 @@ int RunFileBackEnd(
 }
 
 int main() {
-    return RunFileBackEnd("192.168.200.32", 4242, 32, 32, true);
+    return RunFileBackEnd("192.168.200.32", 4242, 32, 32, TRUE);
 }
