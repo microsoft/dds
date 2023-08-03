@@ -16,8 +16,8 @@ using Atomic = std::atomic<C>;
 //
 //
 struct RequestRingBufferProgressive{
-    Atomic<int> Tail[DDS_CACHE_LINE_SIZE_BY_INT];
     Atomic<int> Progress[DDS_CACHE_LINE_SIZE_BY_INT];
+    Atomic<int> Tail[DDS_CACHE_LINE_SIZE_BY_INT];
     int Head[DDS_CACHE_LINE_SIZE_BY_INT];
     char Buffer[DDS_REQUEST_RING_BYTES];
 };

@@ -199,8 +199,8 @@ FetchFromRequestBufferProgressive(
     // Each producer moves tail before it increments the progress.
     // Every producer maintains this invariant:
     // They (1) advance the tail,
-    //        (2) insert the request, and
-    //        (3) increment the progress.
+    //      (2) insert the request, and
+    //      (3) increment the progress.
     // However, the order of reading progress and tail at the consumer matters.
     // If the consumer reads the tail first, then it's possible that
     // before it reads the progress, a producer performs all three steps above

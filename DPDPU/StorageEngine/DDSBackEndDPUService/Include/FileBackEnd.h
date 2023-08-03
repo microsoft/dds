@@ -9,15 +9,25 @@
 
 #include "MsgType.h"
 #include "Protocol.h"
+#include "RingBufferPolling.h"
 
 #define LISTEN_BACKLOG 64
 #define RESOLVE_TIMEOUT_MS 2000
+
 #define CTRL_COMPQ_DEPTH 16
 #define CTRL_SENDQ_DEPTH 16
 #define CTRL_RECVQ_DEPTH 16
+#define CTRL_SEND_WR_ID 0
+#define CTRL_RECV_WR_ID 1
+
 #define BUFF_COMPQ_DEPTH 16
 #define BUFF_SENDQ_DEPTH 16
 #define BUFF_RECVQ_DEPTH 16
+#define BUFF_SEND_WR_ID 0
+#define BUFF_RECV_WR_ID 1
+#define BUFF_READ_META_WR_ID 2
+#define BUFF_WRITE_META_WR_ID 3
+#define BUFF_READ_DATA_WR_ID 4
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
@@ -112,14 +122,16 @@ struct BuffConnConfig {
     struct ibv_sge DMAReadMetaSgl;
     struct ibv_mr *DMAReadMetaMr;
     char DMAReadMetaBuff[RING_BUFFER_META_DATA_SIZE];
+    struct ibv_send_wr DMAWriteMetaWr;
+    struct ibv_sge DMAWriteMetaSgl;
+    struct ibv_mr *DMAWriteMetaMr;
+    char* DMAWriteMetaBuff;
 
     //
-    // Setup for the remote buffer
+    // Ring buffers
     //
     //
-    uint64_t RemoteAddr;
-    uint32_t AccessToken;
-    uint32_t Capacity;
+    struct RequestRingBufferBackEnd RequestRing;
 };
 
 //
