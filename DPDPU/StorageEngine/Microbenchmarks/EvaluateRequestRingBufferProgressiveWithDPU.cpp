@@ -2,10 +2,12 @@
 #include <iostream>
 #include <thread>
 
+#include "BackEndBridge.h"
 #include "DMABuffer.h"
 #include "Evaluation.h"
 #include "RingBufferProgressive.h"
 #include "Profiler.h"
+#include "Protocol.h"
 
 using namespace DDS_FrontEnd;
 using namespace std;
@@ -61,7 +63,20 @@ void RequestProducerWithDPU(
 
 void EvaluateRequestRingBufferProgressiveWithDPU() {
 	const size_t entireBufferSpace = 134217728; // 128 MB
-	char* Buffer = new char[entireBufferSpace];
+	BackEndBridge backEnd;
+	if (!backEnd.Connect()) {
+		cout << "Failed to connect to the back end" << endl;
+		return;
+	}
+	cout << "Connected to the back end" << endl;
+	DMABuffer dmaBuffer(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, entireBufferSpace, backEnd.ClientId);
+	if (!dmaBuffer.Allocate(&backEnd.LocalSock, &backEnd.BackEndSock, backEnd.QueueDepth, backEnd.MaxSge, backEnd.InlineThreshold)) {
+		cout << "Failed to allocate DMA buffer" << endl;
+		return;
+	}
+	cout << "Allocated DMA buffer" << endl;
+
+	char* buffer = dmaBuffer.BufferAddress;
 	RequestRingBufferProgressive* ringBuffer = NULL;
 	const size_t totalProducers = 1;
 	const size_t requestsPerProducer = 10000000;
@@ -72,8 +87,7 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 	//
 	//
 	cout << "Allocating a ring buffer..." << endl;
-	memset(Buffer, 0, entireBufferSpace);
-	ringBuffer = AllocateRequestBufferProgressive(Buffer);
+	ringBuffer = AllocateRequestBufferProgressive(buffer);
 
 	//
 	// Prepare requests
@@ -153,5 +167,6 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 		delete producerThreads[t];
 	}
 
-	delete[] Buffer;
+	dmaBuffer.Release();
+	backEnd.Disconnect();
 }

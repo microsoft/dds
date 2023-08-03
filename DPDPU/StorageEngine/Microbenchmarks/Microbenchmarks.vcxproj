@@ -161,6 +161,7 @@
     <ClInclude Include="..\..\Common\Include\BackEndBridge.h" />
     <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h" />
     <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
+    <ClInclude Include="..\..\Common\Include\Protocol.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferLockBased.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferNoConcurrency.h" />
