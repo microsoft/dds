@@ -3,8 +3,8 @@
 #include "BackEndInMemory.h"
 #include "DDSFrontEndInterface.h"
 #include "MsgType.h"
-#include "RDMC.h"
 #include "Protocol.h"
+#include "RDMC.h"
 
 #define BACKEND_TYPE_IN_MEMORY 1
 #define BACKEND_TYPE_DMA 2
