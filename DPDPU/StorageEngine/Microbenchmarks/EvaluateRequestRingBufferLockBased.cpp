@@ -47,19 +47,19 @@ public:
 };
 
 void RequestProducer(
-	RequestRingBufferLock* RingBuffer,
+	RequestRingBufferLockBased* RingBuffer,
 	Request** Requests,
 	size_t NumRequests
 ) {
 	for (size_t r = 0; r != NumRequests; r++) {
-		while (InsertToRequestBufferLock(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
+		while (InsertToRequestBufferLockBased(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
 			this_thread::yield();
 		}
 	}
 }
 
 void RequestConsumer(
-	RequestRingBufferLock* RingBuffer,
+	RequestRingBufferLockBased* RingBuffer,
 	size_t TotalNumRequests
 ) {
 	size_t numReqProcessed = 0;
@@ -73,14 +73,14 @@ void RequestConsumer(
 	
 	profiler.Start();
 	while (numReqProcessed != TotalNumRequests) {
-		while(FetchFromRequestBufferLock(RingBuffer, pagesOfRequests, &remainingSize) == false) {
+		while(FetchFromRequestBufferLockBased(RingBuffer, pagesOfRequests, &remainingSize) == false) {
 			this_thread::yield();
 		}
 
 		startOfNext = pagesOfRequests;
 
 		while (true) {
-			ParseNextRequestLock(
+			ParseNextRequestLockBased(
 				startOfNext,
 				remainingSize,
 				&requestPointer,
@@ -114,10 +114,10 @@ void RequestConsumer(
 	profiler.Report();
 }
 
-void EvaluateRequestRingBufferLock() {
+void EvaluateRequestRingBufferLockBased() {
 	const size_t entireBufferSpace = 134217728; // 128 MB
 	char* Buffer = new char[entireBufferSpace];
-	RequestRingBufferLock* ringBuffer = NULL;
+	RequestRingBufferLockBased* ringBuffer = NULL;
 	const size_t totalProducers = 64;
 	const size_t requestsPerProducer = 10000000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
@@ -128,7 +128,7 @@ void EvaluateRequestRingBufferLock() {
 	//
 	cout << "Allocating a ring buffer..." << endl;
 	memset(Buffer, 0, entireBufferSpace);
-	ringBuffer = AllocateRequestBufferLock(Buffer);
+	ringBuffer = AllocateRequestBufferLockBased(Buffer);
 
 	//
 	// Prepare requests
@@ -210,7 +210,7 @@ void EvaluateRequestRingBufferLock() {
 	consumerThread->join();
 
 	cout << "Release all of the memory..." << endl;
-	DeallocateRequestBufferLock(ringBuffer);
+	DeallocateRequestBufferLockBased(ringBuffer);
 
 	for (size_t r = 0; r != totalRequests; r++) {
 		delete allRequests[r];

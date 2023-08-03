@@ -116,7 +116,7 @@ void RequestConsumer(
 	cout << "- poll = " << poll << endl;
 }
 
-void EvaluateRequestRingBuffer() {
+void EvaluateRequestRingBufferNoConcurrency() {
 	const size_t entireBufferSpace = 134217728; // 128 MB
 	char* Buffer = new char[entireBufferSpace];
 	RequestRingBuffer* ringBuffer = NULL;

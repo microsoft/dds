@@ -152,7 +152,7 @@ void DMABuffer::Release() {
 		MsgSgl->BufferLength = sizeof(MsgHeader) + sizeof(BuffMsgF2BRelease);
 		RDMC_Send(QPair, MsgSgl, 1, 0, MSG_CTXT);
 		RDMC_WaitForCompletionAndCheckContext(CompQ, &Ov, MSG_CTXT, false);
-		printf("BackEndBridge: signaled the back end to exit\n");
+		printf("BackEndBridge: released the back end buffer\n");
 	}
 
 	//

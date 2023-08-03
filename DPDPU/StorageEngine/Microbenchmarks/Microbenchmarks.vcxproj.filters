@@ -21,9 +21,6 @@
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Profiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -31,6 +28,30 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\RDMC.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\RingBufferFaRMStyle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\RingBufferLockBased.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\RingBufferNoConcurrency.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -54,6 +75,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

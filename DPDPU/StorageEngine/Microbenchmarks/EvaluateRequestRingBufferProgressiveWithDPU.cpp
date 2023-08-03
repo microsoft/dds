@@ -2,8 +2,9 @@
 #include <iostream>
 #include <thread>
 
+#include "DMABuffer.h"
 #include "Evaluation.h"
-#include "RingBufferFaRMStyle.h"
+#include "RingBufferProgressive.h"
 #include "Profiler.h"
 
 using namespace DDS_FrontEnd;
@@ -46,79 +47,23 @@ public:
 	}
 };
 
-void RequestProducer(
-	RequestRingBufferFaRMStyle* RingBuffer,
+void RequestProducerWithDPU(
+	RequestRingBufferProgressive* RingBuffer,
 	Request** Requests,
 	size_t NumRequests
 ) {
 	for (size_t r = 0; r != NumRequests; r++) {
-		while (InsertToRequestBufferFaRMStyle(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
+		while (InsertToRequestBufferProgressive(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
 			this_thread::yield();
 		}
 	}
 }
 
-void RequestConsumer(
-	RequestRingBufferFaRMStyle* RingBuffer,
-	size_t TotalNumRequests
-) {
-	size_t numReqProcessed = 0;
-	size_t sum = 0;
-	char* pagesOfRequests = new char[DDS_REQUEST_RING_BYTES];
-	BufferT requestPointer = NULL;
-	FileIOSizeT requestSize = 0;
-	BufferT startOfNext = NULL;
-	FileIOSizeT remainingSize = 0;
-	Profiler profiler(TotalNumRequests);
-	
-	profiler.Start();
-	while (numReqProcessed != TotalNumRequests) {
-		while(FetchFromRequestBufferFaRMStyle(RingBuffer, pagesOfRequests, &remainingSize) == false) {
-			this_thread::yield();
-		}
-
-		startOfNext = pagesOfRequests;
-
-		while (true) {
-			ParseNextRequestFaRMStyle(
-				startOfNext,
-				remainingSize,
-				&requestPointer,
-				&requestSize,
-				&startOfNext,
-				&remainingSize);
-
-			int* request = (int*)requestPointer;
-
-			int numInts = request[0] / (int)sizeof(int);
-			for (int i = 1; i != numInts + 1; i++) {
-				sum += request[i];
-			}
-
-			numReqProcessed++;
-
-			if (remainingSize == 0) {
-				break;
-			}
-		}
-	}
-
-	profiler.Stop();
-
-	delete[] pagesOfRequests;
-
-	cout << "Microbenchmark completed" << endl;
-	cout << "-- Result: sum = " << sum << endl;
-	cout << "-- Ring tail = " << RingBuffer->Tail << endl;
-	cout << "-- Ring head = " << RingBuffer->Head << endl;
-	profiler.Report();
-}
-
-void EvaluateRequestRingBufferFaRMStyle() {
+void EvaluateRequestRingBufferProgressiveWithDPU() {
 	const size_t entireBufferSpace = 134217728; // 128 MB
 	char* Buffer = new char[entireBufferSpace];
-	RequestRingBufferFaRMStyle* ringBuffer = NULL;
-	const size_t totalProducers = 64;
+	RequestRingBufferProgressive* ringBuffer = NULL;
+	const size_t totalProducers = 1;
 	const size_t requestsPerProducer = 10000000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
 
@@ -128,7 +73,7 @@ void EvaluateRequestRingBufferFaRMStyle() {
 	//
 	cout << "Allocating a ring buffer..." << endl;
 	memset(Buffer, 0, entireBufferSpace);
-	ringBuffer = AllocateRequestBufferFaRMStyle(Buffer);
+	ringBuffer = AllocateRequestBufferProgressive(Buffer);
 
 	//
 	// Prepare requests
@@ -137,7 +82,7 @@ void EvaluateRequestRingBufferFaRMStyle() {
 	cout << "Preparing requests..." << endl;
 	unsigned int randomSeed = 0;
 	srand(randomSeed);
-	Request** allRequests = new Request*[totalRequests];
+	Request** allRequests = new Request * [totalRequests];
 	size_t sum = 0;
 	for (size_t r = 0; r != totalRequests; r++) {
 		Request* curReq = NULL;
@@ -181,23 +126,12 @@ void EvaluateRequestRingBufferFaRMStyle() {
 	for (size_t t = 0; t != totalProducers; t++) {
 		producerThreads[t] = new thread(
 			[t, ringBuffer, allRequests, requestsPerProducer] {
-				RequestProducer(ringBuffer,
+				RequestProducerWithDPU(ringBuffer,
 					&allRequests[requestsPerProducer * t],
 					requestsPerProducer);
 			}
 		);
 	}
-
-	//
-	// Start the consumer
-	//
-	//
-	cout << "Starting the consumer..." << endl;
-	thread* consumerThread = new thread(
-		[ringBuffer, totalRequests] {
-			RequestConsumer(ringBuffer, totalRequests);
-		}
-	);
 
 	//
 	// Wait for all threads to join
@@ -207,10 +141,9 @@ void EvaluateRequestRingBufferFaRMStyle() {
 	for (size_t t = 0; t != totalProducers; t++) {
 		producerThreads[t]->join();
 	}
-	consumerThread->join();
 
 	cout << "Release all of the memory..." << endl;
-	DeallocateRequestBufferFaRMStyle(ringBuffer);
+	DeallocateRequestBufferProgressive(ringBuffer);
 
 	for (size_t r = 0; r != totalRequests; r++) {
 		delete allRequests[r];
@@ -219,7 +152,6 @@ void EvaluateRequestRingBufferFaRMStyle() {
 	for (size_t t = 0; t != totalProducers; t++) {
 		delete producerThreads[t];
 	}
-	delete consumerThread;
 
 	delete[] Buffer;
 }

@@ -157,6 +157,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\Common\Source\DMABuffer.cpp" />
     <ClCompile Include="..\..\Common\Source\RDMC.cpp" />
+    <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp" />
     <ClCompile Include="BackEndBridge.cpp" />
     <ClCompile Include="DDSDir.cpp" />
     <ClCompile Include="DDSFile.cpp" />

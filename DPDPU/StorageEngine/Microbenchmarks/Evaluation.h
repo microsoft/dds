@@ -1,6 +1,8 @@
 #pragma once
 
-void EvaluateRequestRingBuffer();
+void EvaluateRequestRingBufferNoConcurrency();
 void EvaluateRequestRingBufferProgressive();
-void EvaluateRequestRingBufferFaRM();
-void EvaluateRequestRingBufferLock();
+void EvaluateRequestRingBufferFaRMStyle();
+void EvaluateRequestRingBufferLockBased();
+
+void EvaluateRequestRingBufferProgressiveWithDPU();

@@ -131,31 +131,48 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\Common\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;ws2_32.lib;Iphlpapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp" />
+    <ClCompile Include="..\..\Common\Source\RDMC.cpp" />
+    <ClCompile Include="..\..\Common\Source\RingBufferFaRMStyle.cpp" />
+    <ClCompile Include="..\..\Common\Source\RingBufferLockBased.cpp" />
+    <ClCompile Include="..\..\Common\Source\RingBufferNoConcurrency.cpp" />
+    <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyle.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp" />
+    <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp" />
     <ClCompile Include="Microbenchmarks.cpp" />
     <ClCompile Include="Profiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h" />
+    <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferLockBased.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferNoConcurrency.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h" />
     <ClInclude Include="Evaluation.h" />
     <ClInclude Include="Profiler.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
+      <Project>{fc7cbd5d-8104-4e77-b17a-08fe588adb84}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NDSPI\src\ndutil\ndutil.vcxproj">
+      <Project>{6955ed94-3b21-4835-838a-a797aff63183}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

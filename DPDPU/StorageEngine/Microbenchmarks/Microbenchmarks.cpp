@@ -1,13 +1,15 @@
 #include "Evaluation.h"
 
 int main() {
-    // EvaluateRequestRingBuffer();
+    // EvaluateRequestRingBufferNoConcurrency();
     
-    EvaluateRequestRingBufferProgressive();
+    // EvaluateRequestRingBufferProgressive();
 
-    // EvaluateRequestRingBufferFaRM();
+    // EvaluateRequestRingBufferFaRMStyle();
 
-    // EvaluateRequestRingBufferLock();
+    // EvaluateRequestRingBufferLockBased();
+
+    EvaluateRequestRingBufferProgressiveWithDPU();
     
     return 0;
 }

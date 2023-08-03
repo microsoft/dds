@@ -46,7 +46,7 @@ DeallocateRequestBufferFaRMStyle(
 //
 //
 bool
-InsertToRequestBufferFaRMStyleStyle(
+InsertToRequestBufferFaRMStyle(
     RequestRingBufferFaRMStyle* RingBuffer,
     const BufferT CopyFrom,
     FileIOSizeT RequestSize

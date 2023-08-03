@@ -8,7 +8,6 @@ namespace DDS_FrontEnd {
 // Allocate a request buffer object
 //
 //
-inline
 RequestRingBuffer*
 AllocateRequestBuffer(
     BufferT BufferAddress
@@ -34,7 +33,6 @@ AllocateRequestBuffer(
 // Deallocate a request buffer object
 //
 //
-inline
 void
 DeallocateRequestBuffer(
     RequestRingBuffer* RingBuffer
@@ -46,7 +44,6 @@ DeallocateRequestBuffer(
 // Insert a request into the request buffer
 //
 //
-inline
 bool
 InsertToRequestBuffer(
     RequestRingBuffer* RingBuffer,
@@ -152,7 +149,6 @@ InsertToRequestBuffer(
 // Fetch requests from the request buffer
 //
 //
-inline
 bool
 FetchFromRequestBuffer(
     RequestRingBuffer* RingBuffer,
@@ -215,7 +211,6 @@ FetchFromRequestBuffer(
 // Note: RequestSize is greater than the actual request size and is cache line aligned
 //
 //
-inline
 void
 ParseNextRequest(
     BufferT CopyTo,
