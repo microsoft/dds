@@ -1,10 +1,8 @@
 #pragma once
 
-#include "RDMC.h"
 #include "MsgType.h"
-
-#define BACKEND_ADDR "192.168.200.32"
-#define BACKEND_PORT 4242
+#include "RDMC.h"
+#include "Protocol.h"
 
 #define BACKEND_TYPE_IN_MEMORY 1
 #define BACKEND_TYPE_DMA 2

@@ -27,9 +27,6 @@
     <ClInclude Include="DDSFile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BackEndBridge.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\Include\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -48,6 +45,9 @@
     <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DDSBackEndBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFrontEnd.cpp">
@@ -62,9 +62,6 @@
     <ClCompile Include="DDSFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BackEndBridge.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\Source\DMABuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -72,6 +69,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DDSBackEndBridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

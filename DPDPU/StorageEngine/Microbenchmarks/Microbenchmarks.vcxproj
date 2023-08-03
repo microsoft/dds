@@ -129,7 +129,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -142,6 +142,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Common\Source\BackEndBridge.cpp" />
     <ClCompile Include="..\..\Common\Source\DMABuffer.cpp" />
     <ClCompile Include="..\..\Common\Source\RDMC.cpp" />
     <ClCompile Include="..\..\Common\Source\RingBufferFaRMStyle.cpp" />
@@ -157,6 +158,7 @@
     <ClCompile Include="Profiler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Common\Include\BackEndBridge.h" />
     <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h" />
     <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h" />

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define MSG_CTXT ((void *) 0x5000)
 
 #define CTRL_CONN_PRIV_DATA 42

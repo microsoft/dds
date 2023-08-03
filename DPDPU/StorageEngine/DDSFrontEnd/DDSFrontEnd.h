@@ -2,7 +2,7 @@
 
 #include <atomic>
 
-#include "BackEndBridge.h"
+#include "DDSBackEndBridge.h"
 #include "DDSDir.h"
 #include "DDSFile.h"
 #include "DDSFrontEndInterface.h"
@@ -94,7 +94,7 @@ class DDSFrontEnd : public DDSFrontEndInterface
 {
 private:
     char StoreName[DDS_MAX_DEVICE_NAME_LEN];
-    BackEndBridge BackEnd;
+    DDSBackEndBridge BackEnd;
     DDSDir* AllDirs[DDS_MAX_DIRS];
     DirIdT DirIdEnd;
     DDSFile* AllFiles[DDS_MAX_FILES];

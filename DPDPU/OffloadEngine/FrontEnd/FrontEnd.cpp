@@ -34,6 +34,8 @@ FrontEnd::AllocateBuffer(
 	if (Buffer->Allocate(&BackEnd.LocalSock, &BackEnd.BackEndSock, BackEnd.QueueDepth, BackEnd.MaxSge, BackEnd.InlineThreshold)) {
 		return Buffer->BufferAddress;
 	}
+
+	return NULL;
 }
 
 //

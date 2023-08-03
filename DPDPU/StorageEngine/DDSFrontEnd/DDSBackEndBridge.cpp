@@ -1,17 +1,17 @@
 #include <string.h>
 
-#include "BackEndBridge.h"
+#include "DDSBackEndBridge.h"
 
 namespace DDS_FrontEnd {
 
-BackEndBridge::BackEndBridge() {
+DDSBackEndBridge::DDSBackEndBridge() {
 #if BACKEND_TYPE == BACKEND_TYPE_DMA
     //
     // Record buffer capacity and back end address and port
     //
     //
-    strcpy(BackEndAddr, BACKEND_ADDR);
-    BackEndPort = BACKEND_PORT;
+    strcpy(BackEndAddr, DDS_BACKEND_ADDR);
+    BackEndPort = DDS_BACKEND_PORT;
     memset(&BackEndSock, 0, sizeof(BackEndSock));
 
     //
@@ -43,7 +43,7 @@ BackEndBridge::BackEndBridge() {
 //
 //
 ErrorCodeT
-BackEndBridge::Connect() {
+DDSBackEndBridge::Connect() {
 #if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
     if (!BackEnd) {
         BackEnd = new DDS_BackEnd::BackEndInMemory();
@@ -58,12 +58,12 @@ BackEndBridge::Connect() {
     WSADATA wsaData;
     int ret = ::WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (ret != 0) {
-        printf("BackEndBridge: failed to initialize Windows Sockets: %d\n", ret);
+        printf("DDSBackEndBridge: failed to initialize Windows Sockets: %d\n", ret);
         return false;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
-        printf("BackEndBridge: succeeded to initialize Windows Sockets\n");
+        printf("DDSBackEndBridge: succeeded to initialize Windows Sockets\n");
     }
 #endif
 
@@ -91,12 +91,12 @@ BackEndBridge::Connect() {
     );
 
     if (BackEndSock.sin_addr.s_addr == 0) {
-        printf("BackEndBridge: bad address for the backend\n");
+        printf("DDSBackEndBridge: bad address for the backend\n");
         return false;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
-        printf("BackEndBridge: good address for the backend\n");
+        printf("DDSBackEndBridge: good address for the backend\n");
     }
 #endif
 
@@ -133,12 +133,12 @@ BackEndBridge::Connect() {
 
     Ov.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (Ov.hEvent == nullptr) {
-        printf("BackEndBridge: failed to allocate event for overlapped operations\n");
+        printf("DDSBackEndBridge: failed to allocate event for overlapped operations\n");
         return false;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
-        printf("BackEndBridge: succeeded to allocate event for overlapped operations\n");
+        printf("DDSBackEndBridge: succeeded to allocate event for overlapped operations\n");
     }
 #endif
 
@@ -183,7 +183,7 @@ BackEndBridge::Connect() {
     MaxSge = min(AdapterInfo.MaxInitiatorSge, AdapterInfo.MaxReadSge);
     InlineThreshold = AdapterInfo.InlineRequestThreshold;
 
-    printf("BackEndBridge: adapter information\n");
+    printf("DDSBackEndBridge: adapter information\n");
     printf("- Queue depth = %llu\n", QueueDepth);
     printf("- Max SGE = %llu\n", MaxSge);
     printf("- Inline threshold = %llu\n", InlineThreshold);
@@ -269,10 +269,10 @@ BackEndBridge::Connect() {
 
     if (((MsgHeader*)CtrlMsgBuf)->MsgId == CTRL_MSG_B2F_RESPOND_ID) {
         ClientId = ((CtrlMsgB2FRespondId*)(CtrlMsgBuf + sizeof(MsgHeader)))->ClientId;
-        printf("BackEndBridge: connected to the back end with assigned Id (%d)\n", ClientId);
+        printf("DDSBackEndBridge: connected to the back end with assigned Id (%d)\n", ClientId);
     }
     else {
-        printf("BackEndBridge: wrong message from the back end\n");
+        printf("DDSBackEndBridge: wrong message from the back end\n");
         return DDS_ERROR_CODE_UNEXPECTED_MSG;
     }
 
@@ -287,7 +287,7 @@ BackEndBridge::Connect() {
 //
 //
 ErrorCodeT
-BackEndBridge::Disconnect() {
+DDSBackEndBridge::Disconnect() {
 #if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
     if (BackEnd) {
         delete BackEnd;
@@ -306,7 +306,7 @@ BackEndBridge::Disconnect() {
         CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BTerminate);
         RDMC_Send(CtrlQPair, CtrlSgl, 1, 0, MSG_CTXT);
         RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
-        printf("BackEndBridge: disconnected from the back end\n");
+        printf("DDSBackEndBridge: disconnected from the back end\n");
     }
 
     //
@@ -375,7 +375,7 @@ BackEndBridge::Disconnect() {
 // 
 //
 ErrorCodeT
-BackEndBridge::CreateDirectory(
+DDSBackEndBridge::CreateDirectory(
     const char* PathName,
     DirIdT DirId,
     DirIdT ParentId
@@ -396,7 +396,7 @@ BackEndBridge::CreateDirectory(
 // 
 //
 ErrorCodeT
-BackEndBridge::RemoveDirectory(
+DDSBackEndBridge::RemoveDirectory(
     DirIdT DirId
 ) {
 #if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
@@ -413,7 +413,7 @@ BackEndBridge::RemoveDirectory(
 // 
 //
 ErrorCodeT
-BackEndBridge::CreateFile(
+DDSBackEndBridge::CreateFile(
     const char* FileName,
     FileAttributesT FileAttributes,
     FileIdT FileId,
@@ -436,7 +436,7 @@ BackEndBridge::CreateFile(
 // 
 //
 ErrorCodeT
-BackEndBridge::DeleteFile(
+DDSBackEndBridge::DeleteFile(
     FileIdT FileId,
     DirIdT DirId
 ) {
@@ -455,7 +455,7 @@ BackEndBridge::DeleteFile(
 // 
 //
 ErrorCodeT
-BackEndBridge::ChangeFileSize(
+DDSBackEndBridge::ChangeFileSize(
     FileIdT FileId,
     FileSizeT NewSize
 ) {
@@ -474,7 +474,7 @@ BackEndBridge::ChangeFileSize(
 // 
 //
 ErrorCodeT
-BackEndBridge::GetFileSize(
+DDSBackEndBridge::GetFileSize(
     FileIdT FileId,
     FileSizeT* FileSize
 ) {
@@ -493,7 +493,7 @@ BackEndBridge::GetFileSize(
 // 
 //
 ErrorCodeT
-BackEndBridge::ReadFile(
+DDSBackEndBridge::ReadFile(
     FileIdT FileId,
     FileSizeT Offset,
     BufferT DestBuffer,
@@ -522,7 +522,7 @@ BackEndBridge::ReadFile(
 // 
 //
 ErrorCodeT
-BackEndBridge::ReadFileScatter(
+DDSBackEndBridge::ReadFileScatter(
     FileIdT FileId,
     FileSizeT Offset,
     BufferT* DestBufferArray,
@@ -551,7 +551,7 @@ BackEndBridge::ReadFileScatter(
 // 
 //
 ErrorCodeT
-BackEndBridge::WriteFile(
+DDSBackEndBridge::WriteFile(
     FileIdT FileId,
     FileSizeT Offset,
     BufferT SourceBuffer,
@@ -580,7 +580,7 @@ BackEndBridge::WriteFile(
 // 
 //
 ErrorCodeT
-BackEndBridge::WriteFileGather(
+DDSBackEndBridge::WriteFileGather(
     FileIdT FileId,
     FileSizeT Offset,
     BufferT* SourceBufferArray,
@@ -609,7 +609,7 @@ BackEndBridge::WriteFileGather(
 // 
 //
 ErrorCodeT
-BackEndBridge::GetFileInformationById(
+DDSBackEndBridge::GetFileInformationById(
     FileIdT FileId,
     FilePropertiesT* FileProperties
 ) {
@@ -637,7 +637,7 @@ BackEndBridge::GetFileInformationById(
 // 
 //
 ErrorCodeT
-BackEndBridge::GetFileAttributes(
+DDSBackEndBridge::GetFileAttributes(
     FileIdT FileId,
     FileAttributesT* FileAttributes
 ) {
@@ -656,7 +656,7 @@ BackEndBridge::GetFileAttributes(
 // 
 //
 ErrorCodeT
-BackEndBridge::GetStorageFreeSpace(
+DDSBackEndBridge::GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace
 ) {
 #if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
@@ -674,7 +674,7 @@ BackEndBridge::GetStorageFreeSpace(
 // 
 //
 ErrorCodeT
-BackEndBridge::MoveFile(
+DDSBackEndBridge::MoveFile(
     FileIdT FileId,
     const char* NewFileName
 ) {

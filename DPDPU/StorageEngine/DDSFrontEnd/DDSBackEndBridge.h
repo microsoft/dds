@@ -1,12 +1,10 @@
 #pragma once
 
-#include <BackEndInMemory.h>
+#include "BackEndInMemory.h"
 #include "DDSFrontEndInterface.h"
-#include "RDMC.h"
 #include "MsgType.h"
-
-#define BACKEND_ADDR "192.168.200.32"
-#define BACKEND_PORT 4242
+#include "RDMC.h"
+#include "Protocol.h"
 
 #define BACKEND_TYPE_IN_MEMORY 1
 #define BACKEND_TYPE_DMA 2
@@ -38,7 +36,7 @@ typedef void (*BackEndReadWriteCallback)(
 // Connector that fowards requests to and receives responses from the back end
 //
 //
-class BackEndBridge {
+class DDSBackEndBridge {
 private:
 #if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
 	DDS_BackEnd::BackEndInMemory* BackEnd;
@@ -75,7 +73,7 @@ private:
 #endif
 
 public:
-    BackEndBridge();
+    DDSBackEndBridge();
 
     //
     // Connect to the backend

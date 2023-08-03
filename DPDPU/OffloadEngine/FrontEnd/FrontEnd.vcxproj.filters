@@ -24,20 +24,14 @@
     <ClCompile Include="..\..\Common\Source\RDMC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BackEndBridge.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="FrontEndShell.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp">
+    <ClCompile Include="..\..\Common\Source\BackEndBridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BackEndBridge.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\Include\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -53,7 +47,7 @@
     <ClInclude Include="..\..\Common\Include\Protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
+    <ClInclude Include="..\..\Common\Include\BackEndBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

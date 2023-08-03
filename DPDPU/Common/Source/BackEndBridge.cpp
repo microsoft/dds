@@ -7,8 +7,8 @@ BackEndBridge::BackEndBridge() {
     // Record buffer capacity and back end address and port
     //
     //
-    strcpy(BackEndAddr, BACKEND_ADDR);
-    BackEndPort = BACKEND_PORT;
+    strcpy(BackEndAddr, DDS_BACKEND_ADDR);
+    BackEndPort = DDS_BACKEND_PORT;
     memset(&BackEndSock, 0, sizeof(BackEndSock));
 
     //
@@ -191,12 +191,12 @@ BackEndBridge::Connect() {
     printf("RDMC_CreateConnector succeeded\n");
 #endif
 
-    RDMC_CreateCQ(Adapter, AdapterFileHandle, QueueDepth, &CtrlCompQ);
+    RDMC_CreateCQ(Adapter, AdapterFileHandle, (DWORD)QueueDepth, &CtrlCompQ);
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_CreateCQ succeeded\n");
 #endif
 
-    RDMC_CreateQueuePair(Adapter, CtrlCompQ, QueueDepth, MaxSge, InlineThreshold, &CtrlQPair);
+    RDMC_CreateQueuePair(Adapter, CtrlCompQ, (DWORD)QueueDepth, (DWORD)MaxSge, (DWORD)InlineThreshold, &CtrlQPair);
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_CreateQueuePair succeeded\n");
 #endif
@@ -206,7 +206,7 @@ BackEndBridge::Connect() {
     printf("RDMC_CreateMR succeeded\n");
 #endif
 
-    uint64_t flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
+    unsigned long flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
     RDMC_RegisterDataBuffer(CtrlMemRegion, CtrlMsgBuf, CTRL_MSG_SIZE, flags, &Ov);
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_RegisterDataBuffer succeeded\n");
@@ -218,7 +218,7 @@ BackEndBridge::Connect() {
     CtrlSgl[0].MemoryRegionToken = CtrlMemRegion->GetLocalToken();
 
     uint8_t privData = CTRL_CONN_PRIV_DATA;
-    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
+    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, (DWORD)QueueDepth, &privData, sizeof(privData));
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_Connect succeeded\n");
 #endif
@@ -421,12 +421,12 @@ BackEndBridge::ConnectTest() {
     printf("RDMC_CreateConnector succeeded\n");
 #endif
 
-    RDMC_CreateCQ(Adapter, AdapterFileHandle, QueueDepth, &CtrlCompQ);
+    RDMC_CreateCQ(Adapter, AdapterFileHandle, (DWORD)QueueDepth, &CtrlCompQ);
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_CreateCQ succeeded\n");
 #endif
 
-    RDMC_CreateQueuePair(Adapter, CtrlCompQ, QueueDepth, MaxSge, InlineThreshold, &CtrlQPair);
+    RDMC_CreateQueuePair(Adapter, CtrlCompQ, (DWORD)QueueDepth, (DWORD)MaxSge, (DWORD)InlineThreshold, &CtrlQPair);
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_CreateQueuePair succeeded\n");
 #endif
@@ -442,7 +442,7 @@ BackEndBridge::ConnectTest() {
     printf("RDMC_CreateMR succeeded\n");
 #endif
 
-    uint64_t flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
+    unsigned long flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
     RDMC_RegisterDataBuffer(CtrlMemRegion, CtrlMsgBuf, CTRL_MSG_SIZE, flags, &Ov);
 
     RDMC_CreateMR(Adapter, AdapterFileHandle, &memReg);
@@ -458,7 +458,7 @@ BackEndBridge::ConnectTest() {
     CtrlSgl[0].MemoryRegionToken = CtrlMemRegion->GetLocalToken();
 
     uint8_t privData = CTRL_CONN_PRIV_DATA;
-    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
+    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, (DWORD)QueueDepth, &privData, sizeof(privData));
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_Connect succeeded\n");
 #endif
