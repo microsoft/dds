@@ -141,21 +141,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="EvaluateRequestRingBuffer.cpp" />
-    <ClCompile Include="EvaluateRequestRingBufferFaRM.cpp" />
-    <ClCompile Include="EvaluateRequestRingBufferLock.cpp" />
+    <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp" />
+    <ClCompile Include="EvaluateRequestRingBufferFaRMStyle.cpp" />
+    <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp" />
     <ClCompile Include="Microbenchmarks.cpp" />
     <ClCompile Include="Profiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h" />
+    <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h" />
+    <ClInclude Include="..\..\Common\Include\RingBufferLockBased.h" />
+    <ClInclude Include="..\..\Common\Include\RingBufferNoConcurrency.h" />
+    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h" />
     <ClInclude Include="Evaluation.h" />
     <ClInclude Include="Profiler.h" />
-    <ClInclude Include="RingBuffer.h" />
-    <ClInclude Include="RingBufferFaRM.h" />
-    <ClInclude Include="RingBufferLock.h" />
-    <ClInclude Include="RingBufferProgressive.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

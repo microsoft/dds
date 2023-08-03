@@ -18,7 +18,7 @@
     <ClCompile Include="Microbenchmarks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="EvaluateRequestRingBuffer.cpp">
+    <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp">
@@ -27,10 +27,10 @@
     <ClCompile Include="Profiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="EvaluateRequestRingBufferFaRM.cpp">
+    <ClCompile Include="EvaluateRequestRingBufferFaRMStyle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="EvaluateRequestRingBufferLock.cpp">
+    <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -38,22 +38,22 @@
     <ClInclude Include="Evaluation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RingBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RingBufferProgressive.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Profiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RingBufferFaRM.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RingBufferLock.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\RingBufferLockBased.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\RingBufferNoConcurrency.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

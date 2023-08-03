@@ -30,12 +30,6 @@
     <ClInclude Include="BackEndBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RingBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RingBufferProgressive.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\Include\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -49,6 +43,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

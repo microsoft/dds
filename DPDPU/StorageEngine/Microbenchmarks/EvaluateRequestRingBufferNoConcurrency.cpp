@@ -3,7 +3,7 @@
 #include <thread>
 
 #include "Evaluation.h"
-#include "RingBuffer.h"
+#include "RingBufferNoConcurrency.h"
 
 using namespace DDS_FrontEnd;
 using namespace std;
