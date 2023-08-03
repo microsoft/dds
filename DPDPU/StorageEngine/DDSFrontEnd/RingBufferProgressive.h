@@ -5,8 +5,6 @@
 
 #include "DDSFrontEndInterface.h"
 
-#define RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT 1048576
-
 namespace DDS_FrontEnd {
 
 template <class C>
