@@ -7,6 +7,16 @@
 #include "DDSFile.h"
 #include "DDSFrontEndInterface.h"
 
+#undef CreateDirectory
+#undef RemoveDirectory
+#undef CreateFile
+#undef DeleteFile
+#undef FindFirstFile
+#undef FindNextFile
+#undef GetFileAttributes
+#undef GetCurrentDirectory
+#undef MoveFile
+
 #define DDS_FRONTEND_MAX_OUTSTANDING 128
 
 namespace DDS_FrontEnd {

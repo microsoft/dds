@@ -56,8 +56,8 @@ bool DMABuffer::Allocate(
 
 	RDMC_OpenAdapter(&Adapter, LocalSock, &AdapterFileHandle, &Ov);
 	RDMC_CreateConnector(Adapter, AdapterFileHandle, &Connector);
-	RDMC_CreateCQ(Adapter, AdapterFileHandle, QueueDepth, &CompQ);
-	RDMC_CreateQueuePair(Adapter, CompQ, QueueDepth, MaxSge, InlineThreshold, &QPair);
+	RDMC_CreateCQ(Adapter, AdapterFileHandle, (DWORD)QueueDepth, &CompQ);
+	RDMC_CreateQueuePair(Adapter, CompQ, (DWORD)QueueDepth, (DWORD)MaxSge, (DWORD)InlineThreshold, &QPair);
 
 	//
 	// Create and register a memory buffer and an additional buffer for messages
@@ -70,8 +70,8 @@ bool DMABuffer::Allocate(
 	}
 	
 	RDMC_CreateMR(Adapter, AdapterFileHandle, &MemRegion);
-	uint64_t flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
-	RDMC_RegisterDataBuffer(MemRegion, BufferAddress, Capacity, flags, &Ov);
+	unsigned long flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
+	RDMC_RegisterDataBuffer(MemRegion, BufferAddress, (DWORD)Capacity, flags, &Ov);
 
 	RDMC_CreateMR(Adapter, AdapterFileHandle, &MsgMemRegion);
 	RDMC_RegisterDataBuffer(MsgMemRegion, MsgBuf, BUFF_MSG_SIZE, flags, &Ov);
@@ -81,7 +81,7 @@ bool DMABuffer::Allocate(
 	//
 	//
 	uint8_t privData = BUFF_CONN_PRIV_DATA;
-	RDMC_Connect(Connector, QPair, &Ov, *LocalSock, *BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
+	RDMC_Connect(Connector, QPair, &Ov, *LocalSock, *BackEndSock, 0, (DWORD)QueueDepth, &privData, sizeof(privData));
 	RDMC_CompleteConnect(Connector, &Ov);
 
 	//
@@ -91,7 +91,7 @@ bool DMABuffer::Allocate(
 	//
 	//
 	RDMC_CreateMW(Adapter, &MemWindow);
-	RDMC_Bind(QPair, MemRegion, MemWindow, BufferAddress, Capacity, ND_OP_FLAG_ALLOW_READ | ND_OP_FLAG_ALLOW_WRITE, CompQ, &Ov);
+	RDMC_Bind(QPair, MemRegion, MemWindow, BufferAddress, (DWORD)Capacity, ND_OP_FLAG_ALLOW_READ | ND_OP_FLAG_ALLOW_WRITE, CompQ, &Ov);
 
 	MsgSgl = new ND2_SGE[1];
 	MsgSgl[0].Buffer = MsgBuf;
@@ -102,7 +102,7 @@ bool DMABuffer::Allocate(
 	BuffMsgF2BRequestId* msg = (BuffMsgF2BRequestId*)(MsgBuf + sizeof(MsgHeader));
 	msg->ClientId = ClientId;
 	msg->BufferAddress = (uint64_t)BufferAddress;
-	msg->Capacity = Capacity;
+	msg->Capacity = (uint32_t)Capacity;
 	
 	//
 	// NOTE: translating the token from host encoding to network encoding is necessary for the Linux back end

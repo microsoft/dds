@@ -144,6 +144,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\MsgType.h" />
+    <ClInclude Include="..\..\Common\Include\Protocol.h" />
     <ClInclude Include="..\..\Common\Include\RDMC.h" />
     <ClInclude Include="BackEndBridge.h" />
     <ClInclude Include="DDSDir.h" />

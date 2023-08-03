@@ -48,6 +48,9 @@
     <ClInclude Include="..\..\Common\Include\RDMC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Include\Protocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFrontEnd.cpp">

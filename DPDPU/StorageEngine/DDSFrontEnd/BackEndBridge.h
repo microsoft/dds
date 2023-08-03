@@ -12,6 +12,16 @@
 #define BACKEND_TYPE_DMA 2
 #define BACKEND_TYPE BACKEND_TYPE_DMA
 
+#undef CreateDirectory
+#undef RemoveDirectory
+#undef CreateFile
+#undef DeleteFile
+#undef FindFirstFile
+#undef FindNextFile
+#undef GetFileAttributes
+#undef GetCurrentDirectory
+#undef MoveFile
+
 namespace DDS_FrontEnd {
 
 //

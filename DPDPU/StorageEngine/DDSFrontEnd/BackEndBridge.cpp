@@ -144,11 +144,11 @@ BackEndBridge::Connect() {
     //
     RDMC_OpenAdapter(&Adapter, &BackEndSock, &AdapterFileHandle, &Ov);
     RDMC_CreateConnector(Adapter, AdapterFileHandle, &CtrlConnector);
-    RDMC_CreateCQ(Adapter, AdapterFileHandle, QueueDepth, &CtrlCompQ);
-    RDMC_CreateQueuePair(Adapter, CtrlCompQ, QueueDepth, MaxSge, InlineThreshold, &CtrlQPair);
+    RDMC_CreateCQ(Adapter, AdapterFileHandle, (DWORD)QueueDepth, &CtrlCompQ);
+    RDMC_CreateQueuePair(Adapter, CtrlCompQ, (DWORD)QueueDepth, (DWORD)MaxSge, (DWORD)InlineThreshold, &CtrlQPair);
 
     RDMC_CreateMR(Adapter, AdapterFileHandle, &CtrlMemRegion);
-    uint64_t flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
+    unsigned long flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;
     RDMC_RegisterDataBuffer(CtrlMemRegion, CtrlMsgBuf, CTRL_MSG_SIZE, flags, &Ov);
 
     CtrlSgl = new ND2_SGE[1];
@@ -156,7 +156,7 @@ BackEndBridge::Connect() {
     CtrlSgl[0].BufferLength = CTRL_MSG_SIZE;
     CtrlSgl[0].MemoryRegionToken = CtrlMemRegion->GetLocalToken();
 
-    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth);
+    RDMC_Connect(CtrlConnector, CtrlQPair, &Ov, LocalSock, BackEndSock, 0, (DWORD)QueueDepth);
     RDMC_CompleteConnect(CtrlConnector, &Ov);
 
     //
