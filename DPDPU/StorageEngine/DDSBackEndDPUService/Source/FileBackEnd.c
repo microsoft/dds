@@ -836,13 +836,13 @@ ProcessCmEvents(
         case RDMA_CM_EVENT_ESTABLISHED:
         {
             uint8_t privData;
-	    int connId = FindConnId(Config, Event->id, &privData);
+            int connId = FindConnId(Config, Event->id, &privData);
             if (privData) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
 #endif
             }
-	    else
+            else
             {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
@@ -869,34 +869,34 @@ ProcessCmEvents(
         case RDMA_CM_EVENT_DISCONNECTED:
         {
             uint8_t privData;
-	    int connId = FindConnId(Config, Event->id, &privData);
-	    if (connId >= 0) {
-            if (privData) {
-                    if (Config->CtrlConns[connId].InUse) {
-                        struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
-                        DestroyCtrlRegionsAndBuffers(ctrlConn);
-                        DestroyCtrlQPair(ctrlConn);
-                        ctrlConn->InUse = 0;
-                    }
+            int connId = FindConnId(Config, Event->id, &privData);
+            if (connId >= 0) {
+                if (privData) {
+                        if (Config->CtrlConns[connId].InUse) {
+                            struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
+                            DestroyCtrlRegionsAndBuffers(ctrlConn);
+                            DestroyCtrlQPair(ctrlConn);
+                            ctrlConn->InUse = 0;
+                        }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", connId);
+                        fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", connId);
 #endif
-            }
-	    else {
-                    if (Config->BuffConns[connId].InUse) {
-                        struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
-                        DestroyBuffRegionsAndBuffers(buffConn);
-                        DestroyBuffQPair(buffConn);
-                        buffConn->InUse = 0;
-                    }
+                }
+                else {
+                        if (Config->BuffConns[connId].InUse) {
+                            struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
+                            DestroyBuffRegionsAndBuffers(buffConn);
+                            DestroyBuffQPair(buffConn);
+                            buffConn->InUse = 0;
+                        }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                     fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", connId);
 #endif
-            }
-	    }
-                else {
-                    fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized control connection\n");
                 }
+            }
+            else {
+                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized control connection\n");
+            }
                 
             rdma_ack_cm_event(Event);
             break;
