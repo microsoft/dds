@@ -142,6 +142,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h" />
     <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\MsgType.h" />
     <ClInclude Include="..\..\Common\Include\Protocol.h" />
@@ -150,7 +151,6 @@
     <ClInclude Include="DDSDir.h" />
     <ClInclude Include="DDSFile.h" />
     <ClInclude Include="DDSFrontEnd.h" />
-    <ClInclude Include="DDSFrontEndInterface.h" />
     <ClInclude Include="LinkedList.h" />
     <ClInclude Include="RingBuffer.h" />
     <ClInclude Include="RingBufferProgressive.h" />

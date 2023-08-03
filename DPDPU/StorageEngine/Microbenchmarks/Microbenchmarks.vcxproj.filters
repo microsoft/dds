@@ -41,9 +41,6 @@
     <ClInclude Include="RingBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DDSFrontEndInterface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="RingBufferProgressive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -54,6 +51,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RingBufferLock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
