@@ -16,6 +16,20 @@ public:
 	FrontEnd();
 
 	//
+	// Connect to the back end
+	//
+	//
+	bool
+	Connect();
+
+	//
+	// Disconnect from the back end
+	//
+	//
+	void
+	Disconnect();
+
+	//
 	// Allocate the DMA buffer
 	//
 	//

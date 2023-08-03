@@ -181,7 +181,7 @@ BackEndBridge::Connect() {
     // Connect to the back end
     //
     //
-    RDMC_OpenAdapter(&Adapter, &BackEndSock, &AdapterFileHandle, &Ov);
+    RDMC_OpenAdapter(&Adapter, &LocalSock, &AdapterFileHandle, &Ov);
 #ifdef BACKEND_BRIDGE_VERBOSE
     printf("RDMC_OpenAdapter succeeded\n");
 #endif
@@ -527,7 +527,7 @@ BackEndBridge::Disconnect() {
         CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BTerminate);
         RDMC_Send(CtrlQPair, CtrlSgl, 1, 0, MSG_CTXT);
         RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
-        printf("BackEndBridge: signaled the back end to exit\n");
+        printf("BackEndBridge: disconnected from the back end\n");
     }
 
     //

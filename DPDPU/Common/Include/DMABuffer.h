@@ -48,8 +48,8 @@ public:
     //
     //
     bool Allocate(
-        struct sockaddr_in &LocalSock,
-        struct sockaddr_in &BackEndSock,
+        struct sockaddr_in* LocalSock,
+        struct sockaddr_in* BackEndSock,
         const size_t QueueDepth,
         const size_t MaxSge,
         const size_t InlineThreshold

@@ -18,6 +18,8 @@ DMABuffer::DMABuffer(
 	// Initialize NDSPI variables
 	//
 	//
+	Adapter = NULL;
+	AdapterFileHandle = NULL;
 	memset(&Ov, 0, sizeof(Ov));
 	CompQ = NULL;
 	QPair = NULL;
@@ -36,8 +38,8 @@ DMABuffer::DMABuffer(
 //
 //
 bool DMABuffer::Allocate(
-	struct sockaddr_in& LocalSock,
-	struct sockaddr_in& BackEndSock,
+	struct sockaddr_in* LocalSock,
+	struct sockaddr_in* BackEndSock,
 	const size_t QueueDepth,
 	const size_t MaxSge,
 	const size_t InlineThreshold
@@ -52,7 +54,7 @@ bool DMABuffer::Allocate(
 		return false;
 	}
 
-	RDMC_OpenAdapter(&Adapter, &BackEndSock, &AdapterFileHandle, &Ov);
+	RDMC_OpenAdapter(&Adapter, LocalSock, &AdapterFileHandle, &Ov);
 	RDMC_CreateConnector(Adapter, AdapterFileHandle, &Connector);
 	RDMC_CreateCQ(Adapter, AdapterFileHandle, QueueDepth, &CompQ);
 	RDMC_CreateQueuePair(Adapter, CompQ, QueueDepth, MaxSge, InlineThreshold, &QPair);
@@ -79,7 +81,7 @@ bool DMABuffer::Allocate(
 	//
 	//
 	uint8_t privData = BUFF_CONN_PRIV_DATA;
-	RDMC_Connect(Connector, QPair, &Ov, LocalSock, BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
+	RDMC_Connect(Connector, QPair, &Ov, *LocalSock, *BackEndSock, 0, QueueDepth, &privData, sizeof(privData));
 	RDMC_CompleteConnect(Connector, &Ov);
 
 	//
@@ -100,7 +102,13 @@ bool DMABuffer::Allocate(
 	BuffMsgF2BRequestId* msg = (BuffMsgF2BRequestId*)(MsgBuf + sizeof(MsgHeader));
 	msg->ClientId = ClientId;
 	msg->BufferAddress = (uint64_t)BufferAddress;
-	msg->AccessToken = MemWindow->GetRemoteToken();
+	msg->Capacity = Capacity;
+	
+	//
+	// NOTE: translating the token from host encoding to network encoding is necessary for the Linux back end
+	//
+	//
+	msg->AccessToken = htonl(MemWindow->GetRemoteToken());
 	MsgSgl->BufferLength = sizeof(MsgHeader) + sizeof(BuffMsgF2BRequestId);
 
 	RDMC_Send(QPair, MsgSgl, 1, 0, MSG_CTXT);
