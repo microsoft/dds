@@ -5,7 +5,7 @@
 
 class DMABuffer {
 private:
-	size_t Capacity;
+    size_t Capacity;
     int ClientId;
     int BufferId;
 
