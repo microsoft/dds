@@ -27,7 +27,8 @@ base_app_dependencies += dependency('threads')
 
 base_app_inc_dirs = [
         include_directories('./Include/'),
-        include_directories('../../Common/Include/DPU/'),
+        include_directories('../../../Common/Include/'),
+        include_directories('../../../Common/Include/DPU/'),
 ]
 
 app_link_args = []
@@ -44,7 +45,7 @@ src = 'Source/'
 
 app_srcs += [
         src + 'BackEnd.c',
-        src + '../../Common/Source/DPU/RingBufferPolling.c',
+        '../../../Common/Source/DPU/RingBufferPolling.c',
 ]
 
 executable(APP_NAME,

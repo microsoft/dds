@@ -36,12 +36,12 @@ base_app_dependencies += dependency('libbsd')
 base_app_dependencies += dependency('libdpdk')
 
 common_path = '/opt/mellanox/doca/applications/common/src'
-tldk_path = 'tldk/'
-offload_engine_path = '../../OffloadEngine/BackEnd/'
+tldk_path = 'TLDK/'
+offload_engine_path = '../OffloadEngine/DPU/'
 
 base_app_inc_dirs = [
         include_directories(common_path),
-        include_directories('.'),
+        include_directories('./Include'),
 	include_directories(tldk_path + 'libtle_timer'),
 	include_directories(tldk_path + 'libtle_misc'),
 	include_directories(tldk_path + 'libtle_memtank'),
@@ -50,7 +50,7 @@ base_app_inc_dirs = [
 	include_directories(offload_engine_path + 'Include')
 ]
 
-APP_NAME = 'DDSBOWPipeline'
+APP_NAME = 'DDSPipeline'
 
 app_dependencies = base_app_dependencies
 app_inc_dirs = base_app_inc_dirs
@@ -60,12 +60,12 @@ app_dependencies += dependency('doca-argp')
 app_dependencies += dependency('doca-flow')
 app_dependencies += dependency('doca-common')
 
-src = 'src/'
+src = 'Source/'
 
 app_srcs += [
-	src + APP_NAME + '.c',
-	src + 'DDSTrafficDirecting.c',
+	src + 'DDSBOWPipeline.c',
 	src + 'DDSBOWCore.c',
+	src + 'DDSTrafficDirecting.c',
 	src + 'AppEchoTCPDirect.c',
 	src + 'ActionRedirectPackets.c',
 	src + 'ActionModifyHeaders.c',

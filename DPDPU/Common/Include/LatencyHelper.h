@@ -1,5 +1,4 @@
-#ifndef LATENCY_HELPERS_H
-#define LATENCY_HELPERS_H
+#pragma once
 
 #include <math.h>
 #include <stdlib.h>
@@ -154,5 +153,3 @@ GetStatistics(
 	PercentileIndex = (uint32_t)(DataLength * 0.999999);
 	PercentileStats->P99p9999 = Data[PercentileIndex];
 }
-
-#endif

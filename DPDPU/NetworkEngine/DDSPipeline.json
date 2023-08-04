@@ -21,7 +21,7 @@
 		// -s - Set application signature
 		"app-sig": "192.168.200.133/32:* 192.168.200.132/32:3232 TCP",
 		// -o - Set offload predicate file path
-		"udf-path": "../../OffloadEngine/UDFSamples/",
+		"udf-path": "../OffloadEngine/UDFSamples/",
 		// -h - Set host MAC address
 		"host-mac": "b8:3f:d2:04:e2:5c",
 		// -f - Set forwarding rules

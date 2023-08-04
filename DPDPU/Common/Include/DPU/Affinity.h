@@ -1,5 +1,4 @@
-#ifndef DDS_STORAGE_AFFINITY_H
-#define DDS_STORAGE_AFFINITY_H
+#pragma once
 
 #include <sched.h>
 #include <pthread.h>
@@ -17,5 +16,3 @@ static int BindToCore(size_t core_id) {
 
     return rc;
 }
-
-#endif // DDS_STORAGE_AFFINITY_H

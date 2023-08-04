@@ -15,7 +15,7 @@ CompileUDF(
 ) {
     int err_code = 0;
 
-    char cmd[512] = "gcc -O3 -Wall -Werror -fPIC -I../../OffloadEngine/BackEnd/Include -shared ";
+    char cmd[512] = "gcc -O3 -Wall -Werror -fPIC -I../OffloadEngine/DPU/Include -shared ";
 
     if (Type == OFFLOAD_PRED) {
         strcat(cmd, CodePath);
