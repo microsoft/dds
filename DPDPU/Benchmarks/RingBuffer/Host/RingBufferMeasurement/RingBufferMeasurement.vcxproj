@@ -131,7 +131,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\Common\Include\Host;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,20 +142,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Common\Source\BackEndBridge.cpp" />
-    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp" />
-    <ClCompile Include="..\..\Common\Source\RDMC.cpp" />
-    <ClCompile Include="..\..\Common\Source\RingBufferFaRMStyle.cpp" />
-    <ClCompile Include="..\..\Common\Source\RingBufferLockBased.cpp" />
-    <ClCompile Include="..\..\Common\Source\RingBufferNoConcurrency.cpp" />
-    <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\BackEndBridge.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\DMABuffer.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RDMC.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferFaRMStyle.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferLockBased.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferNoConcurrency.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressive.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyle.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp" />
-    <ClCompile Include="Microbenchmarks.cpp" />
     <ClCompile Include="Profiler.cpp" />
+    <ClCompile Include="RingBufferMeasurement.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Common\Include\BackEndBridge.h" />
@@ -170,10 +170,10 @@
     <ClInclude Include="Profiler.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
+    <ProjectReference Include="..\..\..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
       <Project>{fc7cbd5d-8104-4e77-b17a-08fe588adb84}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\NDSPI\src\ndutil\ndutil.vcxproj">
+    <ProjectReference Include="..\..\..\..\NDSPI\src\ndutil\ndutil.vcxproj">
       <Project>{6955ed94-3b21-4835-838a-a797aff63183}</Project>
     </ProjectReference>
   </ItemGroup>

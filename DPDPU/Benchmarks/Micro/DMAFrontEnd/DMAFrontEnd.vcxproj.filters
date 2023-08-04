@@ -18,27 +18,21 @@
     <ClCompile Include="FrontEnd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RDMC.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="FrontEndShell.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\BackEndBridge.cpp">
+    <ClCompile Include="..\..\..\Common\Source\Host\BackEndBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\Common\Source\Host\DMABuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\Common\Source\Host\RDMC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Common\Include\DMABuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\Include\MsgType.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RDMC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FrontEnd.h">
@@ -47,7 +41,13 @@
     <ClInclude Include="..\..\Common\Include\Protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\BackEndBridge.h">
+    <ClInclude Include="..\..\..\Common\Include\Host\BackEndBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\Common\Include\Host\DMABuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\Common\Include\Host\RDMC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

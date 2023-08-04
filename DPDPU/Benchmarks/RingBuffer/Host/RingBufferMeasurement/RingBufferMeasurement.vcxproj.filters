@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Microbenchmarks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -33,28 +30,31 @@
     <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RDMC.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RingBufferFaRMStyle.cpp">
+    <ClCompile Include="..\..\..\..\Common\Source\Host\DMABuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RingBufferLockBased.cpp">
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferFaRMStyle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RingBufferNoConcurrency.cpp">
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferLockBased.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\RingBufferProgressive.cpp">
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferNoConcurrency.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\BackEndBridge.cpp">
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RingBufferMeasurement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Common\Source\Host\BackEndBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RDMC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

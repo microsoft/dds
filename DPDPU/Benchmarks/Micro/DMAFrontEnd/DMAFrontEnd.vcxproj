@@ -131,7 +131,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;$(SolutionDir)\..\Common\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\Common\Include\Host</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,25 +142,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Common\Source\BackEndBridge.cpp" />
-    <ClCompile Include="..\..\Common\Source\DMABuffer.cpp" />
-    <ClCompile Include="..\..\Common\Source\RDMC.cpp" />
+    <ClCompile Include="..\..\..\Common\Source\Host\BackEndBridge.cpp" />
+    <ClCompile Include="..\..\..\Common\Source\Host\DMABuffer.cpp" />
+    <ClCompile Include="..\..\..\Common\Source\Host\RDMC.cpp" />
     <ClCompile Include="FrontEnd.cpp" />
     <ClCompile Include="FrontEndShell.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Common\Include\BackEndBridge.h" />
-    <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
+    <ClInclude Include="..\..\..\Common\Include\Host\BackEndBridge.h" />
+    <ClInclude Include="..\..\..\Common\Include\Host\DMABuffer.h" />
+    <ClInclude Include="..\..\..\Common\Include\Host\RDMC.h" />
     <ClInclude Include="..\..\Common\Include\MsgType.h" />
     <ClInclude Include="..\..\Common\Include\Protocol.h" />
-    <ClInclude Include="..\..\Common\Include\RDMC.h" />
     <ClInclude Include="FrontEnd.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
+    <ProjectReference Include="..\..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
       <Project>{fc7cbd5d-8104-4e77-b17a-08fe588adb84}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\NDSPI\src\ndutil\ndutil.vcxproj">
+    <ProjectReference Include="..\..\..\NDSPI\src\ndutil\ndutil.vcxproj">
       <Project>{6955ed94-3b21-4835-838a-a797aff63183}</Project>
     </ProjectReference>
   </ItemGroup>

@@ -7,8 +7,6 @@ DDSBackEndWorker::DDSBackEndWorker() {
 	*TailPointer = 42;
 
 	AtomicTailPointerRef = new std::atomic_ref<int>(*TailPointer);
-
-	AtomicTailPointerRef->compare_exchange_strong()
 }
 
 }

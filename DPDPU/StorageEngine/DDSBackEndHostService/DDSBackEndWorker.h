@@ -10,7 +10,7 @@ namespace DDS_BackEnd {
 class DDSBackEndWorker {
 private:
 	std::atomic_ref<int>* AtomicTailPointerRef;
-	alignas() int* TailPointer;
+	int* TailPointer;
 
 public:
 	DDSBackEndWorker();

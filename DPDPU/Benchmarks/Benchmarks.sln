@@ -5,6 +5,18 @@ VisualStudioVersion = 16.0.33423.256
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TCPMeasurement", "TCPMeasurement\TCPMeasurement.vcxproj", "{A028EE0E-2944-414D-900C-103EEF53D755}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RingBufferMeasurement", "RingBuffer\Host\RingBufferMeasurement\RingBufferMeasurement.vcxproj", "{378C28C4-CF1A-4914-8253-B2BCA312E5E0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NDSPI", "NDSPI", "{3AD42FF3-674B-4D30-95E0-187D69428A64}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ndutil", "..\NDSPI\src\ndutil\ndutil.vcxproj", "{6955ED94-3B21-4835-838A-A797AFF63183}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ndtestutil", "..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj", "{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Micro", "Micro", "{649CF098-325B-4522-842A-1D4151D08595}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DMAFrontEnd", "Micro\DMAFrontEnd\DMAFrontEnd.vcxproj", "{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,9 +33,46 @@ Global
 		{A028EE0E-2944-414D-900C-103EEF53D755}.Release|x64.Build.0 = Release|x64
 		{A028EE0E-2944-414D-900C-103EEF53D755}.Release|x86.ActiveCfg = Release|Win32
 		{A028EE0E-2944-414D-900C-103EEF53D755}.Release|x86.Build.0 = Release|Win32
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Debug|x64.ActiveCfg = Debug|x64
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Debug|x64.Build.0 = Debug|x64
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Debug|x86.ActiveCfg = Debug|Win32
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Debug|x86.Build.0 = Debug|Win32
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Release|x64.ActiveCfg = Release|x64
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Release|x64.Build.0 = Release|x64
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Release|x86.ActiveCfg = Release|Win32
+		{378C28C4-CF1A-4914-8253-B2BCA312E5E0}.Release|x86.Build.0 = Release|Win32
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Debug|x64.ActiveCfg = Debug|x64
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Debug|x64.Build.0 = Debug|x64
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Debug|x86.ActiveCfg = Debug|Win32
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Debug|x86.Build.0 = Debug|Win32
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Release|x64.ActiveCfg = Release|x64
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Release|x64.Build.0 = Release|x64
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Release|x86.ActiveCfg = Release|Win32
+		{6955ED94-3B21-4835-838A-A797AFF63183}.Release|x86.Build.0 = Release|Win32
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Debug|x64.ActiveCfg = Debug|x64
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Debug|x64.Build.0 = Debug|x64
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Debug|x86.ActiveCfg = Debug|Win32
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Debug|x86.Build.0 = Debug|Win32
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Release|x64.ActiveCfg = Release|x64
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Release|x64.Build.0 = Release|x64
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Release|x86.ActiveCfg = Release|Win32
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84}.Release|x86.Build.0 = Release|Win32
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Debug|x64.ActiveCfg = Debug|x64
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Debug|x64.Build.0 = Debug|x64
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Debug|x86.ActiveCfg = Debug|Win32
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Debug|x86.Build.0 = Debug|Win32
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Release|x64.ActiveCfg = Release|x64
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Release|x64.Build.0 = Release|x64
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Release|x86.ActiveCfg = Release|Win32
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6955ED94-3B21-4835-838A-A797AFF63183} = {3AD42FF3-674B-4D30-95E0-187D69428A64}
+		{FC7CBD5D-8104-4E77-B17A-08FE588ADB84} = {3AD42FF3-674B-4D30-95E0-187D69428A64}
+		{2C988DC1-35A3-4CAA-ABB9-A796B8812BF6} = {649CF098-325B-4522-842A-1D4151D08595}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EE6FCAE7-3310-493B-9ECA-A16367876776}
