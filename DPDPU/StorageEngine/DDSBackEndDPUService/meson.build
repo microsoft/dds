@@ -44,6 +44,7 @@ src = 'Source/'
 
 app_srcs += [
         src + 'FileBackEnd.c',
+        src + 'RingBufferPolling.c',
 ]
 
 executable(APP_NAME,
