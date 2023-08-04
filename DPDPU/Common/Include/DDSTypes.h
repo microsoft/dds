@@ -26,7 +26,7 @@ typedef unsigned int RingSlotSizeT;
 // Types of position in file
 //
 //
-enum class FilePointerPosition {
+enum FilePointerPosition {
     BEGIN,
     CURRENT,
     END

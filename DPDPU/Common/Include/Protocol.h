@@ -54,12 +54,21 @@
 #define assert_static_protocol(e, num) \
     enum { assert_static_protocol__##num = 1/(e) }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result" 
+#else
 #pragma warning(push)
 #pragma warning (disable: 4804)
+#endif
 assert_static_protocol(RING_BUFFER_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 0);
 assert_static_protocol(DDS_REQUEST_RING_BYTES == DDS_REQUEST_RING_SIZE * DDS_REQUEST_RING_SLOT_SIZE, 1);
 assert_static_protocol(DDS_REQUEST_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 2);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 
 #define DDS_BACKEND_ADDR "192.168.200.32"
 #define DDS_BACKEND_PORT 4242

@@ -526,7 +526,7 @@ SetUpBuffRegionsAndBuffers(
     // Write meta buffer and region
     //
     //
-    BuffConn->DMAWriteMetaBuff = &BuffConn->RequestRing.Head;
+    BuffConn->DMAWriteMetaBuff = (char*)&BuffConn->RequestRing.Head;
     BuffConn->DMAWriteMetaMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->DMAWriteMetaBuff,
@@ -567,6 +567,15 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataWr.sg_list = &BuffConn->DMAReadDataSgl;
     BuffConn->DMAReadDataWr.num_sge = 1;
     BuffConn->DMAReadDataWr.wr_id = BUFF_READ_DATA_WR_ID;
+
+    BuffConn->DMAReadMetaSgl.addr = (uint64_t)BuffConn->DMAReadMetaBuff;
+    BuffConn->DMAReadMetaSgl.length = RING_BUFFER_META_DATA_SIZE;
+    BuffConn->DMAReadMetaSgl.lkey = BuffConn->DMAReadMetaMr->lkey;
+    BuffConn->DMAReadMetaWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->DMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->DMAReadMetaWr.sg_list = &BuffConn->DMAReadMetaSgl;
+    BuffConn->DMAReadMetaWr.num_sge = 1;
+    BuffConn->DMAReadMetaWr.wr_id = BUFF_READ_META_WR_ID;
 
     BuffConn->DMAWriteMetaSgl.addr = (uint64_t)BuffConn->DMAWriteMetaBuff;
     BuffConn->DMAWriteMetaSgl.length = sizeof(int);
@@ -1111,14 +1120,17 @@ BuffMsgHandler(
             BuffConn->CtrlId = req->ClientId;
             InitializeRequestRingBufferBackEnd(
                 &BuffConn->RequestRing,
-                req->RemoteAddr,
+                req->BufferAddress,
                 req->AccessToken,
                 req->Capacity
             );
             BuffConn->DMAReadMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.ReadMetaAddr;
             BuffConn->DMAReadMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->DMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.WriteMetaAddr;
-            BuffConn->DMAReadMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            BuffConn->DMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            BuffConn->DMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+	    printf("Ring buffer progress address = %lu\n", (uint64_t)BuffConn->RequestRing.ReadMetaAddr);
+	    printf("Ring buffer data base address = %lu\n", (uint64_t)BuffConn->RequestRing.ReadDataBaseAddr);
 
             msgOut->MsgId = BUFF_MSG_B2F_RESPOND_ID;
             resp->BufferId = BuffConn->BuffId;
@@ -1139,7 +1151,7 @@ BuffMsgHandler(
             // Start polling
             //
             //
-            ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaMr, &badSendWr);
+            ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                 ret = -1;
@@ -1223,7 +1235,7 @@ ProcessBuffCqEvents(
                             // Not ready to read, poll again
                             //
                             //
-                            ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaMr, &badSendWr);
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                 ret = -1;
@@ -1253,9 +1265,9 @@ ProcessBuffCqEvents(
                             // Post a DMA read
                             //
                             //
-                            buffConn->DMAReadWr.wr.rdma.remote_addr = buffConn->RequestRing.ReadDataBaseAddr + sourceBuffer1;
-                            buffConn->DMAReadWr.sgl_list->length = reqSize;
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadWr, &badSendWr);
+                            buffConn->DMAReadDataWr.wr.rdma.remote_addr = buffConn->RequestRing.ReadDataBaseAddr + sourceBuffer1;
+                            buffConn->DMAReadDataWr.sg_list->length = reqSize;
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                 ret = -1;
@@ -1291,7 +1303,7 @@ ProcessBuffCqEvents(
                     // Ready to poll
                     //
                     //
-                    ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaMr, &badSendWr);
+                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
                     if (ret) {
                         fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                         ret = -1;
@@ -1433,5 +1445,5 @@ int RunFileBackEnd(
 }
 
 int main() {
-    return RunFileBackEnd("192.168.200.32", 4242, 32, 32, TRUE);
+    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32, TRUE);
 }
