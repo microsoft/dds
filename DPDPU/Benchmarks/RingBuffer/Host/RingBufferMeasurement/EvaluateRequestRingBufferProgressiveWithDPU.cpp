@@ -62,6 +62,9 @@ void RequestProducerWithDPU(
 			this_thread::yield();
 		}
 	}
+	while (CheckForCompletionProgressive(RingBuffer)) {
+		this_thread::yield();
+	}
 	profiler.Stop();
 	cout << "Microbenchmark completed" << endl;
 	profiler.Report();
@@ -84,8 +87,8 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 
 	char* buffer = dmaBuffer.BufferAddress;
 	RequestRingBufferProgressive* ringBuffer = NULL;
-	const size_t totalProducers = 1;
-	const size_t requestsPerProducer = 10000000;
+	const size_t totalProducers = 64;
+	const size_t requestsPerProducer = 1000000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
 
 	//
@@ -163,7 +166,8 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 	}
 
 	cout << "Release all of the memory..." << endl;
-	DeallocateRequestBufferProgressive(ringBuffer);
+	dmaBuffer.Release();
+	backEnd.Disconnect();
 
 	for (size_t r = 0; r != totalRequests; r++) {
 		delete allRequests[r];
@@ -172,7 +176,4 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 	for (size_t t = 0; t != totalProducers; t++) {
 		delete producerThreads[t];
 	}
-
-	dmaBuffer.Release();
-	backEnd.Disconnect();
 }

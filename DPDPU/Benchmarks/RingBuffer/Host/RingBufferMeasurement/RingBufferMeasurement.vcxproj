@@ -158,14 +158,15 @@
     <ClCompile Include="RingBufferMeasurement.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Common\Include\BackEndBridge.h" />
-    <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h" />
-    <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
-    <ClInclude Include="..\..\Common\Include\Protocol.h" />
-    <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h" />
-    <ClInclude Include="..\..\Common\Include\RingBufferLockBased.h" />
-    <ClInclude Include="..\..\Common\Include\RingBufferNoConcurrency.h" />
-    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\BackEndBridge.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\DDSFrontEndInterface.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\DMABuffer.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RDMC.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferFaRMStyle.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferLockBased.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferNoConcurrency.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressive.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Protocol.h" />
     <ClInclude Include="Evaluation.h" />
     <ClInclude Include="Profiler.h" />
   </ItemGroup>

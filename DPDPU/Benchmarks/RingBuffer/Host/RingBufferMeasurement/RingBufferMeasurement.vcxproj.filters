@@ -65,28 +65,31 @@
     <ClInclude Include="Profiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\DDSFrontEndInterface.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferFaRMStyle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RingBufferFaRMStyle.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferLockBased.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RingBufferLockBased.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferNoConcurrency.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RingBufferNoConcurrency.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\BackEndBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\DMABuffer.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\DDSFrontEndInterface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\BackEndBridge.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\Protocol.h">
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RDMC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Common\Include\Protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

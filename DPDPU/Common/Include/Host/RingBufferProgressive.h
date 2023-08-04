@@ -77,4 +77,13 @@ ParseNextRequestProgressive(
     FileIOSizeT* RemainingSize
 );
 
+//
+// Wait for completion
+//
+//
+bool
+CheckForCompletionProgressive(
+    RequestRingBufferProgressive* RingBuffer
+);
+
 }

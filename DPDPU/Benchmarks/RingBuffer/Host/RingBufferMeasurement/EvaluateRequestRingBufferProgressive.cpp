@@ -119,7 +119,7 @@ void EvaluateRequestRingBufferProgressive() {
 	const size_t entireBufferSpace = 134217728; // 128 MB
 	char* Buffer = new char[entireBufferSpace];
 	RequestRingBufferProgressive* ringBuffer = NULL;
-	const size_t totalProducers = 1;
+	const size_t totalProducers = 2;
 	const size_t requestsPerProducer = 10000000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
 

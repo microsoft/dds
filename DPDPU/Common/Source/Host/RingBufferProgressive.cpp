@@ -77,8 +77,9 @@ InsertToRequestBufferProgressive(
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
-    while (requestBytes % DDS_CACHE_LINE_SIZE != 0) {
-        requestBytes++;
+
+    if (requestBytes % DDS_CACHE_LINE_SIZE != 0) {
+        requestBytes += (DDS_CACHE_LINE_SIZE - (requestBytes % DDS_CACHE_LINE_SIZE));
     }
 
     if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
@@ -287,6 +288,20 @@ ParseNextRequestProgressive(
     else {
         *StartOfNext = nullptr;
     }
+}
+
+//
+// Wait for completion
+//
+//
+bool
+CheckForCompletionProgressive(
+    RequestRingBufferProgressive* RingBuffer
+) {
+    int head = RingBuffer->Head[0];
+    int tail = RingBuffer->Tail[0];
+
+    return head == tail;
 }
 
 }
