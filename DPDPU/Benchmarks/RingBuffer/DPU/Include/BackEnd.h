@@ -27,6 +27,10 @@
 #define BUFF_READ_META_WR_ID 2
 #define BUFF_WRITE_META_WR_ID 3
 #define BUFF_READ_DATA_WR_ID 4
+#define BUFF_READ_DATA_SPLIT_WR_ID 5
+
+#define BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT 1
+#define BUFF_READ_DATA_SPLIT_STATE_SPLIT 0
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
@@ -117,6 +121,9 @@ struct BuffConnConfig {
     struct ibv_sge DMAReadDataSgl;
     struct ibv_mr *DMAReadDataMr;
     char* DMAReadDataBuff;
+    struct ibv_send_wr DMAReadDataSplitWr;
+    struct ibv_sge DMAReadDataSplitSgl;
+    uint8_t DMAReadDataSplitState;
     struct ibv_send_wr DMAReadMetaWr;
     struct ibv_sge DMAReadMetaSgl;
     struct ibv_mr *DMAReadMetaMr;
