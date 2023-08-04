@@ -123,6 +123,7 @@ struct BuffConnConfig {
     char* DMAReadDataBuff;
     struct ibv_send_wr DMAReadDataSplitWr;
     struct ibv_sge DMAReadDataSplitSgl;
+    uint32_t DMAReadDataSize;
     uint8_t DMAReadDataSplitState;
     struct ibv_send_wr DMAReadMetaWr;
     struct ibv_sge DMAReadMetaSgl;
