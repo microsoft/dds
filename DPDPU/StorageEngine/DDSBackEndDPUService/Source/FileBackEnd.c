@@ -1130,7 +1130,7 @@ BuffMsgHandler(
             BuffConn->DMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->DMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
 	    printf("Ring buffer progress address = %lu\n", (uint64_t)BuffConn->RequestRing.ReadMetaAddr);
-	    printf("Ring buffer data base address = %lu\n", (uint64_t)BuffConn->RequestRing.ReadDataBaseAddr);
+	    printf("Ring buffer data base address = %lu\n", (uint64_t)BuffConn->RequestRing.DataBaseAddr);
 
             msgOut->MsgId = BUFF_MSG_B2F_RESPOND_ID;
             resp->BufferId = BuffConn->BuffId;
@@ -1265,7 +1265,7 @@ ProcessBuffCqEvents(
                             // Post a DMA read
                             //
                             //
-                            buffConn->DMAReadDataWr.wr.rdma.remote_addr = buffConn->RequestRing.ReadDataBaseAddr + sourceBuffer1;
+                            buffConn->DMAReadDataWr.wr.rdma.remote_addr = buffConn->RequestRing.DataBaseAddr + sourceBuffer1;
                             buffConn->DMAReadDataWr.sg_list->length = reqSize;
                             ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataWr, &badSendWr);
                             if (ret) {

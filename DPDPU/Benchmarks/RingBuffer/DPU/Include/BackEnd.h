@@ -28,11 +28,24 @@
 #define BUFF_WRITE_META_WR_ID 3
 #define BUFF_READ_DATA_WR_ID 4
 #define BUFF_READ_DATA_SPLIT_WR_ID 5
+#define BUFF_WRITE_DATA_WR_ID 6
+#define BUFF_WRITE_DATA_SPLIT_WR_ID 7
 
 #define BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT 1
 #define BUFF_READ_DATA_SPLIT_STATE_SPLIT 0
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
+#define RING_BUFFER_IMPL_PROGRESSIVE 0
+#define RING_BUFFER_IMPL_FARMSTYLE 1
+#define RING_BUFFFER_IMPL RING_BUFFER_IMPL_FARMSTYLE
+
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+//
+// Only pointer is an int
+//
+//
+#define RING_BUFFER_META_DATA_SIZE sizeof(int)
+#endif
 
 //
 // The global config for (R)DMA
@@ -117,6 +130,7 @@ struct BuffConnConfig {
     // Also, we separate pointers and content to enable prefetching
     //
     //
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     struct ibv_send_wr DMAReadDataWr;
     struct ibv_sge DMAReadDataSgl;
     struct ibv_mr *DMAReadDataMr;
@@ -125,6 +139,18 @@ struct BuffConnConfig {
     struct ibv_sge DMAReadDataSplitSgl;
     uint32_t DMAReadDataSize;
     uint8_t DMAReadDataSplitState;
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+    struct ibv_send_wr DMADataWr;
+    struct ibv_sge DMADataSgl;
+    struct ibv_mr *DMADataMr;
+    char* DMADataBuff;
+    struct ibv_send_wr DMADataSplitWr;
+    struct ibv_sge DMADataSplitSgl;
+    uint32_t DMADataSize;
+    uint8_t DMADataSplitState;
+#else
+#error "Unknown ring buffer implementation"
+#endif
     struct ibv_send_wr DMAReadMetaWr;
     struct ibv_sge DMAReadMetaSgl;
     struct ibv_mr *DMAReadMetaMr;

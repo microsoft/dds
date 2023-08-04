@@ -484,6 +484,7 @@ SetUpBuffRegionsAndBuffers(
         goto DeregisterBuffRecvMrReturn;
     }
 
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     //
     // Read data buffer and region
     //
@@ -505,6 +506,31 @@ SetUpBuffRegionsAndBuffers(
         ret = -1;
         goto FreeBuffDMAReadDataBuffReturn;
     }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+    //
+    // Read data buffer and region
+    //
+    //
+    BuffConn->DMADataBuff = malloc(BACKEND_MAX_DMA_SIZE);
+    if (!BuffConn->DMADataBuff) {
+        fprintf(stderr, "%s [error]: OOM for DMA data buffer\n", __func__);
+        ret = -1;
+        goto DeregisterBuffSendMrReturn;
+    }
+    BuffConn->DMADataMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->DMADataBuff,
+        BACKEND_MAX_DMA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->DMADataMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA data failed\n", __func__);
+        ret = -1;
+        goto FreeBuffDMADataBuffReturn;
+    }
+#else
+#error "Unknown ring buffer implementation"
+#endif
 
     //
     // Read meta buffer and region
@@ -519,7 +545,13 @@ SetUpBuffRegionsAndBuffers(
     if (!BuffConn->DMAReadMetaMr) {
         fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read meta failed\n", __func__);
         ret = -1;
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
         goto DeregisterBuffReadDataMrReturn;
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+        goto DeregisterBuffDataMrReturn;
+#else
+#error "Unknown ring buffer implementation"
+#endif
     }
 
     //
@@ -559,6 +591,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->SendWr.num_sge = 1;
     BuffConn->SendWr.wr_id = BUFF_RECV_WR_ID;
 
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
     BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
@@ -576,6 +609,23 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataSplitWr.sg_list = &BuffConn->DMAReadDataSplitSgl;
     BuffConn->DMAReadDataSplitWr.num_sge = 1;
     BuffConn->DMAReadDataSplitWr.wr_id = BUFF_READ_DATA_SPLIT_WR_ID;
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+    BuffConn->DMADataSgl.addr = (uint64_t)BuffConn->DMADataBuff;
+    BuffConn->DMADataSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMADataSgl.lkey = BuffConn->DMADataMr->lkey;
+    BuffConn->DMADataWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->DMADataWr.sg_list = &BuffConn->DMADataSgl;
+    BuffConn->DMADataWr.num_sge = 1;
+
+    BuffConn->DMADataSplitSgl.addr = (uint64_t)BuffConn->DMADataBuff;
+    BuffConn->DMADataSplitSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMADataSplitSgl.lkey = BuffConn->DMADataMr->lkey;
+    BuffConn->DMADataSplitWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->DMADataSplitWr.sg_list = &BuffConn->DMADataSplitSgl;
+    BuffConn->DMADataSplitWr.num_sge = 1;
+#else
+#error "Unknown ring buffer implementation"
+#endif
 
     BuffConn->DMAReadMetaSgl.addr = (uint64_t)BuffConn->DMAReadMetaBuff;
     BuffConn->DMAReadMetaSgl.length = RING_BUFFER_META_DATA_SIZE;
@@ -600,11 +650,21 @@ SetUpBuffRegionsAndBuffers(
 DeregisterBuffReadMetaMrReturn:
     ibv_dereg_mr(BuffConn->DMAReadMetaMr);
 
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
 DeregisterBuffReadDataMrReturn:
     ibv_dereg_mr(BuffConn->DMAReadDataMr);
 
 FreeBuffDMAReadDataBuffReturn:
     free(BuffConn->DMAReadDataBuff);
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+DeregisterBuffDataMrReturn:
+    ibv_dereg_mr(BuffConn->DMADataMr);
+
+FreeBuffDMADataBuffReturn:
+    free(BuffConn->DMADataBuff);
+#else
+#error "Unknown ring buffer implementation"
+#endif
 
 DeregisterBuffSendMrReturn:
     ibv_dereg_mr(BuffConn->SendMr);
@@ -628,21 +688,39 @@ DestroyBuffRegionsAndBuffers(
 
     ibv_dereg_mr(BuffConn->DMAWriteMetaMr);
     ibv_dereg_mr(BuffConn->DMAReadMetaMr);
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     ibv_dereg_mr(BuffConn->DMAReadDataMr);
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+    ibv_dereg_mr(BuffConn->DMADataMr);
+#else
+#error "Unknown ring buffer implementation"
+#endif
     ibv_dereg_mr(BuffConn->SendMr);
     ibv_dereg_mr(BuffConn->RecvMr);
 
     memset(&BuffConn->DMAWriteMetaSgl, 0, sizeof(BuffConn->DMAReadMetaSgl));
     memset(&BuffConn->DMAReadMetaSgl, 0, sizeof(BuffConn->DMAReadMetaSgl));
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     memset(&BuffConn->DMAReadDataSgl, 0, sizeof(BuffConn->DMAReadDataSgl));
     memset(&BuffConn->DMAReadDataSplitSgl, 0, sizeof(BuffConn->DMAReadDataSplitSgl));
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+    memset(&BuffConn->DMADataSgl, 0, sizeof(BuffConn->DMADataSgl));
+    memset(&BuffConn->DMADataSplitSgl, 0, sizeof(BuffConn->DMADataSplitSgl));
+#else
+#error "Unknown ring buffer implementation"
+#endif
     memset(&BuffConn->SendSgl, 0, sizeof(BuffConn->SendSgl));
     memset(&BuffConn->RecvSgl, 0, sizeof(BuffConn->RecvSgl));
     
     memset(&BuffConn->DMAWriteMetaWr, 0, sizeof(BuffConn->DMAWriteMetaWr));
     memset(&BuffConn->DMAReadMetaWr, 0, sizeof(BuffConn->DMAReadMetaWr));
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     memset(&BuffConn->DMAReadDataWr, 0, sizeof(BuffConn->DMAReadDataWr));
     memset(&BuffConn->DMAReadDataSplitWr, 0, sizeof(BuffConn->DMAReadDataSplitWr));
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+    memset(&BuffConn->DMADataWr, 0, sizeof(BuffConn->DMADataWr));
+    memset(&BuffConn->DMADataSplitWr, 0, sizeof(BuffConn->DMADataSplitWr));
+#else
     memset(&BuffConn->SendWr, 0, sizeof(BuffConn->SendWr));
     memset(&BuffConn->RecvWr, 0, sizeof(BuffConn->RecvWr));
 }
@@ -1129,18 +1207,37 @@ BuffMsgHandler(
             //
             //
             BuffConn->CtrlId = req->ClientId;
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
             InitializeRequestRingBufferBackEnd(
                 &BuffConn->RequestRing,
                 req->BufferAddress,
                 req->AccessToken,
                 req->Capacity
             );
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+            InitializeRequestRingBufferFaRMStyleBackEnd(
+                &BuffConn->RequestRing,
+                req->BufferAddress,
+                req->AccessToken,
+                req->Capacity
+            );
+#else
+#error "Unknown ring buffer implementation"
+#endif
+
             BuffConn->DMAReadMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.ReadMetaAddr;
             BuffConn->DMAReadMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->DMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.WriteMetaAddr;
             BuffConn->DMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
             BuffConn->DMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->DMAReadDataSplitWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+            BuffConn->DMADataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            BuffConn->DMADataSplitWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+#else
+#error "Unknown ring buffer implementation"
+#endif
 
             msgOut->MsgId = BUFF_MSG_B2F_RESPOND_ID;
             resp->BufferId = BuffConn->BuffId;
@@ -1161,11 +1258,22 @@ BuffMsgHandler(
             // Start polling
             //
             //
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
             ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                 ret = -1;
             }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+            BuffConn->DMAReadMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.DataBaseAddr + BuffConn->RequestRing.Head;
+            ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+#else
+#error "Unknown ring buffer implementation"
+#endif
         }
             break;
         case BUFF_MSG_F2B_RELEASE: {
@@ -1264,13 +1372,13 @@ ProcessBuffCqEvents(
                             if (progress > head) {
                                 availBytes = progress - head;
                                 buffConn->DMAReadDataSize = availBytes;
-                                sourceBuffer1 = buffConn->RequestRing.ReadDataBaseAddr + head;
+                                sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
                             }
                             else {
                                 availBytes = DDS_REQUEST_RING_BYTES - head;
                                 buffConn->DMAReadDataSize = availBytes + progress;
-                                sourceBuffer1 = buffConn->RequestRing.ReadDataBaseAddr + head;
-                                sourceBuffer2 = buffConn->RequestRing.ReadDataBaseAddr;
+                                sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                                sourceBuffer2 = buffConn->RequestRing.DataBaseAddr;
                             }
 
                             //

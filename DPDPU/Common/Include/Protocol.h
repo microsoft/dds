@@ -42,10 +42,6 @@
 #define RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT 1048576
 #define BACKEND_MAX_DMA_SIZE RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT
 
-//
-// We need to read two pointers, each occupying one cache line
-//
-//
 #define RING_BUFFER_META_DATA_SIZE 128
 
 //

@@ -46,5 +46,45 @@ InitializeRequestRingBufferBackEnd(
     // The data is after the meta data
     //
     //
-    RingBuffer->ReadDataBaseAddr = ringBufferAddress + DDS_CACHE_LINE_SIZE * 3;
+    RingBuffer->DataBaseAddr = ringBufferAddress + DDS_CACHE_LINE_SIZE * 3;
+}
+
+//
+// Initialize a buffer for lock-based ring buffer
+//
+//
+void
+InitializeRequestRingBufferFaRMStyleBackEnd(
+    struct RequestRingBufferBackEnd* RingBuffer,
+    uint64_t RemoteAddr,
+    uint32_t AccessToken,
+    uint32_t Capacity
+) {
+    memset(RingBuffer, 0, sizeof(struct RequestRingBufferBackEnd));
+    RingBuffer->RemoteAddr = RemoteAddr;
+    RingBuffer->AccessToken = AccessToken;
+    RingBuffer->Capacity = Capacity;
+    RingBuffer->Head = 0;
+
+    uint64_t ringBufferAddress = (uint64_t)RingBuffer->RemoteAddr;
+
+    //
+    // The data is after the meta data
+    //
+    //
+    RingBuffer->DataBaseAddr = ringBufferAddress + sizeof(int) * 2;
+
+    //
+    // Meta data is the op size at the beginning of each request
+    //
+    //
+    RingBuffer->ReadMetaAddr = RingBuffer->DataBaseAddr;
+    RingBuffer->ReadMetaSize = sizeof(int);
+
+    //
+    // Only write the head int
+    //
+    //
+    RingBuffer->WriteMetaAddr = ringBufferAddress + sizeof(int);
+    RingBuffer->WriteMetaSize = sizeof(int);
 }
