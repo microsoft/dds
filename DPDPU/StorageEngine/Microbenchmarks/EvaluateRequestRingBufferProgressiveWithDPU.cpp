@@ -54,11 +54,17 @@ void RequestProducerWithDPU(
 	Request** Requests,
 	size_t NumRequests
 ) {
+	Profiler profiler(NumRequests);
+
+	profiler.Start();
 	for (size_t r = 0; r != NumRequests; r++) {
 		while (InsertToRequestBufferProgressive(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
 			this_thread::yield();
 		}
 	}
+	profiler.Stop();
+	cout << "Microbenchmark completed" << endl;
+	profiler.Report();
 }
 
 void EvaluateRequestRingBufferProgressiveWithDPU() {

@@ -21,9 +21,9 @@ HANDLE eventHandle = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 void
 DummyCallback(
-    DDS_FrontEnd::ErrorCodeT ErrorCode,
-    DDS_FrontEnd::FileIOSizeT BytesServiced,
-    DDS_FrontEnd::ContextT Context
+    ErrorCodeT ErrorCode,
+    FileIOSizeT BytesServiced,
+    ContextT Context
 ) {
     size_t* completedOperations = (size_t*)Context;
     (*completedOperations)++;
@@ -31,21 +31,21 @@ DummyCallback(
 
 void BenchmarkIO(
     DDS_FrontEnd::DDSFrontEnd &Store,
-    DDS_FrontEnd::FileIdT FileId,
-    DDS_FrontEnd::FileSizeT MaxFileSize
+    FileIdT FileId,
+    FileSizeT MaxFileSize
 ) {
     char* writeBuffer = new char[PAGE_SIZE];
     memset(writeBuffer, 0, sizeof(char) * PAGE_SIZE);
     *((int*)writeBuffer) = 42;
-    DDS_FrontEnd::FileSizeT totalWrittenSize = 0;
+    FileSizeT totalWrittenSize = 0;
     const size_t totalIOs = MaxFileSize / PAGE_SIZE;
     size_t completedIOs = 0;
-    DDS_FrontEnd::FileIOSizeT bytesServiced;
+    FileIOSizeT bytesServiced;
 
-    DDS_FrontEnd::ErrorCodeT result = Store.SetFilePointer(
+    ErrorCodeT result = Store.SetFilePointer(
         FileId,
         0,
-        DDS_FrontEnd::FilePointerPosition::BEGIN
+        FilePointerPosition::BEGIN
     );
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to set file pointer" << endl;
@@ -79,7 +79,7 @@ void BenchmarkIO(
     result = Store.SetFilePointer(
         FileId,
         0,
-        DDS_FrontEnd::FilePointerPosition::BEGIN
+        FilePointerPosition::BEGIN
     );
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to set file pointer" << endl;
@@ -116,13 +116,13 @@ void BenchmarkIO(
 void 
 PollThread(
     DDS_FrontEnd::DDSFrontEnd *Store,
-    DDS_FrontEnd::FileIdT FileId,
+    FileIdT FileId,
     size_t NumOps
 ) {
     size_t completedOps = 0;
     size_t totalBytes = 0;
-    DDS_FrontEnd::PollIdT pollId;
-    DDS_FrontEnd::ErrorCodeT result;
+    PollIdT pollId;
+    ErrorCodeT result;
 
     result = Store->GetDefaultPoll(&pollId);
     if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -130,9 +130,9 @@ PollThread(
         return;
     }
 
-    DDS_FrontEnd::FileIOSizeT opSize;
-    DDS_FrontEnd::ContextT opContext;
-    DDS_FrontEnd::ContextT pollContext;
+    FileIOSizeT opSize;
+    ContextT opContext;
+    ContextT pollContext;
     bool pollResult;
     while (completedOps != NumOps) {
         result = Store->PollWait(
@@ -159,20 +159,20 @@ PollThread(
 void 
 BenchmarkIOWithPolling(
     DDS_FrontEnd::DDSFrontEnd& Store,
-    DDS_FrontEnd::FileIdT FileId,
-    DDS_FrontEnd::FileSizeT MaxFileSize
+    FileIdT FileId,
+    FileSizeT MaxFileSize
 ) {
     char* writeBuffer = new char[PAGE_SIZE];
     memset(writeBuffer, 0, sizeof(char) * PAGE_SIZE);
     *((int*)writeBuffer) = 42;
-    DDS_FrontEnd::FileSizeT totalWrittenSize = 0;
+    FileSizeT totalWrittenSize = 0;
     const size_t totalIOs = MaxFileSize / PAGE_SIZE;
-    DDS_FrontEnd::FileIOSizeT bytesServiced;
+    FileIOSizeT bytesServiced;
 
-    DDS_FrontEnd::ErrorCodeT result = Store.SetFilePointer(
+    ErrorCodeT result = Store.SetFilePointer(
         FileId,
         0,
-        DDS_FrontEnd::FilePointerPosition::BEGIN
+        FilePointerPosition::BEGIN
     );
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to set file pointer" << endl;
@@ -224,7 +224,7 @@ BenchmarkIOWithPolling(
     result = Store.SetFilePointer(
         FileId,
         0,
-        DDS_FrontEnd::FilePointerPosition::BEGIN
+        FilePointerPosition::BEGIN
     );
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to set file pointer" << endl;
@@ -328,16 +328,16 @@ int main()
     const char* storeName = "DDS-Store0";
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
-    const DDS_FrontEnd::FileSizeT maxFileSize = 10737418240ULL;
-    const DDS_FrontEnd::FileAccessT fileAccess = 0;
-    const DDS_FrontEnd::FileShareModeT shareMode = 0;
-    const DDS_FrontEnd::FileAttributesT fileAttributes = 0;
-    DDS_FrontEnd::DirIdT rootDirId = DDS_DIR_INVALID;
-    DDS_FrontEnd::FileIdT fileId = DDS_FILE_INVALID;
+    const FileSizeT maxFileSize = 10737418240ULL;
+    const FileAccessT fileAccess = 0;
+    const FileShareModeT shareMode = 0;
+    const FileAttributesT fileAttributes = 0;
+    DirIdT rootDirId = DDS_DIR_INVALID;
+    FileIdT fileId = DDS_FILE_INVALID;
 
     DDS_FrontEnd::DDSFrontEnd store(storeName);
 
-    DDS_FrontEnd::ErrorCodeT result = store.Initialize();
+    ErrorCodeT result = store.Initialize();
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to initialize DDS front end" << endl;
     }
@@ -370,7 +370,7 @@ int main()
     int dataToWrite = 42;
     int readBuffer = 0;
     size_t ioCount = 0;
-    DDS_FrontEnd::FileIOSizeT bytesServiced = 0;
+    FileIOSizeT bytesServiced = 0;
 
     result = store.WriteFile(
         fileId,
@@ -396,7 +396,7 @@ int main()
     result = store.SetFilePointer(
         fileId,
         0,
-        DDS_FrontEnd::FilePointerPosition::BEGIN
+        FilePointerPosition::BEGIN
     );
     if (result != DDS_ERROR_CODE_SUCCESS) {
         cout << "Failed to set file pointer" << endl;
