@@ -1341,6 +1341,7 @@ ProcessBuffCqEvents(
                     switch (wc.wr_id)
                     {
                     case BUFF_READ_META_WR_ID: {
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
                         //
                         // Process a meta read
                         //
@@ -1420,16 +1421,100 @@ ProcessBuffCqEvents(
                             buffConn->RequestRing.Head = progress;
                             // TODO: immediately update remote head
                         }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+                        //
+                        // Process a meta read
+                        //
+                        //
+                        int* pointers = (int*)buffConn->DMAReadMetaBuff;
+                        int reqSize = pointers[0];
+                        if (reqSize == 0) {
+                            //
+                            // Not ready to read, poll again
+                            //
+                            //
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+                        }
+                        else {
+                            //
+                            // Ready to read
+                            //
+                            //
+                            RingSizeT availBytes = 0;
+                            uint64_t sourceBuffer1 = 0;
+                            uint64_t sourceBuffer2 = 0;
+                            int head = buffConn->RequestRing.Head;
+                            int tail = (head + reqSize) % DDS_REQUEST_RING_BYTES;
+
+                            if (tail > head) {
+                                availBytes = tail - head;
+                                buffConn->DMADataSize = availBytes;
+                                sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                            }
+                            else {
+                                availBytes = DDS_REQUEST_RING_BYTES - head;
+                                buffConn->DMADataSize = availBytes + tail;
+                                sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                                sourceBuffer2 = buffConn->RequestRing.DataBaseAddr;
+                            }
+
+                            //
+                            // Post a DMA read
+                            //
+                            //
+                            buffConn->DMADataWr.wr.rdma.remote_addr = sourceBuffer1;
+                            buffConn->DMADataWr.sg_list->length = availBytes;
+                            buffConn->DMADataWr.opcode = IBV_WR_RDMA_READ;
+                            buffConn->DMADataWr.wr_id = BUFF_READ_DATA_WR_ID;
+                            buffConn->DMADataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
+
+                            if (sourceBuffer2) {
+                                buffConn->DMADataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+
+                                buffConn->DMADataSplitWr.sg_list->addr = (uint64_t)(buffConn->DMADataBuff + availBytes);
+                                buffConn->DMADataSplitWr.sg_list->length = tail;
+                                buffConn->DMADataSplitWr.opcode = IBV_WR_RDMA_READ;
+                                buffConn->DMADataSplitWr.wr_id = BUFF_READ_DATA_SPLIT_WR_ID;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataSplitWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+                            }
+                            else {
+                                buffConn->DMADataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+                            }
+                        }
+#else
+#error "Unknown ring buffer implementation"
+#endif
                     }
                         break;
                     case BUFF_READ_DATA_WR_ID: {
-                        // TODO: parse requests
-
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
                         //
                         // Check splitting and update the head
                         //
                         //
                         if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            // TODO: parse requests
                             ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -1439,16 +1524,102 @@ ProcessBuffCqEvents(
                         else {
                             buffConn->DMAReadDataSplitState++;
                         }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+                        //
+                        // Check splitting and update the head
+                        //
+                        //
+                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            if (buffConn->DMADataBuff[buffConn->DMADataSize - 1]) {
+                                //
+                                // The request is ready
+                                //
+                                //
+
+                                // TODO: parse requests
+
+                                //
+                                // Zero out the request
+                                //
+                                //
+                                memset(buffConn->DMADataBuff, 0, buffConn->DMADataSize);
+                                if (buffConn->DMADataSplitWr.wr.rdma.remote_addr) {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+                                    buffConn->DMADataWr.opcode = IBV_WR_RDMA_WRITE;
+                                    buffConn->DMADataWr.wr_id = BUFF_WRITE_DATA_WR_ID;
+                                    buffConn->DMADataSplitWr.opcode = IBV_WR_RDMA_WRITE;
+                                    buffConn->DMADataSplitWr.wr_id = BUFF_WRITE_DATA_SPLIT_WR_ID;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataSplitWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                                else {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+                                    buffConn->DMADataWr.opcode = IBV_WR_RDMA_WRITE;
+                                    buffConn->DMADataWr.wr_id = BUFF_WRITE_DATA_WR_ID;
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                            }
+                            else {
+                                //
+                                // The request is not ready
+                                // Read again
+                                //
+                                //
+                                if (buffConn->DMADataSplitWr.wr.rdma.remote_addr) {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataSplitWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                                else {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            buffConn->DMAReadDataSplitState++;
+                        }
+#else
+#error "Unknown ring buffer implementation"
+#endif
                     }
                         break;
                     case BUFF_READ_DATA_SPLIT_WR_ID: {
-                        // TODO: parse requests
-
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
                         //
                         // Check splitting and update the head
                         //
                         //
                         if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            // TODO: parse requests
                             ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -1458,6 +1629,92 @@ ProcessBuffCqEvents(
                         else {
                             buffConn->DMAReadDataSplitState++;
                         }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+                        //
+                        // Check splitting and update the head
+                        //
+                        //
+                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            if (buffConn->DMADataBuff[buffConn->DMADataSize - 1]) {
+                                //
+                                // The request is ready
+                                //
+                                //
+
+                                // TODO: parse requests
+
+                                //
+                                // Zero out the request
+                                //
+                                //
+                                memset(buffConn->DMADataBuff, 0, buffConn->DMADataSize);
+                                if (buffConn->DMADataSplitWr.wr.rdma.remote_addr) {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+                                    buffConn->DMADataWr.opcode = IBV_WR_RDMA_WRITE;
+                                    buffConn->DMADataWr.wr_id = BUFF_WRITE_DATA_WR_ID;
+                                    buffConn->DMADataSplitWr.opcode = IBV_WR_RDMA_WRITE;
+                                    buffConn->DMADataSplitWr.wr_id = BUFF_WRITE_DATA_SPLIT_WR_ID;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataSplitWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                                else {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+                                    buffConn->DMADataWr.opcode = IBV_WR_RDMA_WRITE;
+                                    buffConn->DMADataWr.wr_id = BUFF_WRITE_DATA_WR_ID;
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                            }
+                            else {
+                                //
+                                // The request is not ready
+                                // Read again
+                                //
+                                //
+                                if (buffConn->DMADataSplitWr.wr.rdma.remote_addr) {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataSplitWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                                else {
+                                    buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMADataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            buffConn->DMAReadDataSplitState++;
+                        }
+#else
+#error "Unknown ring buffer implementation"
+#endif
                     }
                         break;
                     default:
@@ -1467,14 +1724,62 @@ ProcessBuffCqEvents(
                 }
                     break;
                 case IBV_WC_RDMA_WRITE: {
-                    //
-                    // Ready to poll
-                    //
-                    //
-                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
-                    if (ret) {
-                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                    switch (wc.wr_id)
+                    {
+                    case BUFF_WRITE_META_WR_ID: {
+                        //
+                        // Ready to poll
+                        //
+                        //
+                        ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                        if (ret) {
+                            fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                            ret = -1;
+                        }
+                    }
+                        break;
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+                    case BUFF_WRITE_DATA_WR_ID: {
+                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            //
+                            // Update head
+                            //
+                            //
+                            buffConn->RequestRing.Head = (buffConn->RequestRing.Head + buffConn->DMADataSize) % DDS_REQUEST_RING_BYTES;
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+                        }
+                        else {
+                            buffConn->DMAReadDataSplitState++;
+                        }
+                    }
+                        break;
+                    case BUFF_WRITE_DATA_SPLIT_WR_ID: {
+                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            //
+                            // Update head
+                            //
+                            //
+                            buffConn->RequestRing.Head = (buffConn->RequestRing.Head + buffConn->DMADataSize) % DDS_REQUEST_RING_BYTES;
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+                        }
+                        else {
+                            buffConn->DMAReadDataSplitState++;
+                        }
+                    }
+                        break;
+#endif
+                    default:
+                        fprintf(stderr, "%s [error]: unknown write completion\n", __func__);
                         ret = -1;
+                        break;
                     }
                 }
                     break;
