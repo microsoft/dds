@@ -44,6 +44,7 @@
 // Only pointer is an int
 //
 //
+#undef RING_BUFFER_META_DATA_SIZE
 #define RING_BUFFER_META_DATA_SIZE sizeof(int)
 #endif
 
