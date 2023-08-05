@@ -78,4 +78,13 @@ ParseNextRequestFaRMStyle(
     FileIOSizeT* RemainingSize
 );
 
+//
+// Wait for completion
+//
+//
+bool
+CheckForCompletionFaRMStyle(
+    RequestRingBufferFaRMStyle* RingBuffer
+);
+
 }

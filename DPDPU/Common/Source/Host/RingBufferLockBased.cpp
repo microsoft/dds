@@ -58,8 +58,8 @@ InsertToRequestBufferLockBased(
     }
 
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
-    while (requestBytes % RING_BUFFER_REQUEST_HEADER_SIZE != 0) {
-        requestBytes++;
+    if (requestBytes % RING_BUFFER_REQUEST_HEADER_SIZE != 0) {
+        requestBytes += (RING_BUFFER_REQUEST_HEADER_SIZE - (requestBytes % RING_BUFFER_REQUEST_HEADER_SIZE));
     }
 
     //
@@ -204,6 +204,17 @@ ParseNextRequestLockBased(
     else {
         *StartOfNext = nullptr;
     }
+}
+
+//
+// Wait for completion
+//
+//
+bool
+CheckForCompletionLockBased(
+    RequestRingBufferLockBased* RingBuffer
+) {
+    return RingBuffer->Head == RingBuffer->Tail;
 }
 
 }

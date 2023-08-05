@@ -77,4 +77,13 @@ ParseNextRequestLockBased(
     FileIOSizeT* RemainingSize
 );
 
+//
+// Wait for completion
+//
+//
+bool
+CheckForCompletionLockBased(
+    RequestRingBufferLockBased* RingBuffer
+);
+
 }

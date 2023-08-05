@@ -9,7 +9,9 @@ int main() {
 
     // EvaluateRequestRingBufferLockBased();
 
-    EvaluateRequestRingBufferProgressiveWithDPU();
+    // EvaluateRequestRingBufferProgressiveWithDPU();
+
+    EvaluateRequestRingBufferFaRMStyleWithDPU();
     
     return 0;
 }

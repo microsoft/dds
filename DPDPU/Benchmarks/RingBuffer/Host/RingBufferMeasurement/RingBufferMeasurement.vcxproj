@@ -144,23 +144,25 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\Common\Source\Host\BackEndBridge.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\DMABuffer.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\Profiler.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RDMC.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferFaRMStyle.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferLockBased.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferNoConcurrency.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressive.cpp" />
+    <ClCompile Include="EvaluateRequestRingBufferFaRMStyleWithDPU.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyle.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp" />
-    <ClCompile Include="Profiler.cpp" />
     <ClCompile Include="RingBufferMeasurement.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\Common\Include\Host\BackEndBridge.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\DDSFrontEndInterface.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\DMABuffer.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\Profiler.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RDMC.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferFaRMStyle.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferLockBased.h" />
@@ -168,7 +170,6 @@
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressive.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Protocol.h" />
     <ClInclude Include="Evaluation.h" />
-    <ClInclude Include="Profiler.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">

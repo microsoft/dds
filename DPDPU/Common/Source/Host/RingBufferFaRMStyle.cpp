@@ -247,4 +247,15 @@ ParseNextRequestFaRMStyle(
     }
 }
 
+//
+// Wait for completion
+//
+//
+bool
+CheckForCompletionFaRMStyle(
+    RequestRingBufferFaRMStyle* RingBuffer
+) {
+    return RingBuffer->Tail == RingBuffer->Head;
+}
+
 }

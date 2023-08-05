@@ -18,6 +18,8 @@ public:
 	void Stop();
 	double Ellapsed();
 	void Report();
+	void ReportLatency();
+	void ReportThroughput();
 
 private:
 	steady_clock::time_point m_start_time;

@@ -5,7 +5,7 @@
 #include "BackEndBridge.h"
 #include "DMABuffer.h"
 #include "Evaluation.h"
-#include "RingBufferProgressive.h"
+#include "RingBufferFaRMStyle.h"
 #include "Profiler.h"
 #include "Protocol.h"
 
@@ -49,8 +49,8 @@ public:
 	}
 };
 
-void RequestProducerWithDPU(
-	RequestRingBufferProgressive* RingBuffer,
+void RequestProducer(
+	RequestRingBufferFaRMStyle* RingBuffer,
 	Request** Requests,
 	size_t NumRequests,
 	double* Throughput
@@ -59,11 +59,11 @@ void RequestProducerWithDPU(
 
 	profiler.Start();
 	for (size_t r = 0; r != NumRequests; r++) {
-		while (InsertToRequestBufferProgressive(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
+		while (InsertToRequestBufferFaRMStyle(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
 			this_thread::yield();
 		}
 	}
-	while (!CheckForCompletionProgressive(RingBuffer)) {
+	while (!CheckForCompletionFaRMStyle(RingBuffer)) {
 		this_thread::yield();
 	}
 	profiler.Stop();
@@ -72,7 +72,7 @@ void RequestProducerWithDPU(
 	*Throughput = NumRequests / profiler.Ellapsed();
 }
 
-void EvaluateRequestRingBufferProgressiveWithDPU() {
+void EvaluateRequestRingBufferFaRMStyleWithDPU() {
 	const size_t entireBufferSpace = 134217728; // 128 MB
 	BackEndBridge backEnd;
 	if (!backEnd.Connect()) {
@@ -88,9 +88,9 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 	cout << "Allocated DMA buffer" << endl;
 
 	char* buffer = dmaBuffer.BufferAddress;
-	RequestRingBufferProgressive* ringBuffer = NULL;
-	const size_t totalProducers = 1;
-	const size_t requestsPerProducer = 1000000;
+	RequestRingBufferFaRMStyle* ringBuffer = NULL;
+	const size_t totalProducers = 64;
+	const size_t requestsPerProducer = 100000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
 
 	//
@@ -98,7 +98,8 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 	//
 	//
 	cout << "Allocating a ring buffer..." << endl;
-	ringBuffer = AllocateRequestBufferProgressive(buffer);
+	memset(buffer, 0, entireBufferSpace);
+	ringBuffer = AllocateRequestBufferFaRMStyle(buffer);
 
 	//
 	// Prepare requests
@@ -155,7 +156,7 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 		double* curThr = &throughputs[t];
 		producerThreads[t] = new thread(
 			[t, ringBuffer, allRequests, requestsPerProducer, curThr] {
-				RequestProducerWithDPU(ringBuffer,
+				RequestProducer(ringBuffer,
 					&allRequests[requestsPerProducer * t],
 					requestsPerProducer, curThr);
 			}
@@ -166,6 +167,7 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 	// Wait for all threads to join
 	//
 	//
+	cout << "Waiting for all threads to complete..." << endl;
 	for (size_t t = 0; t != totalProducers; t++) {
 		producerThreads[t]->join();
 		totalThroughput += throughputs[t];
