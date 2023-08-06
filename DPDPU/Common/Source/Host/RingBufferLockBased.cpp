@@ -131,9 +131,6 @@ FetchFromRequestBufferLockBased(
     BufferT CopyTo,
     FileIOSizeT* RequestSize
 ) {
-
-    RingBuffer->RingLock->lock();
-
     int head = RingBuffer->Head;
     int tail = RingBuffer->Tail;
     
@@ -171,8 +168,6 @@ FetchFromRequestBufferLockBased(
     }
 
     RingBuffer->Head = tail;
-
-    RingBuffer->RingLock->unlock();
 
     return true;
 }
