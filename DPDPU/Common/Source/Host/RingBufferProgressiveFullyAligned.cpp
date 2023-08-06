@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "RingBufferProgressive.h"
+#include "RingBufferProgressiveFullyAligned.h"
 
 namespace DDS_FrontEnd {
 
@@ -10,11 +10,11 @@ namespace DDS_FrontEnd {
 // Allocate a request buffer object
 //
 //
-RequestRingBufferProgressive*
-AllocateRequestBufferProgressive(
+RequestRingBufferProgressiveFullyAligned*
+AllocateRequestBufferProgressiveFullyAligned(
     BufferT BufferAddress
 ) {
-    RequestRingBufferProgressive* ringBuffer = (RequestRingBufferProgressive*)BufferAddress;
+    RequestRingBufferProgressiveFullyAligned* ringBuffer = (RequestRingBufferProgressiveFullyAligned*)BufferAddress;
 
     //
     // Align the buffer by cache line size
@@ -24,9 +24,9 @@ AllocateRequestBufferProgressive(
     while (ringBufferAddress % DDS_CACHE_LINE_SIZE != 0) {
         ringBufferAddress++;
     }
-    ringBuffer = (RequestRingBufferProgressive*)ringBufferAddress;
+    ringBuffer = (RequestRingBufferProgressiveFullyAligned*)ringBufferAddress;
 
-    memset(ringBuffer, 0, sizeof(RequestRingBufferProgressive));
+    memset(ringBuffer, 0, sizeof(RequestRingBufferProgressiveFullyAligned));
 
     return ringBuffer;
 }
@@ -36,10 +36,10 @@ AllocateRequestBufferProgressive(
 //
 //
 void
-DeallocateRequestBufferProgressive(
-    RequestRingBufferProgressive* RingBuffer
+DeallocateRequestBufferProgressiveFullyAligned(
+    RequestRingBufferProgressiveFullyAligned* RingBuffer
 ) {
-    memset(RingBuffer, 0, sizeof(RequestRingBufferProgressive));
+    memset(RingBuffer, 0, sizeof(RequestRingBufferProgressiveFullyAligned));
 }
 
 //
@@ -47,8 +47,8 @@ DeallocateRequestBufferProgressive(
 //
 //
 bool
-InsertToRequestBufferProgressive(
-    RequestRingBufferProgressive* RingBuffer,
+InsertToRequestBufferProgressiveFullyAligned(
+    RequestRingBufferProgressiveFullyAligned* RingBuffer,
     const BufferT CopyFrom,
     FileIOSizeT RequestSize
 ) {
@@ -190,8 +190,8 @@ InsertToRequestBufferProgressive(
 //
 //
 bool
-FetchFromRequestBufferProgressive(
-    RequestRingBufferProgressive* RingBuffer,
+FetchFromRequestBufferProgressiveFullyAligned(
+    RequestRingBufferProgressiveFullyAligned* RingBuffer,
     BufferT CopyTo,
     FileIOSizeT* RequestSize
 ) {
@@ -267,7 +267,7 @@ FetchFromRequestBufferProgressive(
 //
 //
 void
-ParseNextRequestProgressive(
+ParseNextRequestProgressiveFullyAligned(
     BufferT CopyTo,
     FileIOSizeT TotalSize,
     BufferT* RequestPointer,
@@ -295,8 +295,8 @@ ParseNextRequestProgressive(
 //
 //
 bool
-CheckForCompletionProgressive(
-    RequestRingBufferProgressive* RingBuffer
+CheckForCompletionProgressiveFullyAligned(
+    RequestRingBufferProgressiveFullyAligned* RingBuffer
 ) {
     int head = RingBuffer->Head[0];
     int tail = RingBuffer->Tail[0];
