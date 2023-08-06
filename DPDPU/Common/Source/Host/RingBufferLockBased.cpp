@@ -57,10 +57,12 @@ InsertToRequestBufferLockBased(
         distance = tail - head;
     }
 
-    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
-    if (requestBytes % RING_BUFFER_REQUEST_HEADER_SIZE != 0) {
-        requestBytes += (RING_BUFFER_REQUEST_HEADER_SIZE - (requestBytes % RING_BUFFER_REQUEST_HEADER_SIZE));
+    if (distance >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+        RingBuffer->RingLock->unlock();
+        return false;
     }
+
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
 
     //
     // Check space
@@ -70,8 +72,6 @@ InsertToRequestBufferLockBased(
         RingBuffer->RingLock->unlock();
         return false;
     }
-
-    RingBuffer->Tail = (tail + requestBytes) % DDS_REQUEST_RING_BYTES;
 
     if (tail + requestBytes <= DDS_REQUEST_RING_BYTES) {
         char* requestAddress = &RingBuffer->Buffer[tail];
@@ -116,6 +116,7 @@ InsertToRequestBufferLockBased(
         }
     }
 
+    RingBuffer->Tail = (tail + requestBytes) % DDS_REQUEST_RING_BYTES;
     RingBuffer->RingLock->unlock();
 
     return true;
@@ -139,7 +140,6 @@ FetchFromRequestBufferLockBased(
     //
     //
     if (tail == head) {
-        RingBuffer->RingLock->unlock();
         return false;
     }
 

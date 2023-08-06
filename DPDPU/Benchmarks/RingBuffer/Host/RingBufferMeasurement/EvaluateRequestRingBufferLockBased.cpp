@@ -119,7 +119,7 @@ void EvaluateRequestRingBufferLockBased() {
 	char* Buffer = new char[entireBufferSpace];
 	RequestRingBufferLockBased* ringBuffer = NULL;
 	const size_t totalProducers = 64;
-	const size_t requestsPerProducer = 10000000;
+	const size_t requestsPerProducer = 1000000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
 
 	//

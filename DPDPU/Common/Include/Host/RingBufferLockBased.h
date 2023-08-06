@@ -4,8 +4,6 @@
 
 #include "DDSFrontEndInterface.h"
 
-#define RING_BUFFER_REQUEST_HEADER_SIZE DDS_CACHE_LINE_SIZE
-
 namespace DDS_FrontEnd {
 
 using Mutex = std::mutex;
@@ -16,9 +14,9 @@ using Mutex = std::mutex;
 //
 //
 struct RequestRingBufferLockBased{
-    Mutex* RingLock;
     int Tail;
     int Head;
+    Mutex* RingLock;
     char Buffer[DDS_REQUEST_RING_BYTES];
 };
 
