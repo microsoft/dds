@@ -38,16 +38,16 @@
 #define RING_BUFFER_IMPL_PROGRESSIVE 0
 #define RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED 1
 #define RING_BUFFER_IMPL_FARMSTYLE 2
-#define RING_BUFFFER_IMPL RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+#define RING_BUFFER_IMPL RING_BUFFER_IMPL_FARMSTYLE
 
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+#if RING_BUFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
 //
 // Only pointer is an int
 //
 //
 #undef RING_BUFFER_META_DATA_SIZE
 #define RING_BUFFER_META_DATA_SIZE sizeof(int)
-#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
 //
 // Pointers are two ints
 //
@@ -139,7 +139,7 @@ struct BuffConnConfig {
     // Also, we separate pointers and content to enable prefetching
     //
     //
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+#if RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     struct ibv_send_wr DMAReadDataWr;
     struct ibv_sge DMAReadDataSgl;
     struct ibv_mr *DMAReadDataMr;
@@ -148,7 +148,16 @@ struct BuffConnConfig {
     struct ibv_sge DMAReadDataSplitSgl;
     uint32_t DMAReadDataSize;
     uint8_t DMAReadDataSplitState;
-#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
+#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+    struct ibv_send_wr DMAReadDataWr;
+    struct ibv_sge DMAReadDataSgl;
+    struct ibv_mr *DMAReadDataMr;
+    char* DMAReadDataBuff;
+    struct ibv_send_wr DMAReadDataSplitWr;
+    struct ibv_sge DMAReadDataSplitSgl;
+    uint32_t DMAReadDataSize;
+    uint8_t DMAReadDataSplitState;
+#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
     struct ibv_send_wr DMADataWr;
     struct ibv_sge DMADataSgl;
     struct ibv_mr *DMADataMr;
