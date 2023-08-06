@@ -6,5 +6,6 @@ void EvaluateRequestRingBufferFaRMStyle();
 void EvaluateRequestRingBufferLockBased();
 
 void EvaluateRequestRingBufferProgressiveWithDPU();
-void EvaluateRequestRingBufferFaRMStyleWithDPU();
 void EvaluateRequestRingBufferProgressiveNotAlignedWithDPU();
+void EvaluateRequestRingBufferProgressiveFullyAlignedWithDPU();
+void EvaluateRequestRingBufferFaRMStyleWithDPU();
