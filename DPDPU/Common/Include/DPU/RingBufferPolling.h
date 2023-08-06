@@ -38,6 +38,18 @@ InitializeRequestRingBufferBackEnd(
 );
 
 //
+// Initialize a buffer that is not cache aligned
+//
+//
+void
+InitializeRequestRingBufferNotAlignedBackEnd(
+    struct RequestRingBufferBackEnd* RingBuffer,
+    uint64_t RemoteAddr,
+    uint32_t AccessToken,
+    uint32_t Capacity
+);
+
+//
 // Initialize a buffer for lock-based ring buffer
 //
 //

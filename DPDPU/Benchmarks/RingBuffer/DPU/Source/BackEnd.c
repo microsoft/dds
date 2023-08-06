@@ -484,7 +484,7 @@ SetUpBuffRegionsAndBuffers(
         goto DeregisterBuffRecvMrReturn;
     }
 
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
     //
     // Read data buffer and region
     //
@@ -545,7 +545,7 @@ SetUpBuffRegionsAndBuffers(
     if (!BuffConn->DMAReadMetaMr) {
         fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read meta failed\n", __func__);
         ret = -1;
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
         goto DeregisterBuffReadDataMrReturn;
 #elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
         goto DeregisterBuffDataMrReturn;
@@ -591,7 +591,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->SendWr.num_sge = 1;
     BuffConn->SendWr.wr_id = BUFF_RECV_WR_ID;
 
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
     BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
@@ -650,7 +650,7 @@ SetUpBuffRegionsAndBuffers(
 DeregisterBuffReadMetaMrReturn:
     ibv_dereg_mr(BuffConn->DMAReadMetaMr);
 
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
 DeregisterBuffReadDataMrReturn:
     ibv_dereg_mr(BuffConn->DMAReadDataMr);
 
@@ -686,7 +686,7 @@ DestroyBuffRegionsAndBuffers(
 ) {
     ibv_dereg_mr(BuffConn->DMAWriteMetaMr);
     ibv_dereg_mr(BuffConn->DMAReadMetaMr);
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
     free(BuffConn->DMAReadDataBuff);
     ibv_dereg_mr(BuffConn->DMAReadDataMr);
 #elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
@@ -702,7 +702,7 @@ DestroyBuffRegionsAndBuffers(
     memset(&BuffConn->DMAReadMetaSgl, 0, sizeof(BuffConn->DMAReadMetaSgl));
     memset(&BuffConn->DMAWriteMetaWr, 0, sizeof(BuffConn->DMAWriteMetaWr));
     memset(&BuffConn->DMAReadMetaWr, 0, sizeof(BuffConn->DMAReadMetaWr));
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
     memset(&BuffConn->DMAReadDataSgl, 0, sizeof(BuffConn->DMAReadDataSgl));
     memset(&BuffConn->DMAReadDataSplitSgl, 0, sizeof(BuffConn->DMAReadDataSplitSgl));
     memset(&BuffConn->DMAReadDataWr, 0, sizeof(BuffConn->DMAReadDataWr));
@@ -1210,6 +1210,13 @@ BuffMsgHandler(
                 req->AccessToken,
                 req->Capacity
             );
+#elif  RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+            InitializeRequestRingBufferNotAlignedBackEnd(
+                &BuffConn->RequestRing,
+                req->BufferAddress,
+                req->AccessToken,
+                req->Capacity
+            );
 #elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
             InitializeRequestRingBufferFaRMStyleBackEnd(
                 &BuffConn->RequestRing,
@@ -1225,7 +1232,7 @@ BuffMsgHandler(
             BuffConn->DMAReadMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->DMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.WriteMetaAddr;
             BuffConn->DMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
             BuffConn->DMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->DMAReadDataSplitWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
 #elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
@@ -1254,7 +1261,7 @@ BuffMsgHandler(
             // Start polling
             //
             //
-#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+#if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE || RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
             ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -1345,6 +1352,86 @@ ProcessBuffCqEvents(
                         int* pointers = (int*)buffConn->DMAReadMetaBuff;
                         int progress = pointers[0];
                         int tail = pointers[DDS_CACHE_LINE_SIZE_BY_INT];
+                        if (tail == buffConn->RequestRing.Head || tail != progress) {
+                            //
+                            // Not ready to read, poll again
+                            //
+                            //
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+                        }
+                        else {
+                            //
+                            // Ready to read
+                            //
+                            //
+                            RingSizeT availBytes = 0;
+                            uint64_t sourceBuffer1 = 0;
+                            uint64_t sourceBuffer2 = 0;
+                            int head = buffConn->RequestRing.Head;
+
+                            if (progress > head) {
+                                availBytes = progress - head;
+                                buffConn->DMAReadDataSize = availBytes;
+                                sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                            }
+                            else {
+                                availBytes = DDS_REQUEST_RING_BYTES - head;
+                                buffConn->DMAReadDataSize = availBytes + progress;
+                                sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                                sourceBuffer2 = buffConn->RequestRing.DataBaseAddr;
+                            }
+
+                            //
+                            // Post a DMA read
+                            //
+                            //
+                            buffConn->DMAReadDataWr.wr.rdma.remote_addr = sourceBuffer1;
+                            buffConn->DMAReadDataWr.sg_list->length = availBytes;
+
+                            if (sourceBuffer2) {
+                                buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+
+                                buffConn->DMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->DMAReadDataBuff + availBytes);
+                                buffConn->DMAReadDataSplitWr.sg_list->length = progress;
+                                buffConn->DMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataSplitWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+                            }
+                            else {
+                                buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+                            }
+
+                            buffConn->RequestRing.Head = progress;
+                            // TODO: immediately update remote head
+                        }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+                        //
+                        // Process a meta read
+                        //
+                        //
+                        int* pointers = (int*)buffConn->DMAReadMetaBuff;
+                        int progress = pointers[0];
+                        int tail = pointers[1];
                         if (tail == buffConn->RequestRing.Head || tail != progress) {
                             //
                             // Not ready to read, poll again
@@ -1520,6 +1607,22 @@ ProcessBuffCqEvents(
                         else {
                             buffConn->DMAReadDataSplitState++;
                         }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
+                        //
+                        // Check splitting and update the head
+                        //
+                        //
+                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            // TODO: parse requests
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+                        }
+                        else {
+                            buffConn->DMAReadDataSplitState++;
+                        }
 #elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
                         //
                         // Check splitting and update the head
@@ -1610,6 +1713,22 @@ ProcessBuffCqEvents(
                         break;
                     case BUFF_READ_DATA_SPLIT_WR_ID: {
 #if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+                        //
+                        // Check splitting and update the head
+                        //
+                        //
+                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            // TODO: parse requests
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+                        }
+                        else {
+                            buffConn->DMAReadDataSplitState++;
+                        }
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
                         //
                         // Check splitting and update the head
                         //
@@ -1723,6 +1842,19 @@ ProcessBuffCqEvents(
                     switch (wc.wr_id)
                     {
 #if RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
+                    case BUFF_WRITE_META_WR_ID: {
+                        //
+                        // Ready to poll
+                        //
+                        //
+                        ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                        if (ret) {
+                            fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                            ret = -1;
+                        }
+                    }
+                        break;
+#elif RING_BUFFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
                     case BUFF_WRITE_META_WR_ID: {
                         //
                         // Ready to poll
