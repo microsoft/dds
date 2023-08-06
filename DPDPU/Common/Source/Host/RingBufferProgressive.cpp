@@ -78,9 +78,11 @@ InsertToRequestBufferProgressive(
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
 
+    /*
     if (requestBytes % DDS_CACHE_LINE_SIZE != 0) {
         requestBytes += (DDS_CACHE_LINE_SIZE - (requestBytes % DDS_CACHE_LINE_SIZE));
     }
+    */
 
     if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
         return false;

@@ -89,7 +89,7 @@ void EvaluateRequestRingBufferProgressiveWithDPU() {
 
 	char* buffer = dmaBuffer.BufferAddress;
 	RequestRingBufferProgressive* ringBuffer = NULL;
-	const size_t totalProducers = 1;
+	const size_t totalProducers = 64;
 	const size_t requestsPerProducer = 1000000;
 	size_t totalRequests = requestsPerProducer * totalProducers;
 
