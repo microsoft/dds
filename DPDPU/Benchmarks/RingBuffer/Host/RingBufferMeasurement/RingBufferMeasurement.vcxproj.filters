@@ -60,6 +60,12 @@
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyleWithDPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressiveNotAligned.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EvaluateRequestRingBufferProgressiveNotAlignedWithDPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Evaluation.h">
@@ -93,6 +99,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\Common\Include\Protocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressiveNotAligned.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

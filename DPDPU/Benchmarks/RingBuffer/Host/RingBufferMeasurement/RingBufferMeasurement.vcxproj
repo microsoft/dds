@@ -150,11 +150,13 @@
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferLockBased.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferNoConcurrency.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressive.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressiveNotAligned.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyleWithDPU.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyle.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferLockBased.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressive.cpp" />
+    <ClCompile Include="EvaluateRequestRingBufferProgressiveNotAlignedWithDPU.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp" />
     <ClCompile Include="RingBufferMeasurement.cpp" />
   </ItemGroup>
@@ -168,6 +170,7 @@
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferLockBased.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferNoConcurrency.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressive.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressiveNotAligned.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Protocol.h" />
     <ClInclude Include="Evaluation.h" />
   </ItemGroup>
