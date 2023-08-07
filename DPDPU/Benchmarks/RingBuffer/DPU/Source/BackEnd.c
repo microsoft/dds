@@ -1560,6 +1560,11 @@ ProcessBuffCqEvents(
 
                             buffConn->RequestRing.Head = progress;
                             // TODO: immediately update remote head
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
                         }
 #elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
                         //
@@ -1814,11 +1819,6 @@ ProcessBuffCqEvents(
                         //
                         if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
                             // TODO: parse requests
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
-                            if (ret) {
-                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                                ret = -1;
-                            }
                         }
                         else {
                             buffConn->DMAReadDataSplitState++;
