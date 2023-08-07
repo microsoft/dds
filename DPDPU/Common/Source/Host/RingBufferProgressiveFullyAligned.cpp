@@ -60,6 +60,13 @@ InsertToRequestBufferProgressiveFullyAligned(
     int head = RingBuffer->Head[0];
     RingSizeT distance = 0;
 
+    //
+    // Align the request to cache line size to avoid false sharing;
+    // Append request size to the beginning of the request;
+    //
+    //
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
+
     if (tail < head) {
         distance = tail + DDS_REQUEST_RING_BYTES - head;
     }
@@ -67,16 +74,9 @@ InsertToRequestBufferProgressiveFullyAligned(
         distance = tail - head;
     }
 
-    if (distance >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+    if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
         return false;
     }
-
-    //
-    // Align the request to cache line size to avoid false sharing;
-    // Append request size to the beginning of the request;
-    //
-    //
-    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
     
     if (requestBytes % DDS_CACHE_LINE_SIZE != 0) {
         requestBytes += (DDS_CACHE_LINE_SIZE - (requestBytes % DDS_CACHE_LINE_SIZE));
@@ -104,7 +104,7 @@ InsertToRequestBufferProgressiveFullyAligned(
             distance = tail - head;
         }
 
-        if (distance >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+        if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
             return false;
         }
 
