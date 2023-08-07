@@ -675,7 +675,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataSplitWr.sg_list = &BuffConn->DMAReadDataSplitSgl;
     BuffConn->DMAReadDataSplitWr.num_sge = 1;
     BuffConn->DMAReadDataSplitWr.wr_id = BUFF_READ_DATA_SPLIT_WR_ID;
-#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_LOCKBASED
+#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_LOCKBASED
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
     BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
@@ -746,7 +746,7 @@ DeregisterBuffReadDataMrReturn:
 
 FreeBuffDMAReadDataBuffReturn:
     free(BuffConn->DMAReadDataBuff);
-#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_LOCKBASED
+#elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_LOCKBASED
 DeregisterBuffReadDataMrReturn:
     ibv_dereg_mr(BuffConn->DMAReadDataMr);
 
