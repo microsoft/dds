@@ -72,6 +72,9 @@
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressiveFullyAligned.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="EvaluateRequestRingBufferLockBasedWithDPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Evaluation.h">

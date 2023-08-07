@@ -7,7 +7,7 @@ int main() {
 
     // EvaluateRequestRingBufferFaRMStyle();
 
-    EvaluateRequestRingBufferLockBased();
+    // EvaluateRequestRingBufferLockBased();
 
     // EvaluateRequestRingBufferProgressiveWithDPU();
 
@@ -16,6 +16,8 @@ int main() {
     // EvaluateRequestRingBufferProgressiveFullyAlignedWithDPU();
 
     // EvaluateRequestRingBufferFaRMStyleWithDPU();
+
+    EvaluateRequestRingBufferLockBasedWithDPU();
     
     return 0;
 }
