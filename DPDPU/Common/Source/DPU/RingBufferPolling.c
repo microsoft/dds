@@ -90,7 +90,7 @@ InitializeRequestRingBufferNotAlignedBackEnd(
 }
 
 //
-// Initialize a buffer for lock-based ring buffer
+// Initialize a buffer for FaRM-style ring buffer
 //
 //
 void
@@ -127,4 +127,44 @@ InitializeRequestRingBufferFaRMStyleBackEnd(
     //
     RingBuffer->WriteMetaAddr = ringBufferAddress + sizeof(int);
     RingBuffer->WriteMetaSize = sizeof(int);
+}
+
+//
+// Initialize a buffer for lock-based ring buffer
+//
+//
+void
+InitializeRequestRingBufferLockBasedBackEnd(
+    struct RequestRingBufferBackEnd* RingBuffer,
+    uint64_t RemoteAddr,
+    uint32_t AccessToken,
+    uint32_t Capacity
+) {
+    memset(RingBuffer, 0, sizeof(struct RequestRingBufferBackEnd));
+    RingBuffer->RemoteAddr = RemoteAddr;
+    RingBuffer->AccessToken = AccessToken;
+    RingBuffer->Capacity = Capacity;
+    RingBuffer->Head = 0;
+
+    uint64_t ringBufferAddress = (uint64_t)RingBuffer->RemoteAddr;
+
+    //
+    // Read the tail
+    //
+    //
+    RingBuffer->ReadMetaAddr = ringBufferAddress;
+    RingBuffer->ReadMetaSize = sizeof(int);
+
+    //
+    // Only write the head int
+    //
+    //
+    RingBuffer->WriteMetaAddr = ringBufferAddress + RingBuffer->ReadMetaSize;
+    RingBuffer->WriteMetaSize = sizeof(int);
+
+    //
+    // The data is after the meta data
+    //
+    //
+    RingBuffer->DataBaseAddr = ringBufferAddress + sizeof(int) * 2 + sizeof(void*);
 }

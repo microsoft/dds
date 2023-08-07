@@ -50,11 +50,23 @@ InitializeRequestRingBufferNotAlignedBackEnd(
 );
 
 //
-// Initialize a buffer for lock-based ring buffer
+// Initialize a buffer for FaRM-style ring buffer
 //
 //
 void
 InitializeRequestRingBufferFaRMStyleBackEnd(
+    struct RequestRingBufferBackEnd* RingBuffer,
+    uint64_t RemoteAddr,
+    uint32_t AccessToken,
+    uint32_t Capacity
+);
+
+//
+// Initialize a buffer for lock-based ring buffer
+//
+//
+void
+InitializeRequestRingBufferLockBasedBackEnd(
     struct RequestRingBufferBackEnd* RingBuffer,
     uint64_t RemoteAddr,
     uint32_t AccessToken,
