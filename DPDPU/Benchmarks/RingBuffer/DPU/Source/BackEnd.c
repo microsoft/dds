@@ -1559,11 +1559,11 @@ ProcessBuffCqEvents(
                             }
 
                             buffConn->RequestRing.Head = progress;
-			    
-			    //
+                            
+                            //
                             // Immediately update remote head, assuming DMA requests are exected in order
-			    //
-			    //
+                            //
+                            //
                             ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d (%s)\n", __func__, ret, strerror(ret));
@@ -1649,10 +1649,10 @@ ProcessBuffCqEvents(
 
                             buffConn->RequestRing.Head = progress;
 
-			    //
+                            //
                             // Immediately update remote head, assuming DMA requests are exected in order
-			    //
-			    //
+                            //
+                            //
                             ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d (%s)\n", __func__, ret, strerror(ret));
@@ -1737,10 +1737,10 @@ ProcessBuffCqEvents(
 
                             buffConn->RequestRing.Head = tail;
 
-			    //
+                            //
                             // Immediately update remote head, assuming DMA requests are exected in order
-			    //
-			    //
+                            //
+                            //
                             ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d (%s)\n", __func__, ret, strerror(ret));
