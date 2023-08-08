@@ -57,12 +57,12 @@ InsertToRequestBufferLockBased(
         distance = tail - head;
     }
 
-    if (distance >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
+
+    if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
         RingBuffer->RingLock->unlock();
         return false;
     }
-
-    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
 
     //
     // Check space
