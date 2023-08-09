@@ -63,7 +63,7 @@ void RequestProducerWithDPU(
 			this_thread::yield();
 		}
 	}
-	while (!CheckForCompletionProgressive(RingBuffer)) {
+	while (!CheckForRequestCompletionProgressive(RingBuffer)) {
 		this_thread::yield();
 	}
 	profiler.Stop();

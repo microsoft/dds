@@ -10,7 +10,13 @@ template <class C>
 using Atomic = std::atomic<C>;
 
 //
-// A ring buffer for message exchanges between front and back ends;
+// **************************************************************
+// Request buffer
+// **************************************************************
+//
+
+//
+// A ring buffer for exchanging requests from the host to the DPU;
 // This object should be allocated from the DMA area;
 // All members are cache line aligned to avoid false sharing between threads
 //
@@ -64,7 +70,7 @@ FetchFromRequestBufferProgressive(
 
 //
 // Parse a request from copied data
-// Note: RequestSize is greater than the actual request size and is cache line aligned
+// Note: RequestSize is greater than the actual request size
 //
 //
 void
@@ -82,8 +88,93 @@ ParseNextRequestProgressive(
 //
 //
 bool
-CheckForCompletionProgressive(
+CheckForRequestCompletionProgressive(
     RequestRingBufferProgressive* RingBuffer
+);
+
+//
+// **************************************************************
+// Response buffer
+// **************************************************************
+//
+
+//
+// A ring buffer for exchanging responses from the DPU to the host;
+// This object should be allocated from the DMA area;
+// All members are cache line aligned to avoid false sharing between threads
+//
+//
+struct ResponseRingBufferProgressive{
+    Atomic<int> Progress[DDS_CACHE_LINE_SIZE_BY_INT];
+    Atomic<int> Head[DDS_CACHE_LINE_SIZE_BY_INT];
+    int Tail[DDS_CACHE_LINE_SIZE_BY_INT];
+    char Buffer[DDS_RESPONSE_RING_BYTES];
+};
+
+//
+// Allocate a response buffer object
+//
+//
+ResponseRingBufferProgressive*
+AllocateResponseBufferProgressive(
+    BufferT BufferAddress
+);
+
+//
+// Deallocate a response buffer object
+//
+//
+void
+DeallocateResponseBufferProgressive(
+    ResponseRingBufferProgressive* RingBuffer
+);
+
+//
+// Fetch responses from the response buffer
+//
+//
+bool
+FetchFromResponseBufferProgressive(
+    ResponseRingBufferProgressive* RingBuffer,
+    BufferT CopyTo,
+    FileIOSizeT* ResponseSize
+);
+
+//
+// Insert a response into the response buffer
+//
+//
+bool
+InsertToResponseBufferProgressive(
+    ResponseRingBufferProgressive* RingBuffer,
+    const BufferT* CopyFromList,
+    FileIOSizeT* ResponseSizeList,
+    int NumResponses,
+    int* NumResponsesInserted
+);
+
+//
+// Parse a response from copied data
+// Note: ResponseSize is greater than the actual Response size
+//
+//
+void
+ParseNextResponseProgressive(
+    BufferT CopyTo,
+    FileIOSizeT TotalSize,
+    BufferT* ResponsePointer,
+    FileIOSizeT* ResponseSize,
+    BufferT* StartOfNext,
+    FileIOSizeT* RemainingSize
+);
+
+//
+// Wait for completion
+//
+//
+bool
+CheckForResponseCompletionProgressive(
+    ResponseRingBufferProgressive* RingBuffer
 );
 
 }
