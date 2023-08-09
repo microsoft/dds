@@ -66,17 +66,20 @@ InsertToRequestBufferProgressive(
     int head = RingBuffer->Head[0];
     RingSizeT distance = 0;
 
-    //
-    // Append request size to the beginning of the request;
-    //
-    //
-    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
-
     if (tail < head) {
         distance = tail + DDS_REQUEST_RING_BYTES - head;
     }
     else {
         distance = tail - head;
+    }
+
+    //
+    // Append request size to the beginning of the request;
+    //
+    //
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
+    if (requestBytes % sizeof(FileIOSizeT) != 0) {
+        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
     }
 
     if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
@@ -122,7 +125,7 @@ InsertToRequestBufferProgressive(
     // Now, both tail and space are good
     //
     //
-    if (tail + requestBytes <= DDS_REQUEST_RING_BYTES) {
+    if (tail + sizeof(FileIOSizeT) + RequestSize <= DDS_REQUEST_RING_BYTES) {
         char* requestAddress = &RingBuffer->Buffer[tail];
 
         //
@@ -151,7 +154,7 @@ InsertToRequestBufferProgressive(
         // We need to wrap the buffer around
         //
         //
-        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);;
+        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);
         char* requestAddress1 = &RingBuffer->Buffer[tail];
         char* requestAddress2 = &RingBuffer->Buffer[0];
 
@@ -165,13 +168,10 @@ InsertToRequestBufferProgressive(
         // Write the request to two memory locations
         //
         //
-        if (RequestSize <= remainingBytes) {
-            memcpy(requestAddress1 + sizeof(FileIOSizeT), CopyFrom, RequestSize);
-        }
-        else {
+        if (remainingBytes > 0) {
             memcpy(requestAddress1 + sizeof(FileIOSizeT), CopyFrom, remainingBytes);
-            memcpy(requestAddress2, (const char*)CopyFrom + remainingBytes, RequestSize - remainingBytes);
         }
+        memcpy(requestAddress2, (const char*)CopyFrom + remainingBytes, RequestSize - remainingBytes);
 
         //
         // Increment the progress
@@ -361,7 +361,12 @@ FetchFromResponseBufferProgressive(
     // Check if there is a response at the head
     //
     //
+    int tail = RingBuffer->Tail[0];
     int head = RingBuffer->Head[0];
+
+    if (tail == head) {
+        return false;
+    }
 
     FileIOSizeT responseSize = *(FileIOSizeT*)RingBuffer->Buffer[head];
 
@@ -374,8 +379,13 @@ FetchFromResponseBufferProgressive(
     //
     //
     while(RingBuffer->Head[0].compare_exchange_weak(head, (head + responseSize) % DDS_RESPONSE_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
         head = RingBuffer->Head[0];
         responseSize = *(FileIOSizeT*)RingBuffer->Buffer[head];
+
+        if (tail == head) {
+            return false;
+        }
 
         if (responseSize == 0) {
             return false;
@@ -462,7 +472,7 @@ InsertToResponseBufferProgressive(
 
     RingSizeT distance = 0;
     
-    if (tail > head) {
+    if (tail >= head) {
         distance = head + DDS_RESPONSE_RING_BYTES - tail;
     }
     else {
@@ -485,69 +495,77 @@ InsertToResponseBufferProgressive(
     FileIOSizeT responseBytes = 0;
     FileIOSizeT totalResponseBytes = 0;
     for (; respIndex != NumResponses; respIndex++) {
-        responseBytes = ResponseSizeList[respIndex];
+        responseBytes = ResponseSizeList[respIndex] + sizeof(FileIOSizeT);
+        
+        //
+        // Align to the size of FileIOSizeT
+        //
+        //
         if (responseBytes % sizeof(FileIOSizeT) != 0) {
             responseBytes += (sizeof(FileIOSizeT) - (responseBytes % sizeof(FileIOSizeT)));
         }
-        memcpy(&RingBuffer->Buffer[(tail + sizeof(FileIOSizeT)) % DDS_RESPONSE_RING_BYTES], CopyFromList[respIndex], responseBytes);
+
+        if (totalResponseBytes + responseBytes > distance) {
+            //
+            // No more space
+            //
+            //
+            break;
+        }
+
+        if (tail + sizeof(FileIOSizeT) + ResponseSizeList[respIndex] <= DDS_RESPONSE_RING_BYTES) {
+            //
+            // Write one response
+            // On DPU, these responses should batched and there should be no extra memory copy
+            //
+            //
+            memcpy(&RingBuffer->Buffer[(tail + sizeof(FileIOSizeT)) % DDS_RESPONSE_RING_BYTES], CopyFromList[respIndex], responseBytes);
+        }
+        else {
+            FileIOSizeT firstPartBytes = DDS_RESPONSE_RING_BYTES - tail - sizeof(FileIOSizeT);
+            FileIOSizeT secondPartBytes = ResponseSizeList[respIndex] - firstPartBytes;
+
+            //
+            // Write one response to two locations
+            // On DPU, these responses should batched and there should be no extra memory copy
+            //
+            //
+            if (firstPartBytes > 0) {
+                memcpy(&RingBuffer->Buffer[tail + sizeof(FileIOSizeT)], CopyFromList[respIndex], firstPartBytes);
+            }
+            memcpy(&RingBuffer->Buffer[0], (char*)CopyFromList[respIndex] + firstPartBytes, secondPartBytes);
+        }
+        
         *(FileIOSizeT*)&RingBuffer->Buffer[tail] = responseBytes;
         totalResponseBytes += responseBytes;
-        if (totalResponseBytes + )
+        tail = (tail + responseBytes) % DDS_RESPONSE_RING_BYTES;
     }
 
-
-
-    //
-    // Append request size to the beginning of the request;
-    //
-    //
-    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
-
-    if (tail < head) {
-        distance = tail + DDS_REQUEST_RING_BYTES - head;
-    }
-    else {
-        distance = tail - head;
-    }
-
-    if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
-        return false;
-    }
-
-    if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
-        return false;
-    }
-
-    //
-    // Align responses to sizeof(FileIOSizeT) bytes
-    //
-    //
-    if (requestBytes % DDS_CACHE_LINE_SIZE != 0) {
-        requestBytes += (DDS_CACHE_LINE_SIZE - (requestBytes % DDS_CACHE_LINE_SIZE));
-    }
+    *NumResponsesInserted = respIndex;
+    RingBuffer->Tail[0] = tail;
 
     return true;
 }
 
 //
-// Parse a request from copied data
-// Note: RequestSize is greater than the actual request size
+// Parse a response from copied data
+// Note: ResponseSize is greater than the actual response size because of alignment
 //
 //
 void
-ParseNextRequestProgressive(
+ParseNextResponseProgressive(
     BufferT CopyTo,
     FileIOSizeT TotalSize,
-    BufferT* RequestPointer,
-    FileIOSizeT* RequestSize,
+    BufferT* ResponsePointer,
+    FileIOSizeT* ResponseSize,
     BufferT* StartOfNext,
     FileIOSizeT* RemainingSize
 ) {
     char* bufferAddress = (char*)CopyTo;
     FileIOSizeT totalBytes = *(FileIOSizeT*)bufferAddress;
 
-    *RequestPointer = (BufferT)(bufferAddress + sizeof(FileIOSizeT));
-    *RequestSize = totalBytes - sizeof(FileIOSizeT);
+    *ResponsePointer = (BufferT)(bufferAddress + sizeof(FileIOSizeT));
+    *ResponseSize = totalBytes - sizeof(FileIOSizeT);
     *RemainingSize = TotalSize - totalBytes;
 
     if (*RemainingSize > 0) {
@@ -563,8 +581,8 @@ ParseNextRequestProgressive(
 //
 //
 bool
-CheckForRequestCompletionProgressive(
-    RequestRingBufferProgressive* RingBuffer
+CheckForResponseCompletionProgressive(
+    ResponseRingBufferProgressive* RingBuffer
 ) {
     int head = RingBuffer->Head[0];
     int tail = RingBuffer->Tail[0];
