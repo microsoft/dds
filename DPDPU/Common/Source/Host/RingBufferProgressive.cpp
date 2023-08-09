@@ -74,10 +74,12 @@ InsertToRequestBufferProgressive(
     }
 
     //
-    // Append request size to the beginning of the request;
+    // Append request size to the beginning of the request
+    // Check alignment
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
+    
     if (requestBytes % sizeof(FileIOSizeT) != 0) {
         requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
     }

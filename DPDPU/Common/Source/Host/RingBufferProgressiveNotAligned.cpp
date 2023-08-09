@@ -47,11 +47,17 @@ InsertToRequestBufferProgressiveNotAligned(
     int tail = RingBuffer->Tail;
     int head = RingBuffer->Head;
     RingSizeT distance = 0;
+
     //
-    // Append request size to the beginning of the request;
+    // Append request size to the beginning of the request
+    // Check alignment
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
+    
+    if (requestBytes % sizeof(FileIOSizeT) != 0) {
+        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
+    }
 
     if (tail < head) {
         distance = tail + DDS_REQUEST_RING_BYTES - head;

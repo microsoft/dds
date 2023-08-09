@@ -68,8 +68,8 @@ InsertToRequestBufferProgressiveFullyAligned(
     }
 
     //
-    // Align the request to cache line size to avoid false sharing;
-    // Append request size to the beginning of the request;
+    // Align the request to cache line size to avoid false sharing
+    // Append request size to the beginning of the request
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
