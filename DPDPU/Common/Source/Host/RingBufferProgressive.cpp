@@ -197,7 +197,7 @@ FetchFromRequestBufferProgressive(
     FileIOSizeT* RequestSize
 ) {
     //
-    // In order to make this ring buffer to be safe, we must maintain the invariant below:
+    // In order to make this ring buffer safe, we must maintain the invariant below:
     // Each producer moves tail before it increments the progress.
     // Every producer maintains this invariant:
     // They (1) advance the tail,
@@ -446,7 +446,7 @@ InsertToResponseBufferProgressive(
     int* NumResponsesInserted
 ) {
     //
-    // In order to make this ring buffer to be safe, we must maintain the invariant below:
+    // In order to make this ring buffer safe, we must maintain the invariant below:
     // Each consumer moves the head before it increments the progress.
     // Every consumser maintains this invariant:
     // They (1) advance the head,

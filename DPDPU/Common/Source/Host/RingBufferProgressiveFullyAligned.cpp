@@ -150,7 +150,7 @@ InsertToRequestBufferProgressiveFullyAligned(
         // We need to wrap the buffer around
         //
         //
-        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);;
+        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);
         char* requestAddress1 = &RingBuffer->Buffer[tail];
         char* requestAddress2 = &RingBuffer->Buffer[0];
 
@@ -196,7 +196,7 @@ FetchFromRequestBufferProgressiveFullyAligned(
     FileIOSizeT* RequestSize
 ) {
     //
-    // In order to make this ring buffer to be safe, we must maintain the invariant below:
+    // In order to make this ring buffer safe, we must maintain the invariant below:
     // Each producer moves tail before it increments the progress.
     // Every producer maintains this invariant:
     // They (1) advance the tail,
