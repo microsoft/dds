@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <time.h>
 
 #include "Protocol.h"
@@ -10,19 +11,19 @@
 //
 typedef void* BufferT;
 typedef void* ContextT;
-typedef int DirIdT;
-typedef int ErrorCodeT;
-typedef unsigned long FileAccessT;
-typedef unsigned long FileAttributesT;
-typedef unsigned long FileIdT;
-typedef long long PositionInFileT;
-typedef unsigned long FileShareModeT;
-typedef unsigned long FileCreationDispositionT;
-typedef unsigned long FileIOSizeT;
-typedef unsigned long long FileSizeT;
-typedef unsigned long PollIdT;
-typedef unsigned int RingSizeT;
-typedef unsigned int RingSlotSizeT;
+typedef int32_t DirIdT;
+typedef int32_t ErrorCodeT;
+typedef uint32_t FileAccessT;
+typedef uint32_t FileAttributesT;
+typedef uint32_t FileIdT;
+typedef int64_t PositionInFileT;
+typedef uint32_t FileShareModeT;
+typedef uint32_t FileCreationDispositionT;
+typedef uint32_t FileIOSizeT;
+typedef uint64_t FileSizeT;
+typedef uint32_t PollIdT;
+typedef uint32_t RingSizeT;
+typedef uint32_t RingSlotSizeT;
 
 //
 // Types of position in file

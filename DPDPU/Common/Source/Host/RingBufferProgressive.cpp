@@ -526,7 +526,7 @@ InsertToResponseBufferProgressive(
             // On DPU, these responses should batched and there should be no extra memory copy
             //
             //
-            memcpy(&RingBuffer->Buffer[(tail + sizeof(FileIOSizeT)) % DDS_RESPONSE_RING_BYTES], CopyFromList[respIndex], responseBytes);
+            memcpy(&RingBuffer->Buffer[(tail + sizeof(FileIOSizeT)) % DDS_RESPONSE_RING_BYTES], CopyFromList[respIndex], ResponseSizeList[respIndex]);
         }
         else {
             FileIOSizeT firstPartBytes = DDS_RESPONSE_RING_BYTES - tail - sizeof(FileIOSizeT);
