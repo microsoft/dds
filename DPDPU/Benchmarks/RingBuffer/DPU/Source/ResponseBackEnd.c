@@ -1159,7 +1159,7 @@ BuffMsgHandler(
             fprintf(stdout, "- Access token: %x\n", BuffConn->RequestRing.AccessToken);
 #endif
             //
-            // Start polling
+            // Start benchmarking
             //
             //
             ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);
