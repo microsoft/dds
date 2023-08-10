@@ -35,7 +35,7 @@ app_link_args = []
 app_link_args += ['-libverbs']
 app_link_args += ['-lrdmacm']
 
-APP_NAME = 'DDSFileBackEnd'
+APP_NAME = 'RingBufferBenchmark'
 
 app_dependencies = base_app_dependencies
 app_inc_dirs = base_app_inc_dirs
