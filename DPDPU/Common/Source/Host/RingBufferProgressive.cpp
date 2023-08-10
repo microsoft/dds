@@ -370,7 +370,7 @@ FetchFromResponseBufferProgressive(
         return false;
     }
 
-    FileIOSizeT responseSize = *(FileIOSizeT*)RingBuffer->Buffer[head];
+    FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
 
     if (responseSize == 0) {
         return false;
@@ -383,7 +383,7 @@ FetchFromResponseBufferProgressive(
     while(RingBuffer->Head[0].compare_exchange_weak(head, (head + responseSize) % DDS_RESPONSE_RING_BYTES) == false) {
         tail = RingBuffer->Tail[0];
         head = RingBuffer->Head[0];
-        responseSize = *(FileIOSizeT*)RingBuffer->Buffer[head];
+        responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
 
         if (tail == head) {
             return false;
@@ -398,19 +398,19 @@ FetchFromResponseBufferProgressive(
     // Now, it's safe to copy the response
     //
     //
-    int tail = (head + responseSize) % DDS_RESPONSE_RING_BYTES;
+    int rTail = (head + responseSize) % DDS_RESPONSE_RING_BYTES;
     RingSizeT availBytes = 0;
     char* sourceBuffer1 = nullptr;
     char* sourceBuffer2 = nullptr;
 
-    if (tail > head) {
+    if (rTail > head) {
         availBytes = responseSize;
         *ResponseSize = availBytes;
         sourceBuffer1 = &RingBuffer->Buffer[head];
     }
     else {
-        availBytes = DDS_REQUEST_RING_BYTES - head;
-        *ResponseSize = availBytes + tail;
+        availBytes = DDS_RESPONSE_RING_BYTES - head;
+        *ResponseSize = availBytes + rTail;
         sourceBuffer1 = &RingBuffer->Buffer[head];
         sourceBuffer2 = &RingBuffer->Buffer[0];
     }
@@ -419,8 +419,8 @@ FetchFromResponseBufferProgressive(
     memset(sourceBuffer1, 0, availBytes);
 
     if (sourceBuffer2) {
-        memcpy((char*)CopyTo + availBytes, sourceBuffer2, tail);
-        memset(sourceBuffer2, 0, tail);
+        memcpy((char*)CopyTo + availBytes, sourceBuffer2, rTail);
+        memset(sourceBuffer2, 0, rTail);
     }
 
     //
@@ -428,9 +428,12 @@ FetchFromResponseBufferProgressive(
     //
     //
     int progress = RingBuffer->Progress[0];
-    while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + responseSize) % DDS_REQUEST_RING_BYTES) == false) {
+    while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + responseSize) % DDS_RESPONSE_RING_BYTES) == false) {
         progress = RingBuffer->Progress[0];
     }
+
+    head = RingBuffer->Head[0];
+    progress = RingBuffer->Progress[0];
 
     return true;
 }
@@ -485,7 +488,7 @@ InsertToResponseBufferProgressive(
     // Not enough space for batched responses
     //
     //
-    if (distance < RING_BUFFER_MINIMUM_RESPONSE_TAIL_ADVANCEMENT) {
+    if (distance < RING_BUFFER_RESPONSE_MINIMUM_TAIL_ADVANCEMENT) {
         return false;
     }
 
@@ -496,6 +499,7 @@ InsertToResponseBufferProgressive(
     int respIndex = 0;
     FileIOSizeT responseBytes = 0;
     FileIOSizeT totalResponseBytes = 0;
+    FileIOSizeT nextBytes = 0;
     for (; respIndex != NumResponses; respIndex++) {
         responseBytes = ResponseSizeList[respIndex] + sizeof(FileIOSizeT);
         
@@ -506,10 +510,11 @@ InsertToResponseBufferProgressive(
         if (responseBytes % sizeof(FileIOSizeT) != 0) {
             responseBytes += (sizeof(FileIOSizeT) - (responseBytes % sizeof(FileIOSizeT)));
         }
-
-        if (totalResponseBytes + responseBytes > distance) {
+        
+        nextBytes = totalResponseBytes + responseBytes;
+        if (nextBytes > distance || nextBytes > RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT) {
             //
-            // No more space
+            // No more space or reaching maximum batch size
             //
             //
             break;
@@ -586,10 +591,11 @@ bool
 CheckForResponseCompletionProgressive(
     ResponseRingBufferProgressive* RingBuffer
 ) {
+    int progress = RingBuffer->Progress[0];
     int head = RingBuffer->Head[0];
     int tail = RingBuffer->Tail[0];
 
-    return head == tail;
+    return progress == head && head == tail;
 }
 
 }
