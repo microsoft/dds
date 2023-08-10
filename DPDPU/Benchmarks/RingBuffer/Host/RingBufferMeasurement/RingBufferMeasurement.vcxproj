@@ -144,7 +144,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\Common\Source\Host\BackEndBridge.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\DMABuffer.cpp" />
-    <ClCompile Include="..\..\..\..\Common\Source\Host\Profiler.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RDMC.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferFaRMStyle.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferLockBased.cpp" />
@@ -152,6 +151,7 @@
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressive.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressiveFullyAligned.cpp" />
     <ClCompile Include="..\..\..\..\Common\Source\Host\RingBufferProgressiveNotAligned.cpp" />
+    <ClCompile Include="..\..\..\..\Common\Source\Profiler.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferFaRMStyleWithDPU.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferLockBasedWithDPU.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferNoConcurrency.cpp" />
@@ -168,7 +168,6 @@
     <ClInclude Include="..\..\..\..\Common\Include\Host\BackEndBridge.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\DDSFrontEndInterface.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\DMABuffer.h" />
-    <ClInclude Include="..\..\..\..\Common\Include\Host\Profiler.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RDMC.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferFaRMStyle.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferLockBased.h" />
@@ -176,6 +175,7 @@
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressive.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressiveFullyAligned.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Host\RingBufferProgressiveNotAligned.h" />
+    <ClInclude Include="..\..\..\..\Common\Include\Profiler.h" />
     <ClInclude Include="..\..\..\..\Common\Include\Protocol.h" />
     <ClInclude Include="Evaluation.h" />
   </ItemGroup>
