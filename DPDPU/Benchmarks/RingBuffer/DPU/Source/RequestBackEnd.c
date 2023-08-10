@@ -23,7 +23,7 @@ static volatile int ForceQuitFileBackEnd = 0;
 // Set a CM channel to be non-blocking
 //
 //
-int SetNonblocking(
+static int SetNonblocking(
     struct rdma_event_channel *Channel
 ) {
     int flags = fcntl(Channel->fd, F_GETFL, 0);

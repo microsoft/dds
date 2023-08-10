@@ -36,7 +36,7 @@ static int CurrentResponseIndex;
 // Set a CM channel to be non-blocking
 //
 //
-int SetNonblocking(
+static int SetNonblocking(
     struct rdma_event_channel *Channel
 ) {
     int flags = fcntl(Channel->fd, F_GETFL, 0);
@@ -1126,9 +1126,6 @@ BuffMsgHandler(
             BuffMsgB2FRespondId *resp = (BuffMsgB2FRespondId *)(msgOut + 1);
             struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
-            FileIOSizeT responseBytes = 0;
-            FileIOSizeT totalResponseBytes = 0;
-            FileIOSizeT nextBytes = 0;
 
             //
             // Post a receiv first
@@ -1192,8 +1189,8 @@ BuffMsgHandler(
             CurrentResponseIndex = 0;
             fprintf(stdout, "%s [info]: Workload is ready\n", __func__);
 
-            InitProfiler(&BuffConn->Prof, TOTAL_RESPONSES);
-            StartProfiler(&BuffConn->Prof);
+            InitProfiler(&Prof, TOTAL_RESPONSES);
+            StartProfiler(&Prof);
 
             //
             // Poll disatance
@@ -1321,7 +1318,6 @@ ProcessBuffCqEvents(
                             FileIOSizeT totalResponseBytes = 0;
                             FileIOSizeT nextBytes = 0;
                             RingSizeT availBytes = 0;
-                            int localBufferIndex = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
                             for (; CurrentResponseIndex != TOTAL_RESPONSES; CurrentResponseIndex++) {

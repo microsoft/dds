@@ -12,9 +12,9 @@
 
 int main() {
 #if BENCHMARK_OPT == BENCHMARK_OPT_REQUEST_BUFFER
-    return RunBenchmarkRequestBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32, TRUE);
+    return RunBenchmarkRequestBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32, 1);
 #elif BENCHMARK_OPT == BENCHMARK_OPT_RESPONSE_BUFFER
-    return RunBenchmarkResponseBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32, FALSE);
+    return RunBenchmarkResponseBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32, 1);
 #else
 #error "Invalid BENCHMARK_OPT"
 #endif
