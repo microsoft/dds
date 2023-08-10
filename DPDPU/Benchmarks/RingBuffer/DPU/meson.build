@@ -47,6 +47,7 @@ app_srcs += [
         src + 'RingBufferBenchmark.c',
         src + 'RequestBackEnd.c',
         src + 'ResponseBackEnd.c',
+        '../../../Common/Source/DPU/Profiler.c',
         '../../../Common/Source/DPU/RingBufferPolling.c',
 ]
 

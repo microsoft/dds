@@ -12,12 +12,25 @@
 #include <sys/types.h>
 
 #include "DDSTypes.h"
+#include "Profiler.h"
 #include "ResponseBackEnd.h"
 
 #define TRUE 1
 #define FALSE 0
 
+#define RESPONSE_VALUE 42
+#define TOTAL_RESPONSES 10000000
+
 static volatile int ForceQuitFileBackEnd = 0;
+static struct Profiler Prof;
+
+struct Response {
+    int Data[3];
+};
+
+static struct Response** ResponseList;
+static FileIOSizeT* ResponseSizeList;
+static int CurrentResponseIndex;
 
 //
 // Set a CM channel to be non-blocking
@@ -1113,6 +1126,9 @@ BuffMsgHandler(
             BuffMsgB2FRespondId *resp = (BuffMsgB2FRespondId *)(msgOut + 1);
             struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
+            FileIOSizeT responseBytes = 0;
+            FileIOSizeT totalResponseBytes = 0;
+            FileIOSizeT nextBytes = 0;
 
             //
             // Post a receiv first
@@ -1160,6 +1176,38 @@ BuffMsgHandler(
 #endif
             //
             // Start benchmarking
+            //
+            //
+            fprintf(stdout, "%s [info]: Preparing the workload...\n", __func__);
+            ResponseList = (struct Response **)malloc(sizeof(struct Response*) * TOTAL_RESPONSES);
+            ResponseSizeList = (FileIOSizeT *)malloc(sizeof(FileIOSizeT) * TOTAL_RESPONSES);
+            for (int i = 0; i != TOTAL_RESPONSES; i++) {
+                ResponseList[i] = (struct Response *)malloc(sizeof(struct Response));
+                ResponseList[i]->Data[0] = sizeof(ResponseList[i]->Data) - sizeof(int);
+                for (int j = 1; j != sizeof(ResponseList[i]); j++) {
+                    ResponseList[i]->Data[j] = RESPONSE_VALUE;
+                }
+                ResponseSizeList[i] = sizeof(ResponseList[i]->Data);
+            }
+            CurrentResponseIndex = 0;
+            fprintf(stdout, "%s [info]: Workload is ready\n", __func__);
+
+            InitProfiler(&BuffConn->Prof, TOTAL_RESPONSES);
+            StartProfiler(&BuffConn->Prof);
+
+            // TODO: move this to the place where it's ready to send responses
+            /*
+            //
+            // Insert the responses on the buffer
+            //
+            //
+            for (; CurrentResponseIndex != TOTAL_RESPONSES; CurrentResponseIndex++) {
+                responseBytes = ResponseSizeList[CurrentResponseIndex] + sizeof(FileIOSizeT);
+            }
+            */
+
+            //
+            // Poll disatance
             //
             //
             ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);

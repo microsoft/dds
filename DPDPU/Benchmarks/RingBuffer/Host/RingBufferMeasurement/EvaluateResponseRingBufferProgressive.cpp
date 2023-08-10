@@ -7,7 +7,7 @@
 #include "Profiler.h"
 
 #define RESPONSE_VALUE 42
-#define TOTAL_RESPONSES 1000000
+#define TOTAL_RESPONSES 10000000
 
 using namespace DDS_FrontEnd;
 using namespace std;
@@ -146,8 +146,6 @@ void EvaluateResponseRingBufferProgressive() {
 	//
 	//
 	cout << "Preparing Responses..." << endl;
-	unsigned int randomSeed = 0;
-	srand(randomSeed);
 	Response** responses = new Response*[totalResponses];
 	BufferT* allResponses = new BufferT[totalResponses];
 	FileIOSizeT* allResponseSizes = new FileIOSizeT[totalResponses];
