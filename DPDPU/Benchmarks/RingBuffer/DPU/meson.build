@@ -44,7 +44,9 @@ app_srcs = []
 src = 'Source/'
 
 app_srcs += [
-        src + 'BackEnd.c',
+        src + 'RingBufferBenchmark.c',
+        src + 'RequestBackEnd.c',
+        src + 'ResponseBackEnd.c',
         '../../../Common/Source/DPU/RingBufferPolling.c',
 ]
 

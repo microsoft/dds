@@ -82,7 +82,7 @@ InsertToRequestBufferProgressive(
 		distance = tail - head;
 	}
 
-	if (distance >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+	if (distance >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
 		return false;
 	}
 
@@ -118,7 +118,7 @@ InsertToRequestBufferProgressive(
 			distance = tail - head;
 		}
 
-		if (distance >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+		if (distance >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
 			return false;
 		}
 

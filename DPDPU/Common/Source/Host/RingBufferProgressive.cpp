@@ -79,12 +79,12 @@ InsertToRequestBufferProgressive(
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + RequestSize;
-    
+
     if (requestBytes % sizeof(FileIOSizeT) != 0) {
         requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
     }
 
-    if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+    if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
         return false;
     }
 
@@ -110,7 +110,7 @@ InsertToRequestBufferProgressive(
             distance = tail - head;
         }
 
-        if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+        if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
             return false;
         }
 

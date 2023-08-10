@@ -78,7 +78,7 @@ InsertToRequestBufferProgressiveFullyAligned(
         requestBytes += (DDS_CACHE_LINE_SIZE - (requestBytes % DDS_CACHE_LINE_SIZE));
     }
 
-    if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+    if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
         return false;
     }
 
@@ -104,7 +104,7 @@ InsertToRequestBufferProgressiveFullyAligned(
             distance = tail - head;
         }
 
-        if (distance + requestBytes >= RING_BUFFER_ALLOWABLE_TAIL_ADVANCEMENT) {
+        if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
             return false;
         }
 

@@ -12,7 +12,7 @@
 #include <sys/types.h>
 
 #include "DDSTypes.h"
-#include "BackEnd.h"
+#include "RequestBackEnd.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -489,7 +489,7 @@ SetUpBuffRegionsAndBuffers(
     // Read data buffer and region
     //
     //
-    BuffConn->DMAReadDataBuff = malloc(BACKEND_MAX_DMA_SIZE);
+    BuffConn->DMAReadDataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
     if (!BuffConn->DMAReadDataBuff) {
         fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
         ret = -1;
@@ -498,7 +498,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->DMAReadDataBuff,
-        BACKEND_MAX_DMA_SIZE,
+        BACKEND_REQUEST_MAX_DMA_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->DMAReadDataMr) {
@@ -511,7 +511,7 @@ SetUpBuffRegionsAndBuffers(
     // Read data buffer and region
     //
     //
-    BuffConn->DMAReadDataBuff = malloc(BACKEND_MAX_DMA_SIZE);
+    BuffConn->DMAReadDataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
     if (!BuffConn->DMAReadDataBuff) {
         fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
         ret = -1;
@@ -520,7 +520,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->DMAReadDataBuff,
-        BACKEND_MAX_DMA_SIZE,
+        BACKEND_REQUEST_MAX_DMA_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->DMAReadDataMr) {
@@ -533,7 +533,7 @@ SetUpBuffRegionsAndBuffers(
     // Read data buffer and region
     //
     //
-    BuffConn->DMAReadDataBuff = malloc(BACKEND_MAX_DMA_SIZE);
+    BuffConn->DMAReadDataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
     if (!BuffConn->DMAReadDataBuff) {
         fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
         ret = -1;
@@ -542,7 +542,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->DMAReadDataBuff,
-        BACKEND_MAX_DMA_SIZE,
+        BACKEND_REQUEST_MAX_DMA_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->DMAReadDataMr) {
@@ -555,7 +555,7 @@ SetUpBuffRegionsAndBuffers(
     // Read data buffer and region
     //
     //
-    BuffConn->DMADataBuff = malloc(BACKEND_MAX_DMA_SIZE);
+    BuffConn->DMADataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
     if (!BuffConn->DMADataBuff) {
         fprintf(stderr, "%s [error]: OOM for DMA data buffer\n", __func__);
         ret = -1;
@@ -564,7 +564,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMADataMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->DMADataBuff,
-        BACKEND_MAX_DMA_SIZE,
+        BACKEND_REQUEST_MAX_DMA_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->DMADataMr) {
@@ -641,7 +641,7 @@ SetUpBuffRegionsAndBuffers(
 
 #if RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
     BuffConn->DMAReadDataWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
@@ -650,7 +650,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataWr.wr_id = BUFF_READ_DATA_WR_ID;
 
     BuffConn->DMAReadDataSplitSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSplitSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSplitSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSplitSgl.lkey = BuffConn->DMAReadDataMr->lkey;
     BuffConn->DMAReadDataSplitWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataSplitWr.send_flags = IBV_SEND_SIGNALED;
@@ -659,7 +659,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataSplitWr.wr_id = BUFF_READ_DATA_SPLIT_WR_ID;
 #elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
     BuffConn->DMAReadDataWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
@@ -668,7 +668,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataWr.wr_id = BUFF_READ_DATA_WR_ID;
 
     BuffConn->DMAReadDataSplitSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSplitSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSplitSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSplitSgl.lkey = BuffConn->DMAReadDataMr->lkey;
     BuffConn->DMAReadDataSplitWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataSplitWr.send_flags = IBV_SEND_SIGNALED;
@@ -677,7 +677,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataSplitWr.wr_id = BUFF_READ_DATA_SPLIT_WR_ID;
 #elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_LOCKBASED
     BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
     BuffConn->DMAReadDataWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
@@ -686,7 +686,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataWr.wr_id = BUFF_READ_DATA_WR_ID;
 
     BuffConn->DMAReadDataSplitSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSplitSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMAReadDataSplitSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMAReadDataSplitSgl.lkey = BuffConn->DMAReadDataMr->lkey;
     BuffConn->DMAReadDataSplitWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadDataSplitWr.send_flags = IBV_SEND_SIGNALED;
@@ -695,14 +695,14 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadDataSplitWr.wr_id = BUFF_READ_DATA_SPLIT_WR_ID;
 #elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_FARMSTYLE
     BuffConn->DMADataSgl.addr = (uint64_t)BuffConn->DMADataBuff;
-    BuffConn->DMADataSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMADataSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMADataSgl.lkey = BuffConn->DMADataMr->lkey;
     BuffConn->DMADataWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->DMADataWr.sg_list = &BuffConn->DMADataSgl;
     BuffConn->DMADataWr.num_sge = 1;
 
     BuffConn->DMADataSplitSgl.addr = (uint64_t)BuffConn->DMADataBuff;
-    BuffConn->DMADataSplitSgl.length = BACKEND_MAX_DMA_SIZE;
+    BuffConn->DMADataSplitSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
     BuffConn->DMADataSplitSgl.lkey = BuffConn->DMADataMr->lkey;
     BuffConn->DMADataSplitWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->DMADataSplitWr.sg_list = &BuffConn->DMADataSplitSgl;
@@ -2201,7 +2201,7 @@ ProcessBuffCqEventsReturn:
 // The entry point for the back end
 //
 //
-int RunFileBackEnd(
+int RunBenchmarkRequestBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
@@ -2315,8 +2315,4 @@ int RunFileBackEnd(
     TermDMA(&config.DMAConf);
 
     return ret;
-}
-
-int main() {
-    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32, TRUE);
 }
