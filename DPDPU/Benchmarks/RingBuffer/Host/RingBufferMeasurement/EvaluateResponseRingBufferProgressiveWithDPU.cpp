@@ -9,10 +9,18 @@
 #include "Profiler.h"
 #include "Protocol.h"
 
-#define RESPONSE_VALUE 42
-#define TOTAL_RESPONSES 10
+#define RESPONSE_SIZE_8B 0
+#define RESPONSE_SIZE_8KB 1
+#define RESPONSE_SIZE RESPONSE_SIZE_8B
 
-#define CHECK_RESPONSE_CORRECTNESS
+#define RESPONSE_VALUE 42
+#if RESPONSE_SIZE == RESPONSE_SIZE_8B
+#define TOTAL_RESPONSES 10000000
+#elif RESPONSE_SIZE == RESPONSE_SIZE_8KB
+#define TOTAL_RESPONSES 100000
+#endif
+
+#undef CHECK_RESPONSE_CORRECTNESS
 
 using namespace DDS_FrontEnd;
 using namespace std;
