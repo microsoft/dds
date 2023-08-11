@@ -1354,14 +1354,14 @@ ProcessBuffCqEvents(
                                 RingSizeT availBytes = 0;
                                 uint64_t sourceBuffer1 = 0;
                                 uint64_t sourceBuffer2 = 0;
-#ifdef RESPONSE_OPT_BATCH_BY_DPU
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
                                 totalResponseBytes = sizeof(FileIOSizeT) + sizeof(int);
                                 int numResponses = 0;
                                 for (; CurrentResponseIndex != TOTAL_RESPONSES; CurrentResponseIndex++, numResponses++) {
                                     responseBytes = ResponseSizeList[CurrentResponseIndex];
                                     nextBytes = totalResponseBytes + responseBytes;
                                     
-#ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
+#ifdef RESPONSE_CACHE_LINE_ALIGNED
                                     if (nextBytes % DDS_CACHE_LINE_SIZE != 0) {
                                         nextBytes += (DDS_CACHE_LINE_SIZE - (nextBytes % DDS_CACHE_LINE_SIZE));
                                     }
@@ -1387,7 +1387,7 @@ ProcessBuffCqEvents(
                                     totalResponseBytes += responseBytes;
                                 }
 
-#ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
+#ifdef RESPONSE_CACHE_LINE_ALIGNED
                                 if (totalResponseBytes % DDS_CACHE_LINE_SIZE != 0) {
                                     totalResponseBytes += (DDS_CACHE_LINE_SIZE - (totalResponseBytes % DDS_CACHE_LINE_SIZE));
                                 }
@@ -1407,7 +1407,7 @@ ProcessBuffCqEvents(
                                     // Align the response
                                     //
                                     //
-#ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
+#ifdef RESPONSE_CACHE_LINE_ALIGNED
                                     if (responseBytes % DDS_CACHE_LINE_SIZE != 0) {
                                         responseBytes += (DDS_CACHE_LINE_SIZE - (responseBytes % DDS_CACHE_LINE_SIZE));
                                     }
