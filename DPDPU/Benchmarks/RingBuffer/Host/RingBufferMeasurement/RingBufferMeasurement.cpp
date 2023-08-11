@@ -19,7 +19,9 @@ int main() {
 
     // EvaluateRequestRingBufferLockBasedWithDPU();
 
-    EvaluateResponseRingBufferProgressive();
+    // EvaluateResponseRingBufferProgressive();
+    
+    EvaluateResponseRingBufferProgressiveWithDPU();
     
     return 0;
 }

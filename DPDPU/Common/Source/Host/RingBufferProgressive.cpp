@@ -333,8 +333,6 @@ AllocateResponseBufferProgressive(
     }
     ringBuffer = (ResponseRingBufferProgressive*)ringBufferAddress;
 
-    memset(ringBuffer, 0, sizeof(ResponseRingBufferProgressive));
-
     return ringBuffer;
 }
 

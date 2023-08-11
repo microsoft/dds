@@ -13,7 +13,7 @@ using namespace DDS_FrontEnd;
 using namespace std;
 using std::cout;
 
-atomic<size_t> TotalReceivedResponses = 0;
+static atomic<size_t> TotalReceivedResponses = 0;
 
 class Response {
 public:
@@ -51,7 +51,7 @@ public:
 	}
 };
 
-void ResponseProducer(
+static void ResponseProducer(
 	ResponseRingBufferProgressive* RingBuffer,
 	BufferT* Responses,
 	FileIOSizeT* ResponseSizes,
@@ -63,7 +63,7 @@ void ResponseProducer(
 
 	profiler.Start();
 	while (sentResponses != NumResponses) {
-		while (InsertToResponseBufferProgressive(RingBuffer, &Responses[sentResponses], &ResponseSizes[sentResponses], NumResponses - sentResponses, &curSentResponses) == false) {
+		while (InsertToResponseBufferProgressive(RingBuffer, &Responses[sentResponses], &ResponseSizes[sentResponses], (int)NumResponses - sentResponses, &curSentResponses) == false) {
 			this_thread::yield();
 		}
 
@@ -82,7 +82,7 @@ void ResponseProducer(
 	profiler.Report();
 }
 
-void ResponseConsumer(
+static void ResponseConsumer(
 	ResponseRingBufferProgressive* RingBuffer
 ) {
 	size_t numReqProcessed = 0;

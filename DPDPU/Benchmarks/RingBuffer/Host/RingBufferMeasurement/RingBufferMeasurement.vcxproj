@@ -162,6 +162,7 @@
     <ClCompile Include="EvaluateRequestRingBufferProgressiveNotAlignedWithDPU.cpp" />
     <ClCompile Include="EvaluateRequestRingBufferProgressiveWithDPU.cpp" />
     <ClCompile Include="EvaluateResponseRingBufferProgressive.cpp" />
+    <ClCompile Include="EvaluateResponseRingBufferProgressiveWithDPU.cpp" />
     <ClCompile Include="RingBufferMeasurement.cpp" />
   </ItemGroup>
   <ItemGroup>

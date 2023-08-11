@@ -78,6 +78,9 @@
     <ClCompile Include="..\..\..\..\Common\Source\Host\Profiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="EvaluateResponseRingBufferProgressiveWithDPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Evaluation.h">

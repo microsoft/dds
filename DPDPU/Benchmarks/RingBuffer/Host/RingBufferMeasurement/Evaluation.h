@@ -12,3 +12,4 @@ void EvaluateRequestRingBufferFaRMStyleWithDPU();
 void EvaluateRequestRingBufferLockBasedWithDPU();
 
 void EvaluateResponseRingBufferProgressive();
+void EvaluateResponseRingBufferProgressiveWithDPU();
