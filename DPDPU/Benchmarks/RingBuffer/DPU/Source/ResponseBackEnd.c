@@ -1182,7 +1182,7 @@ BuffMsgHandler(
             for (int i = 0; i != TOTAL_RESPONSES; i++) {
                 ResponseList[i] = (struct Response *)malloc(sizeof(struct Response));
                 ResponseList[i]->Data[0] = sizeof(ResponseList[i]->Data) - sizeof(int);
-		int numInts = sizeof(ResponseList[i]->Data) / sizeof(int);
+                int numInts = sizeof(ResponseList[i]->Data) / sizeof(int);
                 for (int j = 1; j != numInts + 1; j++) {
                     ResponseList[i]->Data[j] = RESPONSE_VALUE;
                 }
@@ -1278,186 +1278,233 @@ ProcessBuffCqEvents(
                         int progress = pointers[0];
                         int head = pointers[DDS_CACHE_LINE_SIZE_BY_INT];
                         int tail = buffConn->ResponseRing.Tail;
-			if (CurrentResponseIndex == TOTAL_RESPONSES) {
-				if (progress == tail) {
-                            StopProfiler(&Prof);
-			    fprintf(stdout, "Microbenchmark completed\n");
-			    fprintf(stdout, "-- Ring tail = %d\n", buffConn->ResponseRing.Tail);
-                            ReportProfiler(&Prof);
+                        if (CurrentResponseIndex == TOTAL_RESPONSES) {
+                            if (progress == tail) {
+                                StopProfiler(&Prof);
+                                fprintf(stdout, "Microbenchmark completed\n");
+                                fprintf(stdout, "-- Ring tail = %d\n", buffConn->ResponseRing.Tail);
+                                ReportProfiler(&Prof);
 
-                            //
-                            // Release the workload
-                            //
-                            //
-                            fprintf(stderr, "%s [info]: Releasing the workload\n", __func__);
-                            for (size_t r = 0; r != TOTAL_RESPONSES; r++) {
-                                free(ResponseList[r]);
+                                //
+                                // Release the workload
+                                //
+                                //
+                                fprintf(stderr, "%s [info]: Releasing the workload\n", __func__);
+                                for (size_t r = 0; r != TOTAL_RESPONSES; r++) {
+                                    free(ResponseList[r]);
+                                }
+                                free(ResponseList);
+                                free(ResponseSizeList);
+                                fprintf(stderr, "%s [info]: Workload released\n", __func__);
                             }
-                            free(ResponseList);
-                            free(ResponseSizeList);
-                            fprintf(stderr, "%s [info]: Workload released\n", __func__);
-				}
-				else {
-                            //
-                            // Not ready to exit, poll again
-                            //
-                            //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
-                            if (ret) {
-                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                                ret = -1;
+                            else {
+                                //
+                                // Not ready to exit, poll again
+                                //
+                                //
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
                             }
-				}
-			}
-			else {
-                        RingSizeT distance = 0;
-                        if (head != progress) {
-                            //
-                            // Not ready to write, poll again
-                            //
-                            //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
-                            if (ret) {
-                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                                ret = -1;
-                            }
-                            break;
-                        }
-
-                        if (tail >= head) {
-                            distance = head + DDS_RESPONSE_RING_BYTES - tail;
                         }
                         else {
-                            distance = head - tail;
-                        }
-
-                        if (distance < RING_BUFFER_RESPONSE_MINIMUM_TAIL_ADVANCEMENT) {
-                            //
-                            // Not ready to write, poll again
-                            //
-                            //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
-                            if (ret) {
-                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                                ret = -1;
+                            RingSizeT distance = 0;
+                            if (head != progress) {
+                                //
+                                // Not ready to write, poll again
+                                //
+                                //
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+                                break;
                             }
-                            break;
-                        }
-                        else {
-                            //
-                            // Ready to write
-                            //
-                            //
-                            FileIOSizeT responseBytes = 0;
-                            FileIOSizeT totalResponseBytes = 0;
-                            FileIOSizeT nextBytes = 0;
-                            RingSizeT availBytes = 0;
-                            uint64_t sourceBuffer1 = 0;
-                            uint64_t sourceBuffer2 = 0;
-                            for (; CurrentResponseIndex != TOTAL_RESPONSES; CurrentResponseIndex++) {
-                                responseBytes = ResponseSizeList[CurrentResponseIndex] + sizeof(FileIOSizeT);
-                                
+
+                            if (tail >= head) {
+                                distance = head + DDS_RESPONSE_RING_BYTES - tail;
+                            }
+                            else {
+                                distance = head - tail;
+                            }
+
+                            if (distance < RING_BUFFER_RESPONSE_MINIMUM_TAIL_ADVANCEMENT) {
                                 //
-                                // Align to the size of FileIOSizeT
+                                // Not ready to write, poll again
                                 //
                                 //
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                                if (ret) {
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    ret = -1;
+                                }
+                                break;
+                            }
+                            else {
+                                //
+                                // Ready to write
+                                //
+                                //
+                                FileIOSizeT responseBytes = 0;
+                                FileIOSizeT totalResponseBytes = 0;
+                                FileIOSizeT nextBytes = 0;
+                                RingSizeT availBytes = 0;
+                                uint64_t sourceBuffer1 = 0;
+                                uint64_t sourceBuffer2 = 0;
+#ifdef RESPONSE_OPT_BATCH_BY_DPU
+                                totalResponseBytes = sizeof(FileIOSizeT) + sizeof(int);
+                                int numResponses = 0;
+                                for (; CurrentResponseIndex != TOTAL_RESPONSES; CurrentResponseIndex++, numResponses++) {
+                                    responseBytes = ResponseSizeList[CurrentResponseIndex];
+                                    nextBytes = totalResponseBytes + responseBytes;
+                                    
 #ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
-                                if (responseBytes % DDS_CACHE_LINE_SIZE != 0) {
-                                    responseBytes += (DDS_CACHE_LINE_SIZE - (responseBytes % DDS_CACHE_LINE_SIZE));
+                                    if (nextBytes % DDS_CACHE_LINE_SIZE != 0) {
+                                        nextBytes += (DDS_CACHE_LINE_SIZE - (nextBytes % DDS_CACHE_LINE_SIZE));
+                                    }
+#else
+                                    if (nextBytes % sizeof(FileIOSizeT) != 0) {
+                                        nextBytes += (sizeof(FileIOSizeT) - (nextBytes % sizeof(FileIOSizeT)));
+                                    }
+#endif
+                                    if (nextBytes > distance || nextBytes > RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT) {
+                                        //
+                                        // No more space or reaching maximum batch size
+                                        //
+                                        //
+                                        break;
+                                    }
+
+                                    //
+                                    // Put data on the ring buffer
+                                    //
+                                    //
+                                    memcpy(&buffConn->DMAWriteDataBuff[totalResponseBytes], ResponseList[CurrentResponseIndex], responseBytes);
+                                    
+                                    totalResponseBytes += responseBytes;
+                                }
+
+#ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
+                                if (totalResponseBytes % DDS_CACHE_LINE_SIZE != 0) {
+                                    totalResponseBytes += (DDS_CACHE_LINE_SIZE - (totalResponseBytes % DDS_CACHE_LINE_SIZE));
                                 }
 #else
-                                if (responseBytes % sizeof(FileIOSizeT) != 0) {
-                                    responseBytes += (sizeof(FileIOSizeT) - (responseBytes % sizeof(FileIOSizeT)));
+                                if (totalResponseBytes % sizeof(FileIOSizeT) != 0) {
+                                    totalResponseBytes += (sizeof(FileIOSizeT) - (totalResponseBytes % sizeof(FileIOSizeT)));
                                 }
 #endif
                                 
-                                nextBytes = totalResponseBytes + responseBytes;
-                                if (nextBytes > distance || nextBytes > RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT) {
+                                *(FileIOSizeT*)&buffConn->DMAWriteDataBuff[0] = totalResponseBytes;
+                                *(int*)&buffConn->DMAWriteDataBuff[sizeof(FileIOSizeT)] = numResponses;
+#else
+                                for (; CurrentResponseIndex != TOTAL_RESPONSES; CurrentResponseIndex++) {
+                                    responseBytes = ResponseSizeList[CurrentResponseIndex] + sizeof(FileIOSizeT);
+                                    
                                     //
-                                    // No more space or reaching maximum batch size
+                                    // Align the response
                                     //
                                     //
-                                    break;
+#ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
+                                    if (responseBytes % DDS_CACHE_LINE_SIZE != 0) {
+                                        responseBytes += (DDS_CACHE_LINE_SIZE - (responseBytes % DDS_CACHE_LINE_SIZE));
+                                    }
+#else
+                                    if (responseBytes % sizeof(FileIOSizeT) != 0) {
+                                        responseBytes += (sizeof(FileIOSizeT) - (responseBytes % sizeof(FileIOSizeT)));
+                                    }
+#endif
+                                    
+                                    nextBytes = totalResponseBytes + responseBytes;
+                                    if (nextBytes > distance || nextBytes > RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT) {
+                                        //
+                                        // No more space or reaching maximum batch size
+                                        //
+                                        //
+                                        break;
+                                    }
+
+                                    //
+                                    // Put data on the ring buffer
+                                    //
+                                    //
+                                    *(FileIOSizeT*)&buffConn->DMAWriteDataBuff[totalResponseBytes] = responseBytes;
+                                    memcpy(&buffConn->DMAWriteDataBuff[totalResponseBytes + sizeof(FileIOSizeT)], ResponseList[CurrentResponseIndex], ResponseSizeList[CurrentResponseIndex]);
+                                    
+                                    totalResponseBytes += responseBytes;
+                                }
+#endif
+
+                                buffConn->DMAWriteDataSize = totalResponseBytes;
+                                if (tail + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
+                                    //
+                                    // No split
+                                    //
+                                    //
+                                    availBytes = totalResponseBytes;
+                                    sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tail);
+                                }
+                                else {
+                                    //
+                                    // Split
+                                    //
+                                    //
+                                    availBytes = DDS_RESPONSE_RING_BYTES - tail;
+                                    sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tail);
+                                    sourceBuffer2 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr);
                                 }
 
                                 //
-                                // Put data on the ring buffer
+                                // Post DMA writes
                                 //
                                 //
-                                *(FileIOSizeT*)&buffConn->DMAWriteDataBuff[totalResponseBytes] = responseBytes;
-                                memcpy(&buffConn->DMAWriteDataBuff[totalResponseBytes + sizeof(FileIOSizeT)], ResponseList[CurrentResponseIndex], ResponseSizeList[CurrentResponseIndex]);
+                                buffConn->DMAWriteDataWr.wr.rdma.remote_addr = sourceBuffer1;
+                                buffConn->DMAWriteDataWr.sg_list->length = availBytes;
+
+                                if (sourceBuffer2) {
+                                    buffConn->DMAWriteDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteDataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+
+                                    buffConn->DMAWriteDataSplitWr.sg_list->addr = (uint64_t)(buffConn->DMAWriteDataBuff + availBytes);
+                                    buffConn->DMAWriteDataSplitWr.sg_list->length = totalResponseBytes - availBytes;
+                                    buffConn->DMAWriteDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteDataSplitWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+                                else {
+                                    buffConn->DMAWriteDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+
+                                    ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteDataWr, &badSendWr);
+                                    if (ret) {
+                                        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                        ret = -1;
+                                    }
+                                }
+
+                                buffConn->ResponseRing.Tail = (tail + totalResponseBytes) % DDS_RESPONSE_RING_BYTES;
                                 
-                                totalResponseBytes += responseBytes;
-                            }
-
-                            buffConn->DMAWriteDataSize = totalResponseBytes;
-                            if (tail + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
                                 //
-                                // No split
+                                // Immediately update remote tail, assuming DMA requests are exected in order
                                 //
                                 //
-                                availBytes = totalResponseBytes;
-                                sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tail);
-                            }
-                            else {
-                                //
-                                // Split
-                                //
-                                //
-                                availBytes = DDS_RESPONSE_RING_BYTES - tail;
-                                sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tail);
-                                sourceBuffer2 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr);
-                            }
-
-                            //
-                            // Post DMA writes
-                            //
-                            //
-                            buffConn->DMAWriteDataWr.wr.rdma.remote_addr = sourceBuffer1;
-                            buffConn->DMAWriteDataWr.sg_list->length = availBytes;
-
-                            if (sourceBuffer2) {
-                                buffConn->DMAWriteDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
-
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteDataWr, &badSendWr);
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
                                 if (ret) {
-                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d (%s)\n", __func__, ret, strerror(ret));
                                     ret = -1;
                                 }
-
-                                buffConn->DMAWriteDataSplitWr.sg_list->addr = (uint64_t)(buffConn->DMAWriteDataBuff + availBytes);
-                                buffConn->DMAWriteDataSplitWr.sg_list->length = totalResponseBytes - availBytes;
-                                buffConn->DMAWriteDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
-
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteDataSplitWr, &badSendWr);
-                                if (ret) {
-                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                                    ret = -1;
-                                }
-                            }
-                            else {
-                                buffConn->DMAWriteDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
-
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteDataWr, &badSendWr);
-                                if (ret) {
-                                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                                    ret = -1;
-                                }
-                            }
-
-                            buffConn->ResponseRing.Tail = (tail + totalResponseBytes) % DDS_RESPONSE_RING_BYTES;
-                            
-                            //
-                            // Immediately update remote tail, assuming DMA requests are exected in order
-                            //
-                            //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
-                            if (ret) {
-                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d (%s)\n", __func__, ret, strerror(ret));
-                                ret = -1;
                             }
                         }
-			}
                     }
                         break;
                     default:

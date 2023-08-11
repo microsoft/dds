@@ -12,215 +12,215 @@ using std::cout;
 
 class Request {
 public:
-	int Size;
-	int* Data;
+    int Size;
+    int* Data;
 };
 
 class SmallRequest : Request {
 public:
-	SmallRequest() {
-		Size = 8; // 8 B
-		Data = new int[3];
-	}
-	~SmallRequest() {
-		delete[] Data;
-	}
+    SmallRequest() {
+        Size = 8; // 8 B
+        Data = new int[3];
+    }
+    ~SmallRequest() {
+        delete[] Data;
+    }
 };
 
 struct MediumRequest : Request {
 public:
-	MediumRequest() {
-		Size = 8192; // 8 KB
-		Data = new int[2049];
-	}
-	~MediumRequest() {
-		delete[] Data;
-	}
+    MediumRequest() {
+        Size = 8192; // 8 KB
+        Data = new int[2049];
+    }
+    ~MediumRequest() {
+        delete[] Data;
+    }
 };
 
 struct LargeRequest : Request {
 public:
-	LargeRequest() {
-		Size = 1048576; // 1 MB
-		Data = new int[262145];
-	}
+    LargeRequest() {
+        Size = 1048576; // 1 MB
+        Data = new int[262145];
+    }
 };
 
 void RequestProducer(
-	RequestRingBufferProgressive* RingBuffer,
-	Request** Requests,
-	size_t NumRequests
+    RequestRingBufferProgressive* RingBuffer,
+    Request** Requests,
+    size_t NumRequests
 ) {
-	for (size_t r = 0; r != NumRequests; r++) {
-		while (InsertToRequestBufferProgressive(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
-			this_thread::yield();
-		}
-	}
+    for (size_t r = 0; r != NumRequests; r++) {
+        while (InsertToRequestBufferProgressive(RingBuffer, Requests[r]->Data, Requests[r]->Size + sizeof(int)) == false) {
+            this_thread::yield();
+        }
+    }
 }
 
 void RequestConsumer(
-	RequestRingBufferProgressive* RingBuffer,
-	size_t TotalNumRequests
+    RequestRingBufferProgressive* RingBuffer,
+    size_t TotalNumRequests
 ) {
-	size_t numReqProcessed = 0;
-	size_t sum = 0;
-	char* pagesOfRequests = new char[DDS_REQUEST_RING_BYTES];
-	BufferT requestPointer = NULL;
-	FileIOSizeT requestSize = 0;
-	BufferT startOfNext = NULL;
-	FileIOSizeT remainingSize = 0;
-	Profiler profiler(TotalNumRequests);
-	
-	profiler.Start();
-	while (numReqProcessed != TotalNumRequests) {
-		while(FetchFromRequestBufferProgressive(RingBuffer, pagesOfRequests, &remainingSize) == false) {
-			this_thread::yield();
-		}
+    size_t numReqProcessed = 0;
+    size_t sum = 0;
+    char* pagesOfRequests = new char[DDS_REQUEST_RING_BYTES];
+    BufferT requestPointer = NULL;
+    FileIOSizeT requestSize = 0;
+    BufferT startOfNext = NULL;
+    FileIOSizeT remainingSize = 0;
+    Profiler profiler(TotalNumRequests);
+    
+    profiler.Start();
+    while (numReqProcessed != TotalNumRequests) {
+        while(FetchFromRequestBufferProgressive(RingBuffer, pagesOfRequests, &remainingSize) == false) {
+            this_thread::yield();
+        }
 
-		startOfNext = pagesOfRequests;
+        startOfNext = pagesOfRequests;
 
-		while (true) {
-			ParseNextRequestProgressive(
-				startOfNext,
-				remainingSize,
-				&requestPointer,
-				&requestSize,
-				&startOfNext,
-				&remainingSize);
+        while (true) {
+            ParseNextRequestProgressive(
+                startOfNext,
+                remainingSize,
+                &requestPointer,
+                &requestSize,
+                &startOfNext,
+                &remainingSize);
 
-			int* request = (int*)requestPointer;
+            int* request = (int*)requestPointer;
 
-			int numInts = request[0] / (int)sizeof(int);
-			for (int i = 1; i != numInts + 1; i++) {
-				sum += request[i];
-			}
+            int numInts = request[0] / (int)sizeof(int);
+            for (int i = 1; i != numInts + 1; i++) {
+                sum += request[i];
+            }
 
-			numReqProcessed++;
+            numReqProcessed++;
 
-			if (remainingSize == 0) {
-				break;
-			}
-		}
-	}
+            if (remainingSize == 0) {
+                break;
+            }
+        }
+    }
 
-	profiler.Stop();
+    profiler.Stop();
 
-	delete[] pagesOfRequests;
+    delete[] pagesOfRequests;
 
-	cout << "Microbenchmark completed" << endl;
-	cout << "-- Result: sum = " << sum << endl;
-	cout << "-- Ring tail = " << RingBuffer->Tail[0] << endl;
-	cout << "-- Ring progress = " << RingBuffer->Progress[0] << endl;
-	cout << "-- Ring head = " << RingBuffer->Head[0] << endl;
-	profiler.Report();
+    cout << "Microbenchmark completed" << endl;
+    cout << "-- Result: sum = " << sum << endl;
+    cout << "-- Ring tail = " << RingBuffer->Tail[0] << endl;
+    cout << "-- Ring progress = " << RingBuffer->Progress[0] << endl;
+    cout << "-- Ring head = " << RingBuffer->Head[0] << endl;
+    profiler.Report();
 }
 
 void EvaluateRequestRingBufferProgressive() {
-	const size_t entireBufferSpace = 134217728; // 128 MB
-	char* Buffer = new char[entireBufferSpace];
-	RequestRingBufferProgressive* ringBuffer = NULL;
-	const size_t totalProducers = 1;
-	const size_t requestsPerProducer = 1000000;
-	size_t totalRequests = requestsPerProducer * totalProducers;
+    const size_t entireBufferSpace = 134217728; // 128 MB
+    char* Buffer = new char[entireBufferSpace];
+    RequestRingBufferProgressive* ringBuffer = NULL;
+    const size_t totalProducers = 1;
+    const size_t requestsPerProducer = 1000000;
+    size_t totalRequests = requestsPerProducer * totalProducers;
 
-	//
-	// Allocate a ring buffer
-	//
-	//
-	cout << "Allocating a ring buffer..." << endl;
-	memset(Buffer, 0, entireBufferSpace);
-	ringBuffer = AllocateRequestBufferProgressive(Buffer);
+    //
+    // Allocate a ring buffer
+    //
+    //
+    cout << "Allocating a ring buffer..." << endl;
+    memset(Buffer, 0, entireBufferSpace);
+    ringBuffer = AllocateRequestBufferProgressive(Buffer);
 
-	//
-	// Prepare requests
-	//
-	//
-	cout << "Preparing requests..." << endl;
-	unsigned int randomSeed = 0;
-	srand(randomSeed);
-	Request** allRequests = new Request*[totalRequests];
-	size_t sum = 0;
-	for (size_t r = 0; r != totalRequests; r++) {
-		Request* curReq = NULL;
-		switch (rand() % 1)
-		{
-		case 2:
-		{
-			curReq = (Request*)(new LargeRequest());
-			break;
-		}
-		case 1:
-		{
-			curReq = (Request*)(new MediumRequest());
-			break;
-		}
-		default:
-		{
-			curReq = (Request*)(new SmallRequest());
-			break;
-		}
-		}
+    //
+    // Prepare requests
+    //
+    //
+    cout << "Preparing requests..." << endl;
+    unsigned int randomSeed = 0;
+    srand(randomSeed);
+    Request** allRequests = new Request*[totalRequests];
+    size_t sum = 0;
+    for (size_t r = 0; r != totalRequests; r++) {
+        Request* curReq = NULL;
+        switch (rand() % 1)
+        {
+        case 2:
+        {
+            curReq = (Request*)(new LargeRequest());
+            break;
+        }
+        case 1:
+        {
+            curReq = (Request*)(new MediumRequest());
+            break;
+        }
+        default:
+        {
+            curReq = (Request*)(new SmallRequest());
+            break;
+        }
+        }
 
-		int numInts = curReq->Size / (int)sizeof(int);
-		curReq->Data[0] = curReq->Size;
-		for (int i = 1; i != numInts + 1; i++) {
-			curReq->Data[i] = rand();
-			sum += curReq->Data[i];
-		}
+        int numInts = curReq->Size / (int)sizeof(int);
+        curReq->Data[0] = curReq->Size;
+        for (int i = 1; i != numInts + 1; i++) {
+            curReq->Data[i] = rand();
+            sum += curReq->Data[i];
+        }
 
-		allRequests[r] = curReq;
-	}
-	cout << "Requests have been prepared: sum = " << sum << endl;
+        allRequests[r] = curReq;
+    }
+    cout << "Requests have been prepared: sum = " << sum << endl;
 
-	//
-	// Start producers
-	//
-	//
-	cout << "Starting producers..." << endl;
-	thread* producerThreads[totalProducers];
+    //
+    // Start producers
+    //
+    //
+    cout << "Starting producers..." << endl;
+    thread* producerThreads[totalProducers];
 
-	for (size_t t = 0; t != totalProducers; t++) {
-		producerThreads[t] = new thread(
-			[t, ringBuffer, allRequests, requestsPerProducer] {
-				RequestProducer(ringBuffer,
-					&allRequests[requestsPerProducer * t],
-					requestsPerProducer);
-			}
-		);
-	}
+    for (size_t t = 0; t != totalProducers; t++) {
+        producerThreads[t] = new thread(
+            [t, ringBuffer, allRequests, requestsPerProducer] {
+                RequestProducer(ringBuffer,
+                    &allRequests[requestsPerProducer * t],
+                    requestsPerProducer);
+            }
+        );
+    }
 
-	//
-	// Start the consumer
-	//
-	//
-	cout << "Starting the consumer..." << endl;
-	thread* consumerThread = new thread(
-		[ringBuffer, totalRequests] {
-			RequestConsumer(ringBuffer, totalRequests);
-		}
-	);
+    //
+    // Start the consumer
+    //
+    //
+    cout << "Starting the consumer..." << endl;
+    thread* consumerThread = new thread(
+        [ringBuffer, totalRequests] {
+            RequestConsumer(ringBuffer, totalRequests);
+        }
+    );
 
-	//
-	// Wait for all threads to join
-	//
-	//
-	cout << "Waiting for all threads to complete..." << endl;
-	for (size_t t = 0; t != totalProducers; t++) {
-		producerThreads[t]->join();
-	}
-	consumerThread->join();
+    //
+    // Wait for all threads to join
+    //
+    //
+    cout << "Waiting for all threads to complete..." << endl;
+    for (size_t t = 0; t != totalProducers; t++) {
+        producerThreads[t]->join();
+    }
+    consumerThread->join();
 
-	cout << "Release all of the memory..." << endl;
-	DeallocateRequestBufferProgressive(ringBuffer);
+    cout << "Release all of the memory..." << endl;
+    DeallocateRequestBufferProgressive(ringBuffer);
 
-	for (size_t r = 0; r != totalRequests; r++) {
-		delete allRequests[r];
-	}
+    for (size_t r = 0; r != totalRequests; r++) {
+        delete allRequests[r];
+    }
 
-	for (size_t t = 0; t != totalProducers; t++) {
-		delete producerThreads[t];
-	}
-	delete consumerThread;
+    for (size_t t = 0; t != totalProducers; t++) {
+        delete producerThreads[t];
+    }
+    delete consumerThread;
 
-	delete[] Buffer;
+    delete[] Buffer;
 }

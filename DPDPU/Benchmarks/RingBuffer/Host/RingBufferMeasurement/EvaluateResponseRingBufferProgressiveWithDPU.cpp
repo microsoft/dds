@@ -34,7 +34,7 @@ static void ResponseConsumer(
 
 			/*
 			//
-			// There is only one response
+			// There can be more than one response
 			//
 			//
 			ParseNextResponseProgressive(

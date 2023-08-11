@@ -498,6 +498,62 @@ InsertToResponseBufferProgressive(
     FileIOSizeT responseBytes = 0;
     FileIOSizeT totalResponseBytes = 0;
     FileIOSizeT nextBytes = 0;
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    int oldTail = tail;
+    totalResponseBytes = sizeof(FileIOSizeT) + sizeof(int);
+    for (; respIndex != NumResponses; respIndex++) {
+        responseBytes = ResponseSizeList[respIndex];
+        
+        nextBytes = totalResponseBytes + responseBytes;
+
+        //
+        // Align to the size of FileIOSizeT
+        //
+        //
+        if (nextBytes % sizeof(FileIOSizeT) != 0) {
+            nextBytes += (sizeof(FileIOSizeT) - (nextBytes % sizeof(FileIOSizeT)));
+        }
+        
+        if (nextBytes > distance || nextBytes > RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT) {
+            //
+            // No more space or reaching maximum batch size
+            //
+            //
+            break;
+        }
+
+        if (tail + ResponseSizeList[respIndex] <= DDS_RESPONSE_RING_BYTES) {
+            //
+            // Write one response
+            // On DPU, these responses should batched and there should be no extra memory copy
+            //
+            //
+            memcpy(&RingBuffer->Buffer[tail], CopyFromList[respIndex], ResponseSizeList[respIndex]);
+        }
+        else {
+            FileIOSizeT firstPartBytes = DDS_RESPONSE_RING_BYTES - tail;
+            FileIOSizeT secondPartBytes = ResponseSizeList[respIndex] - firstPartBytes;
+
+            //
+            // Write one response to two locations
+            // On DPU, these responses should batched and there should be no extra memory copy
+            //
+            //
+            memcpy(&RingBuffer->Buffer[tail], CopyFromList[respIndex], firstPartBytes);
+            memcpy(&RingBuffer->Buffer[0], (char*)CopyFromList[respIndex] + firstPartBytes, secondPartBytes);
+        }
+        
+        totalResponseBytes += responseBytes;
+        tail = (tail + responseBytes) % DDS_RESPONSE_RING_BYTES;
+    }
+
+    if (totalResponseBytes % sizeof(FileIOSizeT) != 0) {
+        totalResponseBytes += (sizeof(FileIOSizeT) - (totalResponseBytes % sizeof(FileIOSizeT)));
+    }
+
+    *(FileIOSizeT*)&RingBuffer->Buffer[oldTail] = totalResponseBytes;
+    *(int*)&RingBuffer->Buffer[oldTail + sizeof(FileIOSizeT)] = respIndex;
+#else
     for (; respIndex != NumResponses; respIndex++) {
         responseBytes = ResponseSizeList[respIndex] + sizeof(FileIOSizeT);
         
@@ -545,6 +601,7 @@ InsertToResponseBufferProgressive(
         totalResponseBytes += responseBytes;
         tail = (tail + responseBytes) % DDS_RESPONSE_RING_BYTES;
     }
+#endif
 
     *NumResponsesInserted = respIndex;
     RingBuffer->Tail[0] = tail;
