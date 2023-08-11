@@ -26,6 +26,7 @@ static struct Profiler Prof;
 
 struct Response {
     int Data[3];
+    // int Data[2049];
 };
 
 static struct Response** ResponseList;
@@ -1181,7 +1182,8 @@ BuffMsgHandler(
             for (int i = 0; i != TOTAL_RESPONSES; i++) {
                 ResponseList[i] = (struct Response *)malloc(sizeof(struct Response));
                 ResponseList[i]->Data[0] = sizeof(ResponseList[i]->Data) - sizeof(int);
-                for (int j = 1; j != sizeof(ResponseList[i]); j++) {
+		int numInts = sizeof(ResponseList[i]->Data) / sizeof(int);
+                for (int j = 1; j != numInts + 1; j++) {
                     ResponseList[i]->Data[j] = RESPONSE_VALUE;
                 }
                 ResponseSizeList[i] = sizeof(ResponseList[i]->Data);
@@ -1276,8 +1278,40 @@ ProcessBuffCqEvents(
                         int progress = pointers[0];
                         int head = pointers[DDS_CACHE_LINE_SIZE_BY_INT];
                         int tail = buffConn->ResponseRing.Tail;
+			if (CurrentResponseIndex == TOTAL_RESPONSES) {
+				if (progress == tail) {
+                            StopProfiler(&Prof);
+			    fprintf(stdout, "Microbenchmark completed\n");
+			    fprintf(stdout, "-- Ring tail = %d\n", buffConn->ResponseRing.Tail);
+                            ReportProfiler(&Prof);
+
+                            //
+                            // Release the workload
+                            //
+                            //
+                            fprintf(stderr, "%s [info]: Releasing the workload\n", __func__);
+                            for (size_t r = 0; r != TOTAL_RESPONSES; r++) {
+                                free(ResponseList[r]);
+                            }
+                            free(ResponseList);
+                            free(ResponseSizeList);
+                            fprintf(stderr, "%s [info]: Workload released\n", __func__);
+				}
+				else {
+                            //
+                            // Not ready to exit, poll again
+                            //
+                            //
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                            if (ret) {
+                                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                                ret = -1;
+                            }
+				}
+			}
+			else {
                         RingSizeT distance = 0;
-                        if (head == tail || head != progress) {
+                        if (head != progress) {
                             //
                             // Not ready to write, poll again
                             //
@@ -1327,9 +1361,15 @@ ProcessBuffCqEvents(
                                 // Align to the size of FileIOSizeT
                                 //
                                 //
+#ifdef RESPONSE_OPT_CACHE_LINE_ALIGNED
+                                if (responseBytes % DDS_CACHE_LINE_SIZE != 0) {
+                                    responseBytes += (DDS_CACHE_LINE_SIZE - (responseBytes % DDS_CACHE_LINE_SIZE));
+                                }
+#else
                                 if (responseBytes % sizeof(FileIOSizeT) != 0) {
                                     responseBytes += (sizeof(FileIOSizeT) - (responseBytes % sizeof(FileIOSizeT)));
                                 }
+#endif
                                 
                                 nextBytes = totalResponseBytes + responseBytes;
                                 if (nextBytes > distance || nextBytes > RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT) {
@@ -1417,6 +1457,7 @@ ProcessBuffCqEvents(
                                 ret = -1;
                             }
                         }
+			}
                     }
                         break;
                     default:
@@ -1429,27 +1470,6 @@ ProcessBuffCqEvents(
                     switch (wc.wr_id)
                     {
                     case BUFF_WRITE_META_WR_ID: {
-                        //
-                        // Check if benchmark is done
-                        //
-                        //
-                        if (CurrentResponseIndex == TOTAL_RESPONSES) {
-                            StopProfiler(&Prof);
-                            ReportProfiler(&Prof);
-
-                            //
-                            // Release the workload
-                            //
-                            //
-                            fprintf(stderr, "%s [info]: Releasing the workload\n", __func__);
-                            for (size_t r = 0; r != TOTAL_RESPONSES; r++) {
-                                free(ResponseList[r]);
-                            }
-                            free(ResponseList);
-                            free(ResponseSizeList);
-                            fprintf(stderr, "%s [info]: Workload released\n", __func__);
-                        }
-                        else {
                             //
                             // Continue to poll
                             //
@@ -1459,7 +1479,6 @@ ProcessBuffCqEvents(
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                 ret = -1;
                             }
-                        }
                     }
                         break;
                     case BUFF_WRITE_DATA_WR_ID: {
