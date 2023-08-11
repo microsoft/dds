@@ -10,7 +10,9 @@
 #include "Protocol.h"
 
 #define RESPONSE_VALUE 42
-#define TOTAL_RESPONSES 10000000
+#define TOTAL_RESPONSES 10
+
+#define CHECK_RESPONSE_CORRECTNESS
 
 using namespace DDS_FrontEnd;
 using namespace std;
@@ -32,11 +34,41 @@ static void ResponseConsumer(
 		if (FetchFromResponseBufferProgressive(RingBuffer, pagesOfResponses, &remainingSize)) {
 			startOfNext = pagesOfResponses;
 
-			/*
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
 			//
-			// There can be more than one response
+			// There can be many responses
 			//
 			//
+			ParseNextResponseProgressive(
+				startOfNext,
+				remainingSize,
+				&responsePointer,
+				&responseSize,
+				&startOfNext,
+				&remainingSize);
+
+			int numResps = *(int*)responsePointer;
+#ifdef CHECK_RESPONSE_CORRECTNESS
+			int numInts = 0;
+			int* curResp = (int*)responsePointer + 1;
+
+			for (int r = 0; r != numResps; r++) {
+				numInts = curResp[0] / (int)sizeof(int);
+				for (int i = 1; i != numInts + 1; i++) {
+					if (curResp[i] != RESPONSE_VALUE) {
+						cout << "[Error] Incorrect response!" << endl;
+					}
+				}
+				curResp = curResp + numInts + 1;
+			}
+#endif
+			TotalReceivedResponses.fetch_add(numResps);
+#else
+			//
+			// There is only one response
+			//
+			//
+#ifdef CHECK_RESPONSE_CORRECTNESS
 			ParseNextResponseProgressive(
 				startOfNext,
 				remainingSize,
@@ -53,9 +85,9 @@ static void ResponseConsumer(
 					cout << "[Error] Incorrect response!" << endl;
 				}
 			}
-			*/
-
+#endif
 			TotalReceivedResponses.fetch_add(1);
+#endif
 		}
 	}
 

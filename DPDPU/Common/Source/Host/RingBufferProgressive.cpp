@@ -501,6 +501,7 @@ InsertToResponseBufferProgressive(
 #ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
     int oldTail = tail;
     totalResponseBytes = sizeof(FileIOSizeT) + sizeof(int);
+    tail += totalResponseBytes;
     for (; respIndex != NumResponses; respIndex++) {
         responseBytes = ResponseSizeList[respIndex];
         
@@ -551,6 +552,7 @@ InsertToResponseBufferProgressive(
         totalResponseBytes += (sizeof(FileIOSizeT) - (totalResponseBytes % sizeof(FileIOSizeT)));
     }
 
+    tail = oldTail + totalResponseBytes;
     *(FileIOSizeT*)&RingBuffer->Buffer[oldTail] = totalResponseBytes;
     *(int*)&RingBuffer->Buffer[oldTail + sizeof(FileIOSizeT)] = respIndex;
 #else

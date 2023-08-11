@@ -9,6 +9,8 @@
 #define RESPONSE_VALUE 42
 #define TOTAL_RESPONSES 10000000
 
+#undef CHECK_RESPONSE_CORRECTNESS
+
 using namespace DDS_FrontEnd;
 using namespace std;
 using std::cout;
@@ -110,6 +112,7 @@ static void ResponseConsumer(
                 &remainingSize);
 
             int numResps = *(int*)responsePointer;
+#ifdef CHECK_RESPONSE_CORRECTNESS
             int numInts = 0;
             int* curResp = (int*)responsePointer + 1;
 
@@ -120,14 +123,16 @@ static void ResponseConsumer(
                         cout << "[Error] Incorrect response!" << endl;
                     }
                 }
-                curResp += (numInts + 1);
+                curResp = curResp + numInts + 1;
             }
+#endif
+            TotalReceivedResponses.fetch_add(numResps);
 #else
-            /*
             //
             // There is only one response
             //
             //
+#ifdef CHECK_RESPONSE_CORRECTNESS
             ParseNextResponseProgressive(
                 startOfNext,
                 remainingSize,
@@ -144,10 +149,9 @@ static void ResponseConsumer(
                     cout << "[Error] Incorrect response!" << endl;
                 }
             }
-            */
 #endif
-
             TotalReceivedResponses.fetch_add(1);
+#endif
         }
     }
 
@@ -158,7 +162,7 @@ void EvaluateResponseRingBufferProgressive() {
     const size_t entireBufferSpace = 1073741824; // 1 GB
     char* Buffer = new char[entireBufferSpace];
     ResponseRingBufferProgressive* ringBuffer = NULL;
-    const size_t totalConsumers = 32;
+    const size_t totalConsumers = 64;
     size_t totalResponses = TOTAL_RESPONSES;
 
     //
@@ -193,7 +197,7 @@ void EvaluateResponseRingBufferProgressive() {
         }
         default:
         {
-            curReq = (Response*)(new MediumResponse());
+            curReq = (Response*)(new SmallResponse());
             break;
         }
         }
