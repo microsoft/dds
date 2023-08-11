@@ -46,22 +46,22 @@
 // Only pointer is an int
 //
 //
-#undef RING_BUFFER_META_DATA_SIZE
-#define RING_BUFFER_META_DATA_SIZE sizeof(int)
+#undef RING_BUFFER_REQUEST_META_DATA_SIZE
+#define RING_BUFFER_REQUEST_META_DATA_SIZE sizeof(int)
 #elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_LOCKBASED
 //
 // Pointers are two ints
 //
 //
-#undef RING_BUFFER_META_DATA_SIZE
-#define RING_BUFFER_META_DATA_SIZE sizeof(int)
+#undef RING_BUFFER_REQUEST_META_DATA_SIZE
+#define RING_BUFFER_REQUEST_META_DATA_SIZE sizeof(int)
 #elif RING_BUFFER_IMPL == RING_BUFFER_IMPL_PROGRESSIVE_NOTALIGNED
 //
 // Pointers are two ints
 //
 //
-#undef RING_BUFFER_META_DATA_SIZE
-#define RING_BUFFER_META_DATA_SIZE sizeof(int[2])
+#undef RING_BUFFER_REQUEST_META_DATA_SIZE
+#define RING_BUFFER_REQUEST_META_DATA_SIZE sizeof(int[2])
 #endif
 
 //
@@ -189,7 +189,7 @@ struct BuffConnConfig {
     struct ibv_send_wr DMAReadMetaWr;
     struct ibv_sge DMAReadMetaSgl;
     struct ibv_mr *DMAReadMetaMr;
-    char DMAReadMetaBuff[RING_BUFFER_META_DATA_SIZE];
+    char DMAReadMetaBuff[RING_BUFFER_REQUEST_META_DATA_SIZE];
     struct ibv_send_wr DMAWriteMetaWr;
     struct ibv_sge DMAWriteMetaSgl;
     struct ibv_mr *DMAWriteMetaMr;

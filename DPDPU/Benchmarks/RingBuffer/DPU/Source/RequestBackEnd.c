@@ -583,7 +583,7 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->DMAReadMetaMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->DMAReadMetaBuff,
-        RING_BUFFER_META_DATA_SIZE,
+        RING_BUFFER_REQUEST_META_DATA_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->DMAReadMetaMr) {
@@ -712,7 +712,7 @@ SetUpBuffRegionsAndBuffers(
 #endif
 
     BuffConn->DMAReadMetaSgl.addr = (uint64_t)BuffConn->DMAReadMetaBuff;
-    BuffConn->DMAReadMetaSgl.length = RING_BUFFER_META_DATA_SIZE;
+    BuffConn->DMAReadMetaSgl.length = RING_BUFFER_REQUEST_META_DATA_SIZE;
     BuffConn->DMAReadMetaSgl.lkey = BuffConn->DMAReadMetaMr->lkey;
     BuffConn->DMAReadMetaWr.opcode = IBV_WR_RDMA_READ;
     BuffConn->DMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;

@@ -136,7 +136,7 @@ struct BuffConnConfig {
     struct ibv_send_wr DMAReadMetaWr;
     struct ibv_sge DMAReadMetaSgl;
     struct ibv_mr *DMAReadMetaMr;
-    char DMAReadMetaBuff[RING_BUFFER_META_DATA_SIZE];
+    char DMAReadMetaBuff[RING_BUFFER_RESPONSE_META_DATA_SIZE];
     struct ibv_send_wr DMAWriteMetaWr;
     struct ibv_sge DMAWriteMetaSgl;
     struct ibv_mr *DMAWriteMetaMr;

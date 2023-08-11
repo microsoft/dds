@@ -1,5 +1,4 @@
-#ifndef DDS_STORAGE_FILE_BACKEND_H
-#define DDS_STORAGE_FILE_BACKEND_H
+#pragma once
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -28,6 +27,12 @@
 #define BUFF_READ_META_WR_ID 2
 #define BUFF_WRITE_META_WR_ID 3
 #define BUFF_READ_DATA_WR_ID 4
+#define BUFF_READ_DATA_SPLIT_WR_ID 5
+#define BUFF_WRITE_DATA_WR_ID 6
+#define BUFF_WRITE_DATA_SPLIT_WR_ID 7
+
+#define BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT 1
+#define BUFF_READ_DATA_SPLIT_STATE_SPLIT 0
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
@@ -81,7 +86,6 @@ struct BuffConnConfig {
     uint32_t BuffId;
     uint32_t CtrlId;
     uint8_t InUse;
-    uint8_t Prefetching;
 
     //
     // Setup for a DMA channel
@@ -108,30 +112,59 @@ struct BuffConnConfig {
     char SendBuff[CTRL_MSG_SIZE];
 
     //
-    // Setup for data exchange
+    // Setup for data exchange for requests
     // Every time we poll progess, we fetch two cache lines
     // One for the progress, one for the tail
     // Also, we separate pointers and content to enable prefetching
     //
     //
-    struct ibv_send_wr DMAReadDataWr;
-    struct ibv_sge DMAReadDataSgl;
-    struct ibv_mr *DMAReadDataMr;
-    char* DMAReadDataBuff;
-    struct ibv_send_wr DMAReadMetaWr;
-    struct ibv_sge DMAReadMetaSgl;
-    struct ibv_mr *DMAReadMetaMr;
-    char DMAReadMetaBuff[RING_BUFFER_META_DATA_SIZE];
-    struct ibv_send_wr DMAWriteMetaWr;
-    struct ibv_sge DMAWriteMetaSgl;
-    struct ibv_mr *DMAWriteMetaMr;
-    char* DMAWriteMetaBuff;
+    struct ibv_send_wr RequestDMAReadDataWr;
+    struct ibv_sge RequestDMAReadDataSgl;
+    struct ibv_mr *RequestDMAReadDataMr;
+    char* RequestDMAReadDataBuff;
+    struct ibv_send_wr RequestDMAReadDataSplitWr;
+    struct ibv_sge RequestDMAReadDataSplitSgl;
+    uint32_t RequestDMAReadDataSize;
+    uint8_t RequestDMAReadDataSplitState;
+    struct ibv_send_wr RequestDMAReadMetaWr;
+    struct ibv_sge RequestDMAReadMetaSgl;
+    struct ibv_mr *RequestDMAReadMetaMr;
+    char RequestDMAReadMetaBuff[RING_BUFFER_REQUEST_META_DATA_SIZE];
+    struct ibv_send_wr RequestDMAWriteMetaWr;
+    struct ibv_sge RequestDMAWriteMetaSgl;
+    struct ibv_mr *RequestDMAWriteMetaMr;
+    char* RequestDMAWriteMetaBuff;
+
+    //
+    // Setup for data exchange for responses
+    // Every time we poll progess, we fetch two cache lines
+    // One for the progress, one for the tail
+    // Also, we separate pointers and content to enable prefetching
+    //
+    //
+    struct ibv_send_wr ResponseDMAWriteDataWr;
+    struct ibv_sge ResponseDMAWriteDataSgl;
+    struct ibv_mr *ResponseDMAWriteDataMr;
+    char* ResponseDMAWriteDataBuff;
+    struct ibv_send_wr ResponseDMAWriteDataSplitWr;
+    struct ibv_sge ResponseDMAWriteDataSplitSgl;
+    uint32_t ResponseDMAWriteDataSize;
+    uint8_t ResponseDMAWriteDataSplitState;
+    struct ibv_send_wr ResponseDMAReadMetaWr;
+    struct ibv_sge ResponseDMAReadMetaSgl;
+    struct ibv_mr *ResponseDMAReadMetaMr;
+    char ResponseDMAReadMetaBuff[RING_BUFFER_RESPONSE_META_DATA_SIZE];
+    struct ibv_send_wr ResponseDMAWriteMetaWr;
+    struct ibv_sge ResponseDMAWriteMetaSgl;
+    struct ibv_mr *ResponseDMAWriteMetaMr;
+    char* ResponseDMAWriteMetaBuff;
 
     //
     // Ring buffers
     //
     //
     struct RequestRingBufferBackEnd RequestRing;
+    struct ResponseRingBufferBackEnd ResponseRing;
 };
 
 //
@@ -160,5 +193,3 @@ int RunFileBackEnd(
     const uint32_t MaxBuffs,
     const uint8_t Prefetching
 );
-
-#endif // DDS_STORAGE_FILE_BACKEND_H

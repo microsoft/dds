@@ -50,7 +50,8 @@
 #define BACKEND_RESPONSE_MAX_DMA_SIZE RING_BUFFER_RESPONSE_MAXIMUM_TAIL_ADVANCEMENT
 #define RING_BUFFER_RESPONSE_BATCH_ENABLED
 
-#define RING_BUFFER_META_DATA_SIZE 128
+#define RING_BUFFER_REQUEST_META_DATA_SIZE 128
+#define RING_BUFFER_RESPONSE_META_DATA_SIZE 128
 
 //
 // Checking a few parameters at the compile time
@@ -66,11 +67,12 @@
 #pragma warning(push)
 #pragma warning (disable: 4804)
 #endif
-assert_static_protocol(RING_BUFFER_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 0);
-assert_static_protocol(DDS_REQUEST_RING_BYTES == DDS_REQUEST_RING_SIZE * DDS_REQUEST_RING_SLOT_SIZE, 1);
-assert_static_protocol(DDS_REQUEST_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 2);
-assert_static_protocol(DDS_RESPONSE_RING_BYTES == DDS_RESPONSE_RING_SIZE * DDS_RESPONSE_RING_SLOT_SIZE, 3);
-assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 4);
+assert_static_protocol(RING_BUFFER_REQUEST_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 0);
+assert_static_protocol(RING_BUFFER_RESPONSE_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 1);
+assert_static_protocol(DDS_REQUEST_RING_BYTES == DDS_REQUEST_RING_SIZE * DDS_REQUEST_RING_SLOT_SIZE, 2);
+assert_static_protocol(DDS_REQUEST_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 3);
+assert_static_protocol(DDS_RESPONSE_RING_BYTES == DDS_RESPONSE_RING_SIZE * DDS_RESPONSE_RING_SLOT_SIZE, 4);
+assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #else
