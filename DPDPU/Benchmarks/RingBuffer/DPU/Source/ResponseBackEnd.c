@@ -19,14 +19,21 @@
 #define FALSE 0
 
 #define RESPONSE_VALUE 42
+#if RESPONSE_SIZE == RESPONSE_SIZE_8B
 #define TOTAL_RESPONSES 10000000
+#elif RESPONSE_SIZE == RESPONSE_SIZE_8KB
+#define TOTAL_RESPONSES 100000
+#endif
 
 static volatile int ForceQuitFileBackEnd = 0;
 static struct Profiler Prof;
 
 struct Response {
+#if RESPONSE_SIZE == RESPONSE_SIZE_8B
     int Data[3];
-    // int Data[2049];
+#elif RESPONSE_SIZE == RESPONSE_SIZE_8KB
+    int Data[2049];
+#endif
 };
 
 static struct Response** ResponseList;
