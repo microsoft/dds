@@ -1461,7 +1461,7 @@ ProcessBuffCqEvents(
                         // Process a meta read
                         //
                         //
-                        int* pointers = (int*)buffConn->DMAReadMetaBuff;
+                        int* pointers = (int*)buffConn->RequestDMAReadMetaBuff;
                         int progress = pointers[0];
                         int tail = pointers[DDS_CACHE_LINE_SIZE_BY_INT];
                         if (tail == buffConn->RequestRing.Head || tail != progress) {
@@ -1469,7 +1469,7 @@ ProcessBuffCqEvents(
                             // Not ready to read, poll again
                             //
                             //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                 ret = -1;
@@ -1487,12 +1487,12 @@ ProcessBuffCqEvents(
 
                             if (progress > head) {
                                 availBytes = progress - head;
-                                buffConn->DMAReadDataSize = availBytes;
+                                buffConn->RequestDMAReadDataSize = availBytes;
                                 sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
                             }
                             else {
                                 availBytes = DDS_REQUEST_RING_BYTES - head;
-                                buffConn->DMAReadDataSize = availBytes + progress;
+                                buffConn->RequestDMAReadDataSize = availBytes + progress;
                                 sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
                                 sourceBuffer2 = buffConn->RequestRing.DataBaseAddr;
                             }
@@ -1501,32 +1501,32 @@ ProcessBuffCqEvents(
                             // Post a DMA read
                             //
                             //
-                            buffConn->DMAReadDataWr.wr.rdma.remote_addr = sourceBuffer1;
-                            buffConn->DMAReadDataWr.sg_list->length = availBytes;
+                            buffConn->RequestDMAReadDataWr.wr.rdma.remote_addr = sourceBuffer1;
+                            buffConn->RequestDMAReadDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {
-                                buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
+                                buffConn->RequestDMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
 
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataWr, &badSendWr);
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
                                 }
 
-                                buffConn->DMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->DMAReadDataBuff + availBytes);
-                                buffConn->DMAReadDataSplitWr.sg_list->length = progress;
-                                buffConn->DMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
+                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff + availBytes);
+                                buffConn->RequestDMAReadDataSplitWr.sg_list->length = progress;
+                                buffConn->RequestDMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
 
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataSplitWr, &badSendWr);
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataSplitWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
                                 }
                             }
                             else {
-                                buffConn->DMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
+                                buffConn->RequestDMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT;
 
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadDataWr, &badSendWr);
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
@@ -1539,7 +1539,7 @@ ProcessBuffCqEvents(
                             // Immediately update remote head, assuming DMA requests are exected in order
                             //
                             //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->DMAWriteMetaWr, &badSendWr);
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAWriteMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d (%s)\n", __func__, ret, strerror(ret));
                                 ret = -1;
@@ -1552,11 +1552,14 @@ ProcessBuffCqEvents(
                         // Check splitting and update the head
                         //
                         //
-                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
-                            // TODO: parse requests
+                        if (buffConn->RequestDMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            //
+                            // Parse all file requests in the batch
+                            //
+                            //
                         }
                         else {
-                            buffConn->DMAReadDataSplitState++;
+                            buffConn->RequestDMAReadDataSplitState++;
                         }
                     }
                         break;
@@ -1565,11 +1568,14 @@ ProcessBuffCqEvents(
                         // Check splitting and update the head
                         //
                         //
-                        if (buffConn->DMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
-                            // TODO: parse requests
+                        if (buffConn->RequestDMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            //
+                            // Parse all file requests in the batch
+                            //
+                            //
                         }
                         else {
-                            buffConn->DMAReadDataSplitState++;
+                            buffConn->RequestDMAReadDataSplitState++;
                         }
                     }
                         break;
@@ -1587,7 +1593,7 @@ ProcessBuffCqEvents(
                         // Ready to poll
                         //
                         //
-                        ret = ibv_post_send(buffConn->QPair, &buffConn->DMAReadMetaWr, &badSendWr);
+                        ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadMetaWr, &badSendWr);
                         if (ret) {
                             fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                             ret = -1;
