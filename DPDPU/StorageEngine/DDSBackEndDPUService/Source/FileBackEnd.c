@@ -443,11 +443,11 @@ DestroyBuffQPair(
 }
 
 //
-// Set up regions and buffers for a buffer connection
+// Set up RDMA regions for control messages
 //
 //
 static int
-SetUpBuffRegionsAndBuffers(
+SetUpForCtrlMsgs(
     struct BuffConnConfig* BuffConn
 ) {
     int ret = 0;
@@ -465,7 +465,7 @@ SetUpBuffRegionsAndBuffers(
     if (!BuffConn->RecvMr) {
         fprintf(stderr, "%s [error]: ibv_reg_mr for receive failed\n", __func__);
         ret = -1;
-        goto SetUpBuffRegionsAndBuffersReturn;
+        goto SetUpForCtrlMsgsReturn;
     }
 
     //
@@ -481,62 +481,7 @@ SetUpBuffRegionsAndBuffers(
     if (!BuffConn->SendMr) {
         fprintf(stderr, "%s [error]: ibv_reg_mr for send failed\n", __func__);
         ret = -1;
-        goto DeregisterBuffRecvMrReturn;
-    }
-
-    //
-    // Read data buffer and region
-    //
-    //
-    BuffConn->DMAReadDataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
-    if (!BuffConn->DMAReadDataBuff) {
-        fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
-        ret = -1;
-        goto DeregisterBuffSendMrReturn;
-    }
-    BuffConn->DMAReadDataMr = ibv_reg_mr(
-        BuffConn->PDomain,
-        BuffConn->DMAReadDataBuff,
-        BACKEND_REQUEST_MAX_DMA_SIZE,
-        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
-    );
-    if (!BuffConn->DMAReadDataMr) {
-        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read data failed\n", __func__);
-        ret = -1;
-        goto FreeBuffDMAReadDataBuffReturn;
-    }
-
-    //
-    // Read meta buffer and region
-    //
-    //
-    BuffConn->DMAReadMetaMr = ibv_reg_mr(
-        BuffConn->PDomain,
-        BuffConn->DMAReadMetaBuff,
-        RING_BUFFER_REQUEST_META_DATA_SIZE,
-        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
-    );
-    if (!BuffConn->DMAReadMetaMr) {
-        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read meta failed\n", __func__);
-        ret = -1;
-        goto DeregisterBuffReadDataMrReturn;
-    }
-
-    //
-    // Write meta buffer and region
-    //
-    //
-    BuffConn->DMAWriteMetaBuff = (char*)&BuffConn->RequestRing.Head;
-    BuffConn->DMAWriteMetaMr = ibv_reg_mr(
-        BuffConn->PDomain,
-        BuffConn->DMAWriteMetaBuff,
-        sizeof(int),
-        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
-    );
-    if (!BuffConn->DMAWriteMetaMr) {
-        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA write meta failed\n", __func__);
-        ret = -1;
-        goto DeregisterBuffReadMetaMrReturn;
+        goto DeregisterBuffRecvMrForCtrlMsgsReturn;
     }
 
     //
@@ -559,49 +504,348 @@ SetUpBuffRegionsAndBuffers(
     BuffConn->SendWr.num_sge = 1;
     BuffConn->SendWr.wr_id = BUFF_RECV_WR_ID;
 
-    BuffConn->DMAReadDataSgl.addr = (uint64_t)BuffConn->DMAReadDataBuff;
-    BuffConn->DMAReadDataSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
-    BuffConn->DMAReadDataSgl.lkey = BuffConn->DMAReadDataMr->lkey;
-    BuffConn->DMAReadDataWr.opcode = IBV_WR_RDMA_READ;
-    BuffConn->DMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
-    BuffConn->DMAReadDataWr.sg_list = &BuffConn->DMAReadDataSgl;
-    BuffConn->DMAReadDataWr.num_sge = 1;
-    BuffConn->DMAReadDataWr.wr_id = BUFF_READ_DATA_WR_ID;
+    return 0;
 
-    BuffConn->DMAReadMetaSgl.addr = (uint64_t)BuffConn->DMAReadMetaBuff;
-    BuffConn->DMAReadMetaSgl.length = RING_BUFFER_REQUEST_META_DATA_SIZE;
-    BuffConn->DMAReadMetaSgl.lkey = BuffConn->DMAReadMetaMr->lkey;
-    BuffConn->DMAReadMetaWr.opcode = IBV_WR_RDMA_READ;
-    BuffConn->DMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;
-    BuffConn->DMAReadMetaWr.sg_list = &BuffConn->DMAReadMetaSgl;
-    BuffConn->DMAReadMetaWr.num_sge = 1;
-    BuffConn->DMAReadMetaWr.wr_id = BUFF_READ_META_WR_ID;
+DeregisterBuffRecvMrForCtrlMsgsReturn:
+    ibv_dereg_mr(BuffConn->RecvMr);
 
-    BuffConn->DMAWriteMetaSgl.addr = (uint64_t)BuffConn->DMAWriteMetaBuff;
-    BuffConn->DMAWriteMetaSgl.length = sizeof(int);
-    BuffConn->DMAWriteMetaSgl.lkey = BuffConn->DMAWriteMetaMr->lkey;
-    BuffConn->DMAWriteMetaWr.opcode = IBV_WR_RDMA_WRITE;
-    BuffConn->DMAWriteMetaWr.send_flags = IBV_SEND_SIGNALED;
-    BuffConn->DMAWriteMetaWr.sg_list = &BuffConn->DMAWriteMetaSgl;
-    BuffConn->DMAWriteMetaWr.num_sge = 1;
-    BuffConn->DMAWriteMetaWr.wr_id = BUFF_WRITE_META_WR_ID;
+SetUpForCtrlMsgsReturn:
+    return ret;
+}
+
+//
+// Destroy the setup for control messages
+//
+//
+static void
+DestroyForCtrlMsgs(
+    struct BuffConnConfig* BuffConn
+) {
+    ibv_dereg_mr(BuffConn->SendMr);
+    ibv_dereg_mr(BuffConn->RecvMr);
+    memset(&BuffConn->SendSgl, 0, sizeof(BuffConn->SendSgl));
+    memset(&BuffConn->RecvSgl, 0, sizeof(BuffConn->RecvSgl));
+    memset(&BuffConn->SendWr, 0, sizeof(BuffConn->SendWr));
+    memset(&BuffConn->RecvWr, 0, sizeof(BuffConn->RecvWr));
+}
+
+//
+// Set up regions and buffers for the request buffer
+//
+//
+static int
+SetUpForRequests(
+    struct BuffConnConfig* BuffConn
+) {
+    int ret = 0;
+
+    //
+    // Read data buffer and region
+    //
+    //
+    BuffConn->RequestDMAReadDataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
+    if (!BuffConn->RequestDMAReadDataBuff) {
+        fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
+        ret = -1;
+        goto SetUpForRequestsReturn;
+    }
+
+    BuffConn->RequestDMAReadDataMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->RequestDMAReadDataBuff,
+        BACKEND_REQUEST_MAX_DMA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->RequestDMAReadDataMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read data failed\n", __func__);
+        ret = -1;
+        goto FreeBuffDMAReadDataBuffForRequestsReturn;
+    }
+
+    //
+    // Read meta buffer and region
+    //
+    //
+    BuffConn->RequestDMAReadMetaMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->RequestDMAReadMetaBuff,
+        RING_BUFFER_REQUEST_META_DATA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->RequestDMAReadMetaMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read meta failed\n", __func__);
+        ret = -1;
+        goto DeregisterBuffReadDataMrForRequestsReturn;
+    }
+
+    //
+    // Write meta buffer and region
+    //
+    //
+    BuffConn->RequestDMAWriteMetaBuff = (char*)&BuffConn->RequestRing.Head;
+    BuffConn->RequestDMAWriteMetaMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->RequestDMAWriteMetaBuff,
+        sizeof(int),
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->RequestDMAWriteMetaMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA write meta failed\n", __func__);
+        ret = -1;
+        goto DeregisterBuffReadMetaMrForRequestsReturn;
+    }
+
+    //
+    // Set up work requests
+    //
+    //
+    BuffConn->RequestDMAReadDataSgl.addr = (uint64_t)BuffConn->RequestDMAReadDataBuff;
+    BuffConn->RequestDMAReadDataSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
+    BuffConn->RequestDMAReadDataSgl.lkey = BuffConn->RequestDMAReadDataMr->lkey;
+    BuffConn->RequestDMAReadDataWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->RequestDMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->RequestDMAReadDataWr.sg_list = &BuffConn->RequestDMAReadDataSgl;
+    BuffConn->RequestDMAReadDataWr.num_sge = 1;
+    BuffConn->RequestDMAReadDataWr.wr_id = BUFF_READ_REQUEST_DATA_WR_ID;
+
+    BuffConn->RequestDMAReadMetaSgl.addr = (uint64_t)BuffConn->RequestDMAReadMetaBuff;
+    BuffConn->RequestDMAReadMetaSgl.length = RING_BUFFER_REQUEST_META_DATA_SIZE;
+    BuffConn->RequestDMAReadMetaSgl.lkey = BuffConn->RequestDMAReadMetaMr->lkey;
+    BuffConn->RequestDMAReadMetaWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->RequestDMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->RequestDMAReadMetaWr.sg_list = &BuffConn->RequestDMAReadMetaSgl;
+    BuffConn->RequestDMAReadMetaWr.num_sge = 1;
+    BuffConn->RequestDMAReadMetaWr.wr_id = BUFF_READ_REQUEST_META_WR_ID;
+
+    BuffConn->RequestDMAWriteMetaSgl.addr = (uint64_t)BuffConn->RequestDMAWriteMetaBuff;
+    BuffConn->RequestDMAWriteMetaSgl.length = sizeof(int);
+    BuffConn->RequestDMAWriteMetaSgl.lkey = BuffConn->RequestDMAWriteMetaMr->lkey;
+    BuffConn->RequestDMAWriteMetaWr.opcode = IBV_WR_RDMA_WRITE;
+    BuffConn->RequestDMAWriteMetaWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->RequestDMAWriteMetaWr.sg_list = &BuffConn->RequestDMAWriteMetaSgl;
+    BuffConn->RequestDMAWriteMetaWr.num_sge = 1;
+    BuffConn->RequestDMAWriteMetaWr.wr_id = BUFF_WRITE_REQUEST_META_WR_ID;
 
     return 0;
 
-DeregisterBuffReadMetaMrReturn:
-    ibv_dereg_mr(BuffConn->DMAReadMetaMr);
+DeregisterBuffReadMetaMrForRequestsReturn:
+    ibv_dereg_mr(BuffConn->RequestDMAReadMetaMr);
 
-DeregisterBuffReadDataMrReturn:
-    ibv_dereg_mr(BuffConn->DMAReadDataMr);
+DeregisterBuffReadDataMrForRequestsReturn:
+    ibv_dereg_mr(BuffConn->RequestDMAReadDataMr);
 
-FreeBuffDMAReadDataBuffReturn:
-    free(BuffConn->DMAReadDataBuff);
+FreeBuffDMAReadDataBuffForRequestsReturn:
+    free(BuffConn->RequestDMAReadDataBuff);
 
-DeregisterBuffSendMrReturn:
-    ibv_dereg_mr(BuffConn->SendMr);
+SetUpForRequestsReturn:
+    return ret;
+}
 
-DeregisterBuffRecvMrReturn:
-    ibv_dereg_mr(BuffConn->RecvMr);
+//
+// Destrory regions and buffers for the request buffer
+//
+//
+static void
+DestroyForRequests(
+    struct BuffConnConfig* BuffConn
+) {
+    free(BuffConn->RequestDMAReadDataBuff);
+
+    ibv_dereg_mr(BuffConn->RequestDMAWriteMetaMr);
+    ibv_dereg_mr(BuffConn->RequestDMAReadMetaMr);
+    ibv_dereg_mr(BuffConn->RequestDMAReadDataMr);
+
+    memset(&BuffConn->RequestDMAWriteMetaSgl, 0, sizeof(BuffConn->RequestDMAReadMetaSgl));
+    memset(&BuffConn->RequestDMAReadMetaSgl, 0, sizeof(BuffConn->RequestDMAReadMetaSgl));
+    memset(&BuffConn->RequestDMAReadDataSgl, 0, sizeof(BuffConn->RequestDMAReadDataSgl));
+    
+    memset(&BuffConn->RequestDMAWriteMetaWr, 0, sizeof(BuffConn->RequestDMAWriteMetaWr));
+    memset(&BuffConn->RequestDMAReadMetaWr, 0, sizeof(BuffConn->RequestDMAReadMetaWr));
+    memset(&BuffConn->RequestDMAReadDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+}
+
+//
+// Set up regions and buffers for the response buffer
+//
+//
+static int
+SetUpForResponses(
+    struct BuffConnConfig* BuffConn
+) {
+    int ret = 0;
+
+    //
+    // Read data buffer and region
+    //
+    //
+    BuffConn->ResponseDMAReadDataBuff = malloc(BACKEND_RESPONSE_MAX_DMA_SIZE);
+    if (!BuffConn->ResponseDMAReadDataBuff) {
+        fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
+        ret = -1;
+        goto SetUpForResponsesReturn;
+    }
+
+    BuffConn->ResponseDMAReadDataMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->ResponseDMAReadDataBuff,
+        BACKEND_RESPONSE_MAX_DMA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->ResponseDMAReadDataMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read data failed\n", __func__);
+        ret = -1;
+        goto FreeBuffDMAReadDataBuffForResponsesReturn;
+    }
+
+    //
+    // Read meta buffer and region
+    //
+    //
+    BuffConn->ResponseDMAReadMetaMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->ResponseDMAReadMetaBuff,
+        RING_BUFFER_RESPONSE_META_DATA_SIZE,
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->ResponseDMAReadMetaMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA read meta failed\n", __func__);
+        ret = -1;
+        goto DeregisterBuffReadDataMrForResponsesReturn;
+    }
+
+    //
+    // Write meta buffer and region
+    //
+    //
+    BuffConn->ResponseDMAWriteMetaBuff = (char*)&BuffConn->ResponseRing.Head;
+    BuffConn->ResponseDMAWriteMetaMr = ibv_reg_mr(
+        BuffConn->PDomain,
+        BuffConn->ResponseDMAWriteMetaBuff,
+        sizeof(int),
+        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
+    );
+    if (!BuffConn->ResponseDMAWriteMetaMr) {
+        fprintf(stderr, "%s [error]: ibv_reg_mr for DMA write meta failed\n", __func__);
+        ret = -1;
+        goto DeregisterBuffReadMetaMrForResponsesReturn;
+    }
+
+    //
+    // Set up work requests
+    //
+    //
+    BuffConn->ResponseDMAReadDataSgl.addr = (uint64_t)BuffConn->ResponseDMAReadDataBuff;
+    BuffConn->ResponseDMAReadDataSgl.length = BACKEND_RESPONSE_MAX_DMA_SIZE;
+    BuffConn->ResponseDMAReadDataSgl.lkey = BuffConn->ResponseDMAReadDataMr->lkey;
+    BuffConn->ResponseDMAReadDataWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->ResponseDMAReadDataWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->ResponseDMAReadDataWr.sg_list = &BuffConn->ResponseDMAReadDataSgl;
+    BuffConn->ResponseDMAReadDataWr.num_sge = 1;
+    BuffConn->ResponseDMAReadDataWr.wr_id = BUFF_READ_RESPONSE_DATA_WR_ID;
+
+    BuffConn->ResponseDMAReadMetaSgl.addr = (uint64_t)BuffConn->ResponseDMAReadMetaBuff;
+    BuffConn->ResponseDMAReadMetaSgl.length = RING_BUFFER_RESPONSE_META_DATA_SIZE;
+    BuffConn->ResponseDMAReadMetaSgl.lkey = BuffConn->ResponseDMAReadMetaMr->lkey;
+    BuffConn->ResponseDMAReadMetaWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->ResponseDMAReadMetaWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->ResponseDMAReadMetaWr.sg_list = &BuffConn->ResponseDMAReadMetaSgl;
+    BuffConn->ResponseDMAReadMetaWr.num_sge = 1;
+    BuffConn->ResponseDMAReadMetaWr.wr_id = BUFF_READ_RESPONSE_META_WR_ID;
+
+    BuffConn->ResponseDMAWriteMetaSgl.addr = (uint64_t)BuffConn->ResponseDMAWriteMetaBuff;
+    BuffConn->ResponseDMAWriteMetaSgl.length = sizeof(int);
+    BuffConn->ResponseDMAWriteMetaSgl.lkey = BuffConn->ResponseDMAWriteMetaMr->lkey;
+    BuffConn->ResponseDMAWriteMetaWr.opcode = IBV_WR_RDMA_WRITE;
+    BuffConn->ResponseDMAWriteMetaWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->ResponseDMAWriteMetaWr.sg_list = &BuffConn->ResponseDMAWriteMetaSgl;
+    BuffConn->ResponseDMAWriteMetaWr.num_sge = 1;
+    BuffConn->ResponseDMAWriteMetaWr.wr_id = BUFF_WRITE_RESPONSE_META_WR_ID;
+
+    return 0;
+
+DeregisterBuffReadMetaMrForResponsesReturn:
+    ibv_dereg_mr(BuffConn->ResponseDMAReadMetaMr);
+
+DeregisterBuffReadDataMrForResponsesReturn:
+    ibv_dereg_mr(BuffConn->ResponseDMAReadDataMr);
+
+FreeBuffDMAReadDataBuffForResponsesReturn:
+    free(BuffConn->ResponseDMAReadDataBuff);
+
+SetUpForResponsesReturn:
+    return ret;
+}
+
+//
+// Destrory regions and buffers for the request buffer
+//
+//
+static void
+DestroyForResponses(
+    struct BuffConnConfig* BuffConn
+) {
+    free(BuffConn->ResponseDMAReadDataBuff);
+
+    ibv_dereg_mr(BuffConn->ResponseDMAWriteMetaMr);
+    ibv_dereg_mr(BuffConn->ResponseDMAReadMetaMr);
+    ibv_dereg_mr(BuffConn->ResponseDMAReadDataMr);
+
+    memset(&BuffConn->ResponseDMAWriteMetaSgl, 0, sizeof(BuffConn->ResponseDMAReadMetaSgl));
+    memset(&BuffConn->ResponseDMAReadMetaSgl, 0, sizeof(BuffConn->ResponseDMAReadMetaSgl));
+    memset(&BuffConn->ResponseDMAReadDataSgl, 0, sizeof(BuffConn->ResponseDMAReadDataSgl));
+    
+    memset(&BuffConn->ResponseDMAWriteMetaWr, 0, sizeof(BuffConn->ResponseDMAWriteMetaWr));
+    memset(&BuffConn->ResponseDMAReadMetaWr, 0, sizeof(BuffConn->ResponseDMAReadMetaWr));
+    memset(&BuffConn->ResponseDMAReadDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+}
+
+//
+// Set up regions and buffers for a buffer connection
+//
+//
+static int
+SetUpBuffRegionsAndBuffers(
+    struct BuffConnConfig* BuffConn
+) {
+    int ret = 0;
+
+    //
+    // Set up for control messages
+    //
+    //
+    ret = SetUpForCtrlMsgs(BuffConn);
+    if (ret) {
+        fprintf(stderr, "%s [error]: SetUpForCtrlMsgs failed\n", __func__);
+        goto SetUpBuffRegionsAndBuffersReturn;
+    }
+
+    //
+    // Set up for the request ring
+    //
+    //
+    ret = SetUpForRequests(BuffConn);
+    if (ret) {
+        fprintf(stderr, "%s [error]: SetUpForRequests failed\n", __func__);
+        goto DeregisterBuffRecvMrForCtrlMsgsReturn;
+    }
+
+    //
+    // Set up for the response ring
+    //
+    //
+    ret = SetUpForResponses(BuffConn);
+    if (ret) {
+        fprintf(stderr, "%s [error]: SetUpForRequests failed\n", __func__);
+        goto DeregisterBuffRecvMrForRequestsReturn;
+    }
+
+    return 0;
+
+DeregisterBuffRecvMrForRequestsReturn:
+    DestroyForRequests(BuffConn);
+
+DeregisterBuffRecvMrForCtrlMsgsReturn:
+    DestroyForCtrlMsgs(BuffConn);
 
 SetUpBuffRegionsAndBuffersReturn:
     return ret;
@@ -615,25 +859,9 @@ static void
 DestroyBuffRegionsAndBuffers(
     struct BuffConnConfig* BuffConn
 ) {
-    free(BuffConn->DMAReadDataBuff);
-
-    ibv_dereg_mr(BuffConn->DMAWriteMetaMr);
-    ibv_dereg_mr(BuffConn->DMAReadMetaMr);
-    ibv_dereg_mr(BuffConn->DMAReadDataMr);
-    ibv_dereg_mr(BuffConn->SendMr);
-    ibv_dereg_mr(BuffConn->RecvMr);
-
-    memset(&BuffConn->DMAWriteMetaSgl, 0, sizeof(BuffConn->DMAReadMetaSgl));
-    memset(&BuffConn->DMAReadMetaSgl, 0, sizeof(BuffConn->DMAReadMetaSgl));
-    memset(&BuffConn->DMAReadDataSgl, 0, sizeof(BuffConn->DMAReadDataSgl));
-    memset(&BuffConn->SendSgl, 0, sizeof(BuffConn->SendSgl));
-    memset(&BuffConn->RecvSgl, 0, sizeof(BuffConn->RecvSgl));
-    
-    memset(&BuffConn->DMAWriteMetaWr, 0, sizeof(BuffConn->DMAWriteMetaWr));
-    memset(&BuffConn->DMAReadMetaWr, 0, sizeof(BuffConn->DMAReadMetaWr));
-    memset(&BuffConn->DMAReadDataWr, 0, sizeof(BuffConn->DMAReadDataWr));
-    memset(&BuffConn->SendWr, 0, sizeof(BuffConn->SendWr));
-    memset(&BuffConn->RecvWr, 0, sizeof(BuffConn->RecvWr));
+    DestroyForCtrlMsgs(BuffConn);
+    DestroyForResponses(BuffConn);
+    DestroyForResponses(BuffConn);
 }
 
 //
@@ -1118,17 +1346,25 @@ BuffMsgHandler(
             //
             //
             BuffConn->CtrlId = req->ClientId;
-            InitializeRequestRingBufferBackEnd(
+            InitializeRingBufferBackEnd(
                 &BuffConn->RequestRing,
+                &BuffConn->ResponseRing,
                 req->BufferAddress,
                 req->AccessToken,
                 req->Capacity
             );
-            BuffConn->DMAReadMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.ReadMetaAddr;
-            BuffConn->DMAReadMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
-            BuffConn->DMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.WriteMetaAddr;
-            BuffConn->DMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
-            BuffConn->DMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+
+            BuffConn->RequestDMAReadMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.ReadMetaAddr;
+            BuffConn->RequestDMAReadMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            BuffConn->RequestDMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.WriteMetaAddr;
+            BuffConn->RequestDMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            BuffConn->RequestDMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            
+            BuffConn->ResponseDMAReadMetaWr.wr.rdma.remote_addr = BuffConn->ResponseRing.ReadMetaAddr;
+            BuffConn->ResponseDMAReadMetaWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
+            BuffConn->ResponseDMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->ResponseRing.WriteMetaAddr;
+            BuffConn->ResponseDMAWriteMetaWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
+            BuffConn->ResponseDMAWriteDataWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
 
             msgOut->MsgId = BUFF_MSG_B2F_RESPOND_ID;
             resp->BufferId = BuffConn->BuffId;
@@ -1146,10 +1382,10 @@ BuffMsgHandler(
             fprintf(stdout, "- Access token: %x\n", BuffConn->RequestRing.AccessToken);
 #endif
             //
-            // Start polling
+            // Start polling requests
             //
             //
-            ret = ibv_post_send(BuffConn->QPair, &BuffConn->DMAReadMetaWr, &badSendWr);
+            ret = ibv_post_send(BuffConn->QPair, &BuffConn->RequesetDMAReadMetaWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                 ret = -1;
@@ -1220,7 +1456,7 @@ ProcessBuffCqEvents(
                 case IBV_WC_RDMA_READ: {
                     switch (wc.wr_id)
                     {
-                    case BUFF_READ_META_WR_ID: {
+                    case BUFF_READ_REQUEST_META_WR_ID: {
                         //
                         // Process a meta read
                         //
@@ -1311,7 +1547,7 @@ ProcessBuffCqEvents(
                         }
                     }
                         break;
-                    case BUFF_READ_DATA_WR_ID: {
+                    case BUFF_READ_REQUEST_DATA_WR_ID: {
                         //
                         // Check splitting and update the head
                         //
@@ -1324,7 +1560,7 @@ ProcessBuffCqEvents(
                         }
                     }
                         break;
-                    case BUFF_READ_DATA_SPLIT_WR_ID: {
+                    case BUFF_READ_REQUEST_DATA_SPLIT_WR_ID: {
                         //
                         // Check splitting and update the head
                         //
@@ -1346,7 +1582,7 @@ ProcessBuffCqEvents(
                 case IBV_WC_RDMA_WRITE: {
                     switch (wc.wr_id)
                     {
-                    case BUFF_WRITE_META_WR_ID: {
+                    case BUFF_WRITE_REQUEST_META_WR_ID: {
                         //
                         // Ready to poll
                         //

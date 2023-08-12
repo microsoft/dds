@@ -105,3 +105,16 @@ InitializeResponseRingBufferBackEnd(
     uint32_t AccessToken,
     uint32_t Capacity
 );
+
+//
+// Initialize a buffer for both request and response buffers
+//
+//
+void
+InitializeRingBufferBackEnd(
+    struct RequestRingBufferBackEnd* RequestRingBuffer,
+    struct ResponseRingBufferBackEnd* ResponseRingBuffer,
+    uint64_t RemoteAddr,
+    uint32_t AccessToken,
+    uint32_t Capacity
+);

@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "RingBufferPolling.h"
@@ -47,6 +48,16 @@ InitializeRequestRingBufferBackEnd(
     //
     //
     RingBuffer->DataBaseAddr = ringBufferAddress + DDS_CACHE_LINE_SIZE * 3;
+
+    //
+    // Check if the buffer is large enough
+    // The error can be better handled by notifying the host
+    //
+    //
+    if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
+        fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
+        exit(-1);
+    }
 }
 
 //
@@ -87,6 +98,16 @@ InitializeRequestRingBufferNotAlignedBackEnd(
     //
     //
     RingBuffer->DataBaseAddr = ringBufferAddress + sizeof(int) * 3;
+
+    //
+    // Check if the buffer is large enough
+    // The error can be better handled by notifying the host
+    //
+    //
+    if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
+        fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
+        exit(-1);
+    }
 }
 
 //
@@ -127,6 +148,16 @@ InitializeRequestRingBufferFaRMStyleBackEnd(
     //
     RingBuffer->WriteMetaAddr = ringBufferAddress + sizeof(int);
     RingBuffer->WriteMetaSize = sizeof(int);
+
+    //
+    // Check if the buffer is large enough
+    // The error can be better handled by notifying the host
+    //
+    //
+    if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
+        fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
+        exit(-1);
+    }
 }
 
 //
@@ -167,6 +198,16 @@ InitializeRequestRingBufferLockBasedBackEnd(
     //
     //
     RingBuffer->DataBaseAddr = ringBufferAddress + sizeof(int) * 2 + sizeof(void*);
+
+    //
+    // Check if the buffer is large enough
+    // The error can be better handled by notifying the host
+    //
+    //
+    if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
+        fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
+        exit(-1);
+    }
 }
 
 //
@@ -214,4 +255,41 @@ InitializeResponseRingBufferBackEnd(
     //
     //
     RingBuffer->DataBaseAddr = ringBufferAddress + DDS_CACHE_LINE_SIZE * 3;
+
+    //
+    // Check if the buffer is large enough
+    // The error can be better handled by notifying the host
+    //
+    //
+    if (RingBuffer->DataBaseAddr + DDS_RESPONSE_RING_BYTES > RemoteAddr + Capacity) {
+        fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
+        exit(-1);
+    }
+}
+
+//
+// Initialize a buffer for both request and response rings
+//
+//
+void
+InitializeRingBufferBackEnd(
+    struct RequestRingBufferBackEnd* RequestRingBuffer,
+    struct ResponseRingBufferBackEnd* ResponseRingBuffer,
+    uint64_t RemoteAddr,
+    uint32_t AccessToken,
+    uint32_t Capacity
+) {
+    InitializeRequestRingBufferBackEnd(
+        RequestRingBuffer,
+        RemoteAddr,
+        AccessToken,
+        Capacity
+    );
+    
+    InitializeResponseRingBufferBackEnd(
+        ResponseRingBuffer,
+        RequestRingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES,
+        AccessToken,
+        Capacity - (RequestRingBuffer->DataBaseAddr - RemoteAddr) - DDS_REQUEST_RING_BYTES
+    );
 }
