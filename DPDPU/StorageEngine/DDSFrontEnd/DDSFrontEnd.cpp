@@ -1,11 +1,75 @@
 #include <chrono>
-#include <thread>
+#include <iostream>
 #include <string.h>
+#include <thread>
 
 #include "DDSFrontEnd.h"
 
+using std::cout;
+using std::endl;
+
 namespace DDS_FrontEnd {
 
+//
+// Initialize a poll structure
+//
+//
+PollT::PollT() {
+    for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+        OutstandingRequests[i] = nullptr;
+    }
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+    MsgBuffer = NULL;
+    RequestRing = NULL;
+    ResponseRing = NULL;
+#endif
+}
+
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Set up the DMA buffer
+//
+//
+ErrorCodeT PollT::SetUpDMABuffer(DDSBackEndBridge* BackEndDPU) {
+    MsgBuffer = new DMABuffer(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, DDS_REQUEST_RING_BYTES + DDS_RESPONSE_RING_BYTES + 1024, BackEndDPU->ClientId);
+    if (!MsgBuffer) {
+        cout << __func__ << " [error]: Failed to allocate a DMABuffer object" << endl;
+        return DDS_ERROR_CODE_OOM;
+    }
+
+    bool allocResult = MsgBuffer->Allocate(&BackEndDPU->LocalSock, &BackEndDPU->BackEndSock, BackEndDPU->QueueDepth, BackEndDPU->MaxSge, BackEndDPU->InlineThreshold);
+    if (!allocResult) {
+        cout << __func__ << " [error]: Failed to allocate DMA buffer" << endl;
+        delete MsgBuffer;
+        MsgBuffer = NULL;
+        return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
+    }
+
+    return DDS_ERROR_CODE_SUCCESS;
+}
+
+//
+// Destroy the DMA buffer
+//
+//
+void PollT::DestroyDMABuffer() {
+    if (MsgBuffer) {
+        MsgBuffer->Release();
+        delete MsgBuffer;
+        MsgBuffer = NULL;
+    }
+}
+
+//
+// Initialize request and response rings
+//
+//
+void PollT::InitializeRings() {
+    AllocateRequestBufferProgressive(MsgBuffer->BufferAddress);
+    AllocateResponseBufferProgressive(RequestRing->Buffer + DDS_REQUEST_RING_BYTES);
+}
+#endif
+    
 //
 // A dummy callback for app
 //
@@ -19,7 +83,7 @@ DummyReadWriteCallback(
 
 DDSFrontEnd::DDSFrontEnd(
     const char* StoreName
-) : BackEnd() {
+) : BackEnd(NULL) {
     //
     // Set the name of the store
     //
@@ -65,12 +129,20 @@ DDSFrontEnd::~DDSFrontEnd() {
 
     for (size_t p = 0; p != DDS_MAX_POLLS; p++) {
         if (AllPolls[p]) {
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+            AllPolls[p]->DestroyDMABuffer();
+#endif
             for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
                 delete AllPolls[p]->OutstandingRequests[i];
             }
 
             delete AllPolls[p];
         }
+    }
+
+    if (BackEnd) {
+        BackEnd->Disconnect();
+        delete BackEnd;
     }
 }
 
@@ -83,7 +155,22 @@ ErrorCodeT
 DDSFrontEnd::Initialize() {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
         
-    result = BackEnd.Connect();
+    //
+    // Set up back end
+    //
+    //
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+    BackEnd = new DDSBackEndBridge();
+#elif BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
+    BackEnd = new DDSBackEndBridgeForLocalMemory();
+#else
+#error "Unknown backend type"
+#endif
+    result = BackEnd->Connect();
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << __func__ << " [error]: Failed to connect to the back end (" << result << ")" << endl;
+        return result;
+    }
 
     //
     // Set up root directory
@@ -102,6 +189,11 @@ DDSFrontEnd::Initialize() {
     }
     poll->NextRequestSlot = 0;
     AllPolls[DDS_POLL_DEFAULT] = poll;
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+    DDSBackEndBridge* backEndDPU = (DDSBackEndBridge*)BackEnd;
+    poll->SetUpDMABuffer(backEndDPU);
+    poll->InitializeRings();
+#endif
 
     return result;
 }
@@ -170,7 +262,7 @@ DDSFrontEnd::CreateDirectory(
     // Reflect the update on back end
     //
     //
-    return BackEnd.CreateDirectory(PathName, *DirId, parentId);
+    return BackEnd->CreateDirectory(PathName, *DirId, parentId);
 }
 
 void
@@ -227,7 +319,7 @@ DDSFrontEnd::RemoveDirectory(
     // Reflect the update on back end
     //
     //
-    return BackEnd.RemoveDirectory(id);
+    return BackEnd->RemoveDirectory(id);
 }
 
 //
@@ -301,7 +393,7 @@ DDSFrontEnd::CreateFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd.CreateFile(FileName, FileAttributes, *FileId, dirId);
+    return BackEnd->CreateFile(FileName, FileAttributes, *FileId, dirId);
 }
 
 //
@@ -339,7 +431,7 @@ DDSFrontEnd::DeleteFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd.DeleteFile(id, dirId);
+    return BackEnd->DeleteFile(id, dirId);
 }
 
 //
@@ -355,7 +447,7 @@ DDSFrontEnd::ChangeFileSize(
     // Change file size on back end first
     //
     //
-    ErrorCodeT result = BackEnd.ChangeFileSize(FileId, NewSize);
+    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, NewSize);
     
     if (result == DDS_ERROR_CODE_SUCCESS) {
         AllFiles[FileId]->SetSize(NewSize);
@@ -379,7 +471,7 @@ DDSFrontEnd::SetEndOfFile(
     // Change file size on back end first
     //
     //
-    ErrorCodeT result = BackEnd.ChangeFileSize(FileId, pFile->GetPointer());
+    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, pFile->GetPointer());
     
     if (result == DDS_ERROR_CODE_SUCCESS) {
         pFile->SetSize(pFile->GetPointer());
@@ -392,6 +484,7 @@ DDSFrontEnd::SetEndOfFile(
 // Move the file pointer of the specified file
 // 
 //
+#pragma warning(disable:26812)
 ErrorCodeT
 DDSFrontEnd::SetFilePointer(
     FileIdT FileId,
@@ -426,6 +519,7 @@ DDSFrontEnd::SetFilePointer(
 
     return DDS_ERROR_CODE_SUCCESS;
 }
+#pragma warning(default:26812)
 
 //
 // Get file size
@@ -518,7 +612,7 @@ DDSFrontEnd::ReadFile(
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
-    result = BackEnd.ReadFile(
+    result = BackEnd->ReadFile(
         pIO->FileId,
         pIO->Offset,
         pIO->AppBuffer,
@@ -593,7 +687,7 @@ DDSFrontEnd::ReadFileScatter(
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
-    result = BackEnd.ReadFileScatter(
+    result = BackEnd->ReadFileScatter(
         pIO->FileId,
         pIO->Offset,
         pIO->AppBufferArray,
@@ -668,7 +762,7 @@ DDSFrontEnd::WriteFile(
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
-    result = BackEnd.WriteFile(
+    result = BackEnd->WriteFile(
         pIO->FileId,
         pIO->Offset,
         pIO->AppBuffer,
@@ -744,7 +838,7 @@ DDSFrontEnd::WriteFileGather(
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
-    result = BackEnd.WriteFileGather(
+    result = BackEnd->WriteFileGather(
         pIO->FileId,
         pIO->Offset,
         pIO->AppBufferArray,
@@ -889,7 +983,7 @@ DDSFrontEnd::GetFileAttributes(
     // File attributes might be updated on the DPU, so get it from back end
     //
     //
-    return BackEnd.GetFileAttributes(id, FileAttributes);
+    return BackEnd->GetFileAttributes(id, FileAttributes);
 }
 
 //
@@ -925,7 +1019,7 @@ ErrorCodeT
 DDSFrontEnd::GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace
 ) {
-    return BackEnd.GetStorageFreeSpace(StorageFreeSpace);
+    return BackEnd->GetStorageFreeSpace(StorageFreeSpace);
 }
 
 //
@@ -988,7 +1082,7 @@ DDSFrontEnd::MoveFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd.MoveFile(id, NewFileName);
+    return BackEnd->MoveFile(id, NewFileName);
 }
 
 //

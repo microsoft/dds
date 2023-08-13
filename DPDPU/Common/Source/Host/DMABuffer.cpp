@@ -68,6 +68,7 @@ bool DMABuffer::Allocate(
 		printf("DMABuffer: failed to allocate a buffer of %llu bytes\n", Capacity);
 		return false;
 	}
+	memset(BufferAddress, 0, Capacity);
 	
 	RDMC_CreateMR(Adapter, AdapterFileHandle, &MemRegion);
 	unsigned long flags = ND_MR_FLAG_ALLOW_LOCAL_WRITE | ND_MR_FLAG_ALLOW_REMOTE_READ | ND_MR_FLAG_ALLOW_REMOTE_WRITE;

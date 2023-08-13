@@ -5,7 +5,6 @@
 namespace DDS_FrontEnd {
 
 DDSBackEndBridge::DDSBackEndBridge() {
-#if BACKEND_TYPE == BACKEND_TYPE_DMA
     //
     // Record buffer capacity and back end address and port
     //
@@ -35,7 +34,6 @@ DDSBackEndBridge::DDSBackEndBridge() {
     memset(CtrlMsgBuf, 0, CTRL_MSG_SIZE);
 
     ClientId = -1;
-#endif
 }
 
 //
@@ -44,13 +42,6 @@ DDSBackEndBridge::DDSBackEndBridge() {
 //
 ErrorCodeT
 DDSBackEndBridge::Connect() {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    if (!BackEnd) {
-        BackEnd = new DDS_BackEnd::BackEndInMemory();
-    }
-
-    return DDS_ERROR_CODE_SUCCESS;
-#elif BACKEND_TYPE == BACKEND_TYPE_DMA
     //
     // Set up RDMA with NDSPI
     //
@@ -59,7 +50,7 @@ DDSBackEndBridge::Connect() {
     int ret = ::WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (ret != 0) {
         printf("DDSBackEndBridge: failed to initialize Windows Sockets: %d\n", ret);
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -70,7 +61,7 @@ DDSBackEndBridge::Connect() {
     HRESULT hr = NdStartup();
     if (FAILED(hr)) {
         printf("NdStartup failed with %08x\n", hr);
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -92,7 +83,7 @@ DDSBackEndBridge::Connect() {
 
     if (BackEndSock.sin_addr.s_addr == 0) {
         printf("DDSBackEndBridge: bad address for the backend\n");
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -107,7 +98,7 @@ DDSBackEndBridge::Connect() {
         sizeof(BackEndSock), (struct sockaddr*)&LocalSock, &lenSrcSock);
     if (FAILED(hr)) {
         printf("NdResolveAddress failed with %08x\n", hr);
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -123,7 +114,7 @@ DDSBackEndBridge::Connect() {
     );
     if (FAILED(hr)) {
         printf("NdOpenAdapter failed with %08x\n", hr);
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -134,7 +125,7 @@ DDSBackEndBridge::Connect() {
     Ov.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (Ov.hEvent == nullptr) {
         printf("DDSBackEndBridge: failed to allocate event for overlapped operations\n");
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -146,7 +137,7 @@ DDSBackEndBridge::Connect() {
     if (FAILED(hr))
     {
         printf("CreateOverlappedFile failed with %08x\n", hr);
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -159,7 +150,7 @@ DDSBackEndBridge::Connect() {
     hr = Adapter->Query(&AdapterInfo, &adapterInfoSize);
     if (FAILED(hr)) {
         printf("IND2Adapter::GetAdapterInfo failed with %08x\n", hr);
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -169,7 +160,7 @@ DDSBackEndBridge::Connect() {
 
     if ((AdapterInfo.AdapterFlags & ND_ADAPTER_FLAG_IN_ORDER_DMA_SUPPORTED) == 0) {
         printf("Adapter does not support in-order RDMA\n");
-        return false;
+        return DDS_ERROR_CODE_FAILED_CONNECTION;
     }
 #ifdef BACKEND_BRIDGE_VERBOSE
     else {
@@ -277,9 +268,6 @@ DDSBackEndBridge::Connect() {
     }
 
     return DDS_ERROR_CODE_SUCCESS;
-#else
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -288,14 +276,6 @@ DDSBackEndBridge::Connect() {
 //
 ErrorCodeT
 DDSBackEndBridge::Disconnect() {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    if (BackEnd) {
-        delete BackEnd;
-        BackEnd = nullptr;
-    }
-
-    return DDS_ERROR_CODE_SUCCESS;
-#elif BACKEND_TYPE == BACKEND_TYPE_DMA
     //
     // Send the exit message to the back end
     //
@@ -365,9 +345,6 @@ DDSBackEndBridge::Disconnect() {
     WSACleanup();
 
     return DDS_ERROR_CODE_SUCCESS;
-#else
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -380,15 +357,7 @@ DDSBackEndBridge::CreateDirectory(
     DirIdT DirId,
     DirIdT ParentId
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->CreateDirectory(
-        PathName,
-        (DDS_BackEnd::DirIdT)DirId,
-        (DDS_BackEnd::DirIdT)ParentId
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -399,13 +368,7 @@ ErrorCodeT
 DDSBackEndBridge::RemoveDirectory(
     DirIdT DirId
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->RemoveDirectory(
-        (DDS_BackEnd::DirIdT)DirId
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -419,16 +382,7 @@ DDSBackEndBridge::CreateFile(
     FileIdT FileId,
     DirIdT DirId
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->CreateFile(
-        FileName,
-        (DDS_BackEnd::FileAttributesT)FileAttributes,
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::DirIdT)DirId
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -440,14 +394,7 @@ DDSBackEndBridge::DeleteFile(
     FileIdT FileId,
     DirIdT DirId
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->DeleteFile(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::DirIdT)DirId
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -459,14 +406,7 @@ DDSBackEndBridge::ChangeFileSize(
     FileIdT FileId,
     FileSizeT NewSize
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->ChangeFileSize(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)NewSize
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -478,14 +418,7 @@ DDSBackEndBridge::GetFileSize(
     FileIdT FileId,
     FileSizeT* FileSize
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->GetFileSize(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT*)FileSize
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -502,19 +435,7 @@ DDSBackEndBridge::ReadFile(
     BackEndReadWriteCallback Callback,
     ContextT Context
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->ReadFile(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT)DestBuffer,
-        (DDS_BackEnd::FileIOSizeT)BytesToRead,
-        (DDS_BackEnd::FileIOSizeT*)BytesRead,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -531,19 +452,7 @@ DDSBackEndBridge::ReadFileScatter(
     BackEndReadWriteCallback Callback,
     ContextT Context
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->ReadFileScatter(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT*)DestBufferArray,
-        (DDS_BackEnd::FileIOSizeT)BytesToRead,
-        (DDS_BackEnd::FileIOSizeT*)BytesRead,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -560,19 +469,7 @@ DDSBackEndBridge::WriteFile(
     BackEndReadWriteCallback Callback,
     ContextT Context
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->WriteFile(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT)SourceBuffer,
-        (DDS_BackEnd::FileIOSizeT)BytesToWrite,
-        (DDS_BackEnd::FileIOSizeT*)BytesWritten,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -589,19 +486,7 @@ DDSBackEndBridge::WriteFileGather(
     BackEndReadWriteCallback Callback,
     ContextT Context
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->WriteFileGather(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT*)SourceBufferArray,
-        (DDS_BackEnd::FileIOSizeT)BytesToWrite,
-        (DDS_BackEnd::FileIOSizeT*)BytesWritten,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -613,23 +498,7 @@ DDSBackEndBridge::GetFileInformationById(
     FileIdT FileId,
     FilePropertiesT* FileProperties
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    DDS_BackEnd::FilePropertiesT fileProperties;
-    DDS_BackEnd::ErrorCodeT result = BackEnd->GetFileInformationById(
-        (DDS_BackEnd::FileIdT)FileId,
-        &fileProperties
-    );
-    strcpy(FileProperties->FileName, fileProperties.FileName);
-    FileProperties->FileSize = fileProperties.FileSize;
-    FileProperties->FileAttributes = fileProperties.FileAttributes;
-    FileProperties->CreationTime = fileProperties.CreationTime;
-    FileProperties->LastAccessTime = fileProperties.LastAccessTime;
-    FileProperties->LastWriteTime = fileProperties.LastWriteTime;
-
-    return result;
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -641,14 +510,7 @@ DDSBackEndBridge::GetFileAttributes(
     FileIdT FileId,
     FileAttributesT* FileAttributes
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->GetFileAttributes(
-        FileId,
-        (DDS_BackEnd::FileAttributesT*)FileAttributes
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -659,13 +521,7 @@ ErrorCodeT
 DDSBackEndBridge::GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->GetStorageFreeSpace(
-        (DDS_BackEnd::FileSizeT*)StorageFreeSpace
-    );
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 //
@@ -678,11 +534,7 @@ DDSBackEndBridge::MoveFile(
     FileIdT FileId,
     const char* NewFileName
 ) {
-#if BACKEND_TYPE == BACKEND_TYPE_IN_MEMORY
-    return BackEnd->MoveFile(FileId, NewFileName);
-#else
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
-#endif
 }
 
 }

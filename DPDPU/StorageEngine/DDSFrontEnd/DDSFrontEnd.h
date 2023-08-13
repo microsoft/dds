@@ -2,10 +2,23 @@
 
 #include <atomic>
 
-#include "DDSBackEndBridge.h"
 #include "DDSDir.h"
 #include "DDSFile.h"
 #include "DDSFrontEndInterface.h"
+#include "DMABuffer.h"
+#include "RingBufferProgressive.h"
+
+#define BACKEND_TYPE_LOCAL_MEMORY 0
+#define BACKEND_TYPE_DPU 1
+#define BACKEND_TYPE BACKEND_TYPE_DPU
+
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+#include "DDSBackEndBridge.h"
+#elif BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
+#include "DDSBackEndBridgeForLocalMemory.h"
+#else
+#error "Unknown backend type"
+#endif
 
 #undef CreateDirectory
 #undef RemoveDirectory
@@ -51,12 +64,19 @@ typedef struct FileIOT {
 typedef struct PollT {
     FileIOT* OutstandingRequests[DDS_FRONTEND_MAX_OUTSTANDING];
     Atomic<size_t> NextRequestSlot;
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+    DMABuffer* MsgBuffer;
+    struct RequestRingBufferProgressive* RequestRing;
+    struct ResponseRingBufferProgressive* ResponseRing;
+#endif
 
-    PollT() {
-        for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
-            OutstandingRequests[i] = nullptr;
-        }
-    }
+    PollT();
+
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+    ErrorCodeT SetUpDMABuffer(DDSBackEndBridge* BackEndDPU);
+    void DestroyDMABuffer();
+    void InitializeRings();
+#endif
 } PollT;
 
 //
@@ -94,7 +114,7 @@ class DDSFrontEnd : public DDSFrontEndInterface
 {
 private:
     char StoreName[DDS_MAX_DEVICE_NAME_LEN];
-    DDSBackEndBridge BackEnd;
+    DDSBackEndBridgeBase* BackEnd;
     DDSDir* AllDirs[DDS_MAX_DIRS];
     DirIdT DirIdEnd;
     DDSFile* AllFiles[DDS_MAX_FILES];

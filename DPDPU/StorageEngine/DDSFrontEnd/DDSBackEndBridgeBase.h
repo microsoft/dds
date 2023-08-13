@@ -1,7 +1,8 @@
 #pragma once
 
-#include "DDSBackEndBridgeBase.h"
-#include "RDMC.h"
+#include "DDSFrontEndInterface.h"
+#include "MsgType.h"
+#include "Protocol.h"
 
 #undef CreateDirectory
 #undef RemoveDirectory
@@ -16,125 +17,102 @@
 namespace DDS_FrontEnd {
 
 //
+// Callbacks for async operations
+//
+//
+typedef void (*BackEndReadWriteCallback)(
+    ErrorCodeT ErrorCode,
+    FileIOSizeT BytesServiced,
+    ContextT Context
+);
+
+//
 // Connector that fowards requests to and receives responses from the back end
 //
 //
-class DDSBackEndBridge : public DDSBackEndBridgeBase {
+class DDSBackEndBridgeBase {
 public:
-    //
-    // Back end configuration
-    //
-    //
-    char BackEndAddr[16];
-    unsigned short BackEndPort;
-    struct sockaddr_in BackEndSock;
-
-    //
-    // RNIC configuration
-    //
-    //
-    IND2Adapter* Adapter;
-    HANDLE AdapterFileHandle;
-    ND2_ADAPTER_INFO AdapterInfo;
-    OVERLAPPED Ov;
-    size_t QueueDepth;
-    size_t MaxSge;
-    size_t InlineThreshold;
-    struct sockaddr_in LocalSock;
-
-    IND2Connector* CtrlConnector;
-    IND2CompletionQueue* CtrlCompQ;
-    IND2QueuePair* CtrlQPair;
-    IND2MemoryRegion* CtrlMemRegion;
-    ND2_SGE* CtrlSgl;
-    char CtrlMsgBuf[CTRL_MSG_SIZE];
-
-    int ClientId;
-
-public:
-    DDSBackEndBridge();
-
     //
     // Connect to the backend
     //
     //
-    ErrorCodeT
-    Connect();
+    virtual ErrorCodeT
+    Connect() = 0;
 
     //
     // Disconnect from the backend
     //
     //
-    ErrorCodeT
-    Disconnect();
+    virtual ErrorCodeT
+    Disconnect() = 0;
 
 	//
     // Create a diretory
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     CreateDirectory(
         const char* PathName,
         DirIdT DirId,
         DirIdT ParentId
-    );
+    ) = 0;
 
     //
     // Delete a directory
     //
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     RemoveDirectory(
         DirIdT DirId
-    );
+    ) = 0;
 
     //
     // Create a file
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     CreateFile(
         const char* FileName,
         FileAttributesT FileAttributes,
         FileIdT FileId,
         DirIdT DirId
-    );
+    ) = 0;
 
     //
     // Delete a file
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     DeleteFile(
         FileIdT FileId,
         DirIdT DirId
-    );
+    ) = 0;
 
     //
     // Change the size of a file
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     ChangeFileSize(
         FileIdT FileId,
         FileSizeT NewSize
-    );
+    ) = 0;
 
     //
     // Get file size
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     GetFileSize(
         FileIdT FileId,
         FileSizeT* FileSize
-    );
+    ) = 0;
 
     //
     // Async read from a file
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     ReadFile(
         FileIdT FileId,
         FileSizeT Offset,
@@ -143,13 +121,13 @@ public:
         FileIOSizeT* BytesRead,
         BackEndReadWriteCallback Callback,
         ContextT Context
-    );
+    ) = 0;
 
     //
     // Async read from a file with scattering
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     ReadFileScatter(
         FileIdT FileId,
         FileSizeT Offset,
@@ -158,13 +136,13 @@ public:
         FileIOSizeT* BytesRead,
         BackEndReadWriteCallback Callback,
         ContextT Context
-    );
+    ) = 0;
 
     //
     // Async write to a file
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     WriteFile(
         FileIdT FileId,
         FileSizeT Offset,
@@ -173,13 +151,13 @@ public:
         FileIOSizeT* BytesWritten,
         BackEndReadWriteCallback Callback,
         ContextT Context
-    );
+    ) = 0;
 
     //
     // Async write to a file with gathering
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     WriteFileGather(
         FileIdT FileId,
         FileSizeT Offset,
@@ -188,47 +166,47 @@ public:
         FileIOSizeT* BytesWritten,
         BackEndReadWriteCallback Callback,
         ContextT Context
-    );
+    ) = 0;
 
     //
     // Get file properties by file Id
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     GetFileInformationById(
         FileIdT FileId,
         FilePropertiesT* FileProperties
-    );
+    ) = 0;
 
     //
     // Get file attributes by file name
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     GetFileAttributes(
         FileIdT FileId,
         FileAttributesT* FileAttributes
-    );
+    ) = 0;
 
     //
     // Get the size of free space on the storage
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     GetStorageFreeSpace(
         FileSizeT* StorageFreeSpace
-    );
+    ) = 0;
 
     //
     // Move an existing file or a directory,
     // including its children
     // 
     //
-    ErrorCodeT
+    virtual ErrorCodeT
     MoveFile(
         FileIdT FileId,
         const char* NewFileName
-    );
+    ) = 0;
 };
 
 }

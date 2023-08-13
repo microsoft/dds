@@ -1,7 +1,7 @@
 #pragma once
 
+#include "BackEndInMemory.h"
 #include "DDSBackEndBridgeBase.h"
-#include "RDMC.h"
 
 #undef CreateDirectory
 #undef RemoveDirectory
@@ -19,40 +19,12 @@ namespace DDS_FrontEnd {
 // Connector that fowards requests to and receives responses from the back end
 //
 //
-class DDSBackEndBridge : public DDSBackEndBridgeBase {
-public:
-    //
-    // Back end configuration
-    //
-    //
-    char BackEndAddr[16];
-    unsigned short BackEndPort;
-    struct sockaddr_in BackEndSock;
-
-    //
-    // RNIC configuration
-    //
-    //
-    IND2Adapter* Adapter;
-    HANDLE AdapterFileHandle;
-    ND2_ADAPTER_INFO AdapterInfo;
-    OVERLAPPED Ov;
-    size_t QueueDepth;
-    size_t MaxSge;
-    size_t InlineThreshold;
-    struct sockaddr_in LocalSock;
-
-    IND2Connector* CtrlConnector;
-    IND2CompletionQueue* CtrlCompQ;
-    IND2QueuePair* CtrlQPair;
-    IND2MemoryRegion* CtrlMemRegion;
-    ND2_SGE* CtrlSgl;
-    char CtrlMsgBuf[CTRL_MSG_SIZE];
-
-    int ClientId;
+class DDSBackEndBridgeForLocalMemory : public DDSBackEndBridgeBase {
+private:
+	DDS_BackEnd::BackEndInMemory* BackEnd;
 
 public:
-    DDSBackEndBridge();
+    DDSBackEndBridgeForLocalMemory();
 
     //
     // Connect to the backend

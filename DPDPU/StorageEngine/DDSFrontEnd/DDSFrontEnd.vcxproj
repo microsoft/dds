@@ -148,7 +148,9 @@
     <ClInclude Include="..\..\Common\Include\Protocol.h" />
     <ClInclude Include="..\..\Common\Include\RDMC.h" />
     <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h" />
+    <ClInclude Include="DDSBackEndBridgeBase.h" />
     <ClInclude Include="DDSBackEndBridge.h" />
+    <ClInclude Include="DDSBackEndBridgeForLocalMemory.h" />
     <ClInclude Include="DDSDir.h" />
     <ClInclude Include="DDSFile.h" />
     <ClInclude Include="DDSFrontEnd.h" />
@@ -159,6 +161,7 @@
     <ClCompile Include="..\..\Common\Source\Host\RDMC.cpp" />
     <ClCompile Include="..\..\Common\Source\Host\RingBufferProgressive.cpp" />
     <ClCompile Include="DDSBackEndBridge.cpp" />
+    <ClCompile Include="DDSBackEndBridgeForLocalMemory.cpp" />
     <ClCompile Include="DDSDir.cpp" />
     <ClCompile Include="DDSFile.cpp" />
     <ClCompile Include="DDSFrontEnd.cpp" />

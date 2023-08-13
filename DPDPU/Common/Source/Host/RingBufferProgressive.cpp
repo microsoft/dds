@@ -14,6 +14,7 @@ namespace DDS_FrontEnd {
 
 //
 // Allocate a request buffer object
+// Note: Assuming buffer has been zero'ed
 //
 //
 RequestRingBufferProgressive*
@@ -31,8 +32,6 @@ AllocateRequestBufferProgressive(
         ringBufferAddress++;
     }
     ringBuffer = (RequestRingBufferProgressive*)ringBufferAddress;
-
-    memset(ringBuffer, 0, sizeof(RequestRingBufferProgressive));
 
     return ringBuffer;
 }
@@ -315,6 +314,7 @@ CheckForRequestCompletionProgressive(
 
 //
 // Allocate a response buffer object
+// Note: Assuming buffer has been zero'ed
 //
 //
 ResponseRingBufferProgressive*
