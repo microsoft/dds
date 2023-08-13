@@ -56,7 +56,6 @@ InitializeRequestRingBufferBackEnd(
     //
     if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
         fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
-        exit(-1);
     }
 }
 
@@ -106,7 +105,6 @@ InitializeRequestRingBufferNotAlignedBackEnd(
     //
     if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
         fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
-        exit(-1);
     }
 }
 
@@ -156,7 +154,6 @@ InitializeRequestRingBufferFaRMStyleBackEnd(
     //
     if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
         fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
-        exit(-1);
     }
 }
 
@@ -206,7 +203,6 @@ InitializeRequestRingBufferLockBasedBackEnd(
     //
     if (RingBuffer->DataBaseAddr + DDS_REQUEST_RING_BYTES > RemoteAddr + Capacity) {
         fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
-        exit(-1);
     }
 }
 
@@ -263,7 +259,6 @@ InitializeResponseRingBufferBackEnd(
     //
     if (RingBuffer->DataBaseAddr + DDS_RESPONSE_RING_BYTES > RemoteAddr + Capacity) {
         fprintf(stderr, "%s [error]: Not enough space for request ring\n", __func__);
-        exit(-1);
     }
 }
 

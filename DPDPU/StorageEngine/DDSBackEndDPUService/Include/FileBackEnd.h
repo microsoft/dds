@@ -186,7 +186,6 @@ struct BackEndConfig {
     struct DMAConfig DMAConf;
     struct CtrlConnConfig* CtrlConns;
     struct BuffConnConfig* BuffConns;
-    uint8_t Prefetching;
 };
 
 //
@@ -197,6 +196,5 @@ int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
-    const uint32_t MaxBuffs,
-    const uint8_t Prefetching
+    const uint32_t MaxBuffs
 );
