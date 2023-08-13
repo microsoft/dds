@@ -11,8 +11,8 @@
 //
 typedef void* BufferT;
 typedef void* ContextT;
-typedef int32_t DirIdT;
-typedef int32_t ErrorCodeT;
+typedef uint32_t DirIdT;
+typedef uint32_t ErrorCodeT;
 typedef uint32_t FileAccessT;
 typedef uint32_t FileAttributesT;
 typedef uint32_t FileIdT;

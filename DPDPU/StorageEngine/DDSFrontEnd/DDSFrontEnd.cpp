@@ -65,8 +65,8 @@ void PollT::DestroyDMABuffer() {
 //
 //
 void PollT::InitializeRings() {
-    AllocateRequestBufferProgressive(MsgBuffer->BufferAddress);
-    AllocateResponseBufferProgressive(RequestRing->Buffer + DDS_REQUEST_RING_BYTES);
+    RequestRing = AllocateRequestBufferProgressive(MsgBuffer->BufferAddress);
+    ResponseRing = AllocateResponseBufferProgressive(RequestRing->Buffer + DDS_REQUEST_RING_BYTES);
 }
 #endif
     
@@ -193,6 +193,8 @@ DDSFrontEnd::Initialize() {
     DDSBackEndBridge* backEndDPU = (DDSBackEndBridge*)BackEnd;
     poll->SetUpDMABuffer(backEndDPU);
     poll->InitializeRings();
+    fprintf(stdout, "%s [info]: Request ring data base address = %p\n", __func__, poll->RequestRing->Buffer);
+    fprintf(stdout, "%s [info]: Response ring data base address = %p\n", __func__, poll->ResponseRing->Buffer);
 #endif
 
     return result;

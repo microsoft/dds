@@ -18,12 +18,12 @@
     <ClCompile Include="DDSApplication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Profiler.cpp">
+    <ClCompile Include="..\..\Common\Source\Host\Profiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Profiler.h">
+    <ClInclude Include="..\..\Common\Include\Host\Profiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

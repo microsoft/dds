@@ -143,8 +143,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Common\Source\Host\Profiler.cpp" />
     <ClCompile Include="DDSApplication.cpp" />
-    <ClCompile Include="Profiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
@@ -161,7 +161,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Profiler.h" />
+    <ClInclude Include="..\..\Common\Include\Host\Profiler.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

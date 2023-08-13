@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #include "LinkedList.h"
 
 namespace DDS_FrontEnd {
@@ -75,6 +77,82 @@ LinkedList<int>::Begin() {
 
 NodeT<int>*
 LinkedList<int>::End() {
+    return Tail;
+}
+
+//
+// unsigned int instantiation
+//
+//
+
+LinkedList<uint32_t>::LinkedList() {
+    Head = nullptr;
+    Tail = nullptr;
+}
+
+LinkedList<uint32_t>::~LinkedList() {
+    DeleteAll();
+}
+
+void
+LinkedList<uint32_t>::Insert(uint32_t NodeValue) {
+    NodeT<uint32_t>* newNode = new NodeT<uint32_t>();
+    newNode->Value = NodeValue;
+    newNode->Next = nullptr;
+
+    if (Tail) {
+        Tail->Next = newNode;
+        Tail = newNode;
+    }
+    else {
+        Head = Tail = newNode;
+    }
+}
+
+void
+LinkedList<uint32_t>::Delete(uint32_t NodeValue) {
+    NodeT<uint32_t>* cur = Head;
+    NodeT<uint32_t>* prev = nullptr;
+    while (cur != nullptr) {
+        if (cur->Value == NodeValue) {
+            if (prev) {
+                prev->Next = cur->Next;
+            }
+            if (cur == Head) {
+                Head = cur->Next;
+            }
+            break;
+        }
+        prev = cur;
+        cur = cur->Next;
+    }
+
+    if (cur) {
+        delete cur;
+    }
+}
+
+template <>
+void
+LinkedList<uint32_t>::DeleteAll() {
+    if (Head) {
+        while (Head->Next) {
+            NodeT<uint32_t>* next = Head->Next;
+            Head->Next = next->Next;
+            delete next;
+        }
+        delete Head;
+    }
+    Head = Tail = nullptr;
+}
+
+NodeT<uint32_t>*
+LinkedList<uint32_t>::Begin() {
+    return Head;
+}
+
+NodeT<uint32_t>*
+LinkedList<uint32_t>::End() {
     return Tail;
 }
 

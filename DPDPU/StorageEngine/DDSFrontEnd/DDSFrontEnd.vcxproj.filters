@@ -39,9 +39,6 @@
     <ClInclude Include="..\..\Common\Include\Protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\RingBufferProgressive.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="DDSBackEndBridgeBase.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -52,6 +49,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DDSBackEndBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\Host\RingBufferProgressive.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\DDSTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -74,13 +77,13 @@
     <ClCompile Include="..\..\Common\Source\Host\DMABuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Source\Host\RingBufferProgressive.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\Source\Host\RDMC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DDSBackEndBridgeForLocalMemory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Source\Host\RingBufferProgressive.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

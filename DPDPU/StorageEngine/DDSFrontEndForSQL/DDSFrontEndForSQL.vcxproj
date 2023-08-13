@@ -142,7 +142,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\qizhenzhang\source\repos\DPDPU\DPDPU\StorageEngine\DDSFrontEnd;C:\Users\qizhenzhang\source\repos\DPDPU\DPDPU\StorageEngine\BackEndLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\DDSFrontEnd;$(SolutionDir)\..\NDSPI\out\Release-x64\include;$(SolutionDir)\..\NDSPI\src\examples;$(SolutionDir)\..\NDSPI\src\examples\ndtestutil;$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\Common\Include\Host;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -171,6 +171,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\NDSPI\src\examples\ndtestutil\ndtestutil.vcxproj">
+      <Project>{fc7cbd5d-8104-4e77-b17a-08fe588adb84}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NDSPI\src\ndutil\ndutil.vcxproj">
+      <Project>{6955ed94-3b21-4835-838a-a797aff63183}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\DDSFrontEnd\DDSFrontEnd.vcxproj">
       <Project>{beef5f46-922d-49ae-b1a7-a9096ec926db}</Project>
     </ProjectReference>
