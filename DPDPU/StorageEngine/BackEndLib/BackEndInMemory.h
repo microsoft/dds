@@ -6,7 +6,7 @@
 #include "BackEndFile.h"
 
 #define ONE_GB 1073741824ULL
-#define DDS_BACKEND_CAPACITY ONE_GB * 130
+#define DDS_BACKEND_CAPACITY ONE_GB * 1
 
 namespace DDS_BackEnd {
 

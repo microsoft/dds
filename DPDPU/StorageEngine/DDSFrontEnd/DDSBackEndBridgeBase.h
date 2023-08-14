@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DDSFrontEndInterface.h"
+#include "DDSFrontEndTypes.h"
 #include "MsgType.h"
 #include "Protocol.h"
 
@@ -15,16 +16,6 @@
 #undef MoveFile
 
 namespace DDS_FrontEnd {
-
-//
-// Callbacks for async operations
-//
-//
-typedef void (*BackEndReadWriteCallback)(
-    ErrorCodeT ErrorCode,
-    FileIOSizeT BytesServiced,
-    ContextT Context
-);
 
 //
 // Connector that fowards requests to and receives responses from the back end
@@ -54,7 +45,8 @@ public:
     CreateDirectory(
         const char* PathName,
         DirIdT DirId,
-        DirIdT ParentId
+        DirIdT ParentId,
+        PollT* Poll
     ) = 0;
 
     //
@@ -63,7 +55,8 @@ public:
     //
     virtual ErrorCodeT
     RemoveDirectory(
-        DirIdT DirId
+        DirIdT DirId,
+        PollT* Poll
     ) = 0;
 
     //
@@ -75,7 +68,8 @@ public:
         const char* FileName,
         FileAttributesT FileAttributes,
         FileIdT FileId,
-        DirIdT DirId
+        DirIdT DirId,
+        PollT* Poll
     ) = 0;
 
     //
@@ -85,7 +79,8 @@ public:
     virtual ErrorCodeT
     DeleteFile(
         FileIdT FileId,
-        DirIdT DirId
+        DirIdT DirId,
+        PollT* Poll
     ) = 0;
 
     //
@@ -95,7 +90,8 @@ public:
     virtual ErrorCodeT
     ChangeFileSize(
         FileIdT FileId,
-        FileSizeT NewSize
+        FileSizeT NewSize,
+        PollT* Poll
     ) = 0;
 
     //
@@ -105,7 +101,8 @@ public:
     virtual ErrorCodeT
     GetFileSize(
         FileIdT FileId,
-        FileSizeT* FileSize
+        FileSizeT* FileSize,
+        PollT* Poll
     ) = 0;
 
     //
@@ -119,8 +116,8 @@ public:
         BufferT DestBuffer,
         FileIOSizeT BytesToRead,
         FileIOSizeT* BytesRead,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     ) = 0;
 
     //
@@ -134,8 +131,8 @@ public:
         BufferT* DestBufferArray,
         FileIOSizeT BytesToRead,
         FileIOSizeT* BytesRead,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     ) = 0;
 
     //
@@ -149,8 +146,8 @@ public:
         BufferT SourceBuffer,
         FileIOSizeT BytesToWrite,
         FileIOSizeT* BytesWritten,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     ) = 0;
 
     //
@@ -164,8 +161,8 @@ public:
         BufferT* SourceBufferArray,
         FileIOSizeT BytesToWrite,
         FileIOSizeT* BytesWritten,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     ) = 0;
 
     //
@@ -175,7 +172,8 @@ public:
     virtual ErrorCodeT
     GetFileInformationById(
         FileIdT FileId,
-        FilePropertiesT* FileProperties
+        FilePropertiesT* FileProperties,
+        PollT* Poll
     ) = 0;
 
     //
@@ -185,7 +183,8 @@ public:
     virtual ErrorCodeT
     GetFileAttributes(
         FileIdT FileId,
-        FileAttributesT* FileAttributes
+        FileAttributesT* FileAttributes,
+        PollT* Poll
     ) = 0;
 
     //
@@ -194,7 +193,8 @@ public:
     //
     virtual ErrorCodeT
     GetStorageFreeSpace(
-        FileSizeT* StorageFreeSpace
+        FileSizeT* StorageFreeSpace,
+        PollT* Poll
     ) = 0;
 
     //
@@ -205,7 +205,8 @@ public:
     virtual ErrorCodeT
     MoveFile(
         FileIdT FileId,
-        const char* NewFileName
+        const char* NewFileName,
+        PollT* Poll
     ) = 0;
 };
 

@@ -16,6 +16,17 @@
 namespace DDS_FrontEnd {
 
 //
+// A callback for back end
+//
+//
+void
+BackEndReadWriteCallbackHandler(
+    ErrorCodeT ErrorCode,
+    FileIOSizeT BytesServiced,
+    ContextT Context
+);
+
+//
 // Connector that fowards requests to and receives responses from the back end
 //
 //
@@ -48,7 +59,8 @@ public:
     CreateDirectory(
         const char* PathName,
         DirIdT DirId,
-        DirIdT ParentId
+        DirIdT ParentId,
+        PollT* Poll
     );
 
     //
@@ -57,7 +69,8 @@ public:
     //
     ErrorCodeT
     RemoveDirectory(
-        DirIdT DirId
+        DirIdT DirId,
+        PollT* Poll
     );
 
     //
@@ -69,7 +82,8 @@ public:
         const char* FileName,
         FileAttributesT FileAttributes,
         FileIdT FileId,
-        DirIdT DirId
+        DirIdT DirId,
+        PollT* Poll
     );
 
     //
@@ -79,7 +93,8 @@ public:
     ErrorCodeT
     DeleteFile(
         FileIdT FileId,
-        DirIdT DirId
+        DirIdT DirId,
+        PollT* Poll
     );
 
     //
@@ -89,7 +104,8 @@ public:
     ErrorCodeT
     ChangeFileSize(
         FileIdT FileId,
-        FileSizeT NewSize
+        FileSizeT NewSize,
+        PollT* Poll
     );
 
     //
@@ -99,7 +115,8 @@ public:
     ErrorCodeT
     GetFileSize(
         FileIdT FileId,
-        FileSizeT* FileSize
+        FileSizeT* FileSize,
+        PollT* Poll
     );
 
     //
@@ -113,8 +130,8 @@ public:
         BufferT DestBuffer,
         FileIOSizeT BytesToRead,
         FileIOSizeT* BytesRead,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     );
 
     //
@@ -128,8 +145,8 @@ public:
         BufferT* DestBufferArray,
         FileIOSizeT BytesToRead,
         FileIOSizeT* BytesRead,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     );
 
     //
@@ -143,8 +160,8 @@ public:
         BufferT SourceBuffer,
         FileIOSizeT BytesToWrite,
         FileIOSizeT* BytesWritten,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     );
 
     //
@@ -158,8 +175,8 @@ public:
         BufferT* SourceBufferArray,
         FileIOSizeT BytesToWrite,
         FileIOSizeT* BytesWritten,
-        BackEndReadWriteCallback Callback,
-        ContextT Context
+        ContextT Context,
+        PollT* Poll
     );
 
     //
@@ -169,7 +186,8 @@ public:
     ErrorCodeT
     GetFileInformationById(
         FileIdT FileId,
-        FilePropertiesT* FileProperties
+        FilePropertiesT* FileProperties,
+        PollT* Poll
     );
 
     //
@@ -179,7 +197,8 @@ public:
     ErrorCodeT
     GetFileAttributes(
         FileIdT FileId,
-        FileAttributesT* FileAttributes
+        FileAttributesT* FileAttributes,
+        PollT* Poll
     );
 
     //
@@ -188,7 +207,8 @@ public:
     //
     ErrorCodeT
     GetStorageFreeSpace(
-        FileSizeT* StorageFreeSpace
+        FileSizeT* StorageFreeSpace,
+        PollT* Poll
     );
 
     //
@@ -199,7 +219,8 @@ public:
     ErrorCodeT
     MoveFile(
         FileIdT FileId,
-        const char* NewFileName
+        const char* NewFileName,
+        PollT* Poll
     );
 };
 

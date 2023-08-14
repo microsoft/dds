@@ -19,17 +19,19 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Common\Include\DDSTypes.h" />
+    <ClInclude Include="..\..\Common\Include\Host\LinkedList.h" />
+    <ClInclude Include="..\..\Common\Include\Protocol.h" />
     <ClInclude Include="BackEnd.h" />
     <ClInclude Include="BackEndDir.h" />
     <ClInclude Include="BackEndFile.h" />
     <ClInclude Include="BackEndInMemory.h" />
-    <ClInclude Include="LinkedList.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Common\Source\Host\LinkedList.cpp" />
     <ClCompile Include="BackEndDir.cpp" />
     <ClCompile Include="BackEndFile.cpp" />
     <ClCompile Include="BackEndInMemory.cpp" />
-    <ClCompile Include="LinkedList.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -144,6 +146,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\Common\Include;$(SolutionDir)\..\Common\Include\Host</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

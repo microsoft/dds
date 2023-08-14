@@ -4,6 +4,32 @@
 
 namespace DDS_FrontEnd {
 
+//
+// A callback for back end
+//
+//
+void
+BackEndReadWriteCallbackHandler(
+    ErrorCodeT ErrorCode,
+    FileIOSizeT BytesServiced,
+    ContextT Context
+) {
+    FileIOT* pIO = (FileIOT*)Context;
+
+    if (pIO->AppCallback) {
+        pIO->AppCallback(
+            ErrorCode,
+            BytesServiced,
+            pIO->Context
+        );
+
+        pIO->IsComplete = true;
+    }
+    else {
+        pIO->IsReadyForPoll = true;
+    }
+}
+
 DDSBackEndBridgeForLocalMemory::DDSBackEndBridgeForLocalMemory()
     : BackEnd(NULL) { }
 
@@ -42,12 +68,13 @@ ErrorCodeT
 DDSBackEndBridgeForLocalMemory::CreateDirectory(
     const char* PathName,
     DirIdT DirId,
-    DirIdT ParentId
+    DirIdT ParentId,
+    PollT* Poll
 ) {
     return BackEnd->CreateDirectory(
         PathName,
-        (DDS_BackEnd::DirIdT)DirId,
-        (DDS_BackEnd::DirIdT)ParentId
+        DirId,
+        ParentId
     );
 }
 
@@ -57,10 +84,11 @@ DDSBackEndBridgeForLocalMemory::CreateDirectory(
 //
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::RemoveDirectory(
-    DirIdT DirId
+    DirIdT DirId,
+    PollT* Poll
 ) {
     return BackEnd->RemoveDirectory(
-        (DDS_BackEnd::DirIdT)DirId
+        DirId
     );
 }
 
@@ -73,13 +101,14 @@ DDSBackEndBridgeForLocalMemory::CreateFile(
     const char* FileName,
     FileAttributesT FileAttributes,
     FileIdT FileId,
-    DirIdT DirId
+    DirIdT DirId,
+    PollT* Poll
 ) {
     return BackEnd->CreateFile(
         FileName,
-        (DDS_BackEnd::FileAttributesT)FileAttributes,
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::DirIdT)DirId
+        FileAttributes,
+        FileId,
+        DirId
     );
 }
 
@@ -90,11 +119,12 @@ DDSBackEndBridgeForLocalMemory::CreateFile(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::DeleteFile(
     FileIdT FileId,
-    DirIdT DirId
+    DirIdT DirId,
+    PollT* Poll
 ) {
     return BackEnd->DeleteFile(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::DirIdT)DirId
+        FileId,
+        DirId
     );
 }
 
@@ -105,11 +135,12 @@ DDSBackEndBridgeForLocalMemory::DeleteFile(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::ChangeFileSize(
     FileIdT FileId,
-    FileSizeT NewSize
+    FileSizeT NewSize,
+    PollT* Poll
 ) {
     return BackEnd->ChangeFileSize(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)NewSize
+        FileId,
+        NewSize
     );
 }
 
@@ -120,11 +151,12 @@ DDSBackEndBridgeForLocalMemory::ChangeFileSize(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetFileSize(
     FileIdT FileId,
-    FileSizeT* FileSize
+    FileSizeT* FileSize,
+    PollT* Poll
 ) {
     return BackEnd->GetFileSize(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT*)FileSize
+        FileId,
+        FileSize
     );
 }
 
@@ -139,17 +171,17 @@ DDSBackEndBridgeForLocalMemory::ReadFile(
     BufferT DestBuffer,
     FileIOSizeT BytesToRead,
     FileIOSizeT* BytesRead,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return BackEnd->ReadFile(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT)DestBuffer,
-        (DDS_BackEnd::FileIOSizeT)BytesToRead,
-        (DDS_BackEnd::FileIOSizeT*)BytesRead,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
+        FileId,
+        Offset,
+        DestBuffer,
+        BytesToRead,
+        BytesRead,
+        (DDS_BackEnd::ReadWriteCallback)BackEndReadWriteCallbackHandler,
+        Context
     );
 }
 
@@ -164,17 +196,17 @@ DDSBackEndBridgeForLocalMemory::ReadFileScatter(
     BufferT* DestBufferArray,
     FileIOSizeT BytesToRead,
     FileIOSizeT* BytesRead,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return BackEnd->ReadFileScatter(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT*)DestBufferArray,
-        (DDS_BackEnd::FileIOSizeT)BytesToRead,
-        (DDS_BackEnd::FileIOSizeT*)BytesRead,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
+        FileId,
+        Offset,
+        DestBufferArray,
+        BytesToRead,
+        BytesRead,
+        (DDS_BackEnd::ReadWriteCallback)BackEndReadWriteCallbackHandler,
+        Context
     );
 }
 
@@ -189,17 +221,17 @@ DDSBackEndBridgeForLocalMemory::WriteFile(
     BufferT SourceBuffer,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return BackEnd->WriteFile(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT)SourceBuffer,
-        (DDS_BackEnd::FileIOSizeT)BytesToWrite,
-        (DDS_BackEnd::FileIOSizeT*)BytesWritten,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
+        FileId,
+        Offset,
+        SourceBuffer,
+        BytesToWrite,
+        BytesWritten,
+        (DDS_BackEnd::ReadWriteCallback)BackEndReadWriteCallbackHandler,
+        Context
     );
 }
 
@@ -214,17 +246,17 @@ DDSBackEndBridgeForLocalMemory::WriteFileGather(
     BufferT* SourceBufferArray,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return BackEnd->WriteFileGather(
-        (DDS_BackEnd::FileIdT)FileId,
-        (DDS_BackEnd::FileSizeT)Offset,
-        (DDS_BackEnd::BufferT*)SourceBufferArray,
-        (DDS_BackEnd::FileIOSizeT)BytesToWrite,
-        (DDS_BackEnd::FileIOSizeT*)BytesWritten,
-        (DDS_BackEnd::ReadWriteCallback)Callback,
-        (DDS_BackEnd::ContextT)Context
+        FileId,
+        Offset,
+        SourceBufferArray,
+        BytesToWrite,
+        BytesWritten,
+        (DDS_BackEnd::ReadWriteCallback)BackEndReadWriteCallbackHandler,
+        Context
     );
 }
 
@@ -235,11 +267,12 @@ DDSBackEndBridgeForLocalMemory::WriteFileGather(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetFileInformationById(
     FileIdT FileId,
-    FilePropertiesT* FileProperties
+    FilePropertiesT* FileProperties,
+    PollT* Poll
 ) {
     DDS_BackEnd::FilePropertiesT fileProperties;
-    DDS_BackEnd::ErrorCodeT result = BackEnd->GetFileInformationById(
-        (DDS_BackEnd::FileIdT)FileId,
+    ErrorCodeT result = BackEnd->GetFileInformationById(
+        FileId,
         &fileProperties
     );
     strcpy(FileProperties->FileName, fileProperties.FileName);
@@ -259,11 +292,12 @@ DDSBackEndBridgeForLocalMemory::GetFileInformationById(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetFileAttributes(
     FileIdT FileId,
-    FileAttributesT* FileAttributes
+    FileAttributesT* FileAttributes,
+    PollT* Poll
 ) {
     return BackEnd->GetFileAttributes(
         FileId,
-        (DDS_BackEnd::FileAttributesT*)FileAttributes
+        FileAttributes
     );
 }
 
@@ -273,10 +307,11 @@ DDSBackEndBridgeForLocalMemory::GetFileAttributes(
 //
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetStorageFreeSpace(
-    FileSizeT* StorageFreeSpace
+    FileSizeT* StorageFreeSpace,
+    PollT* Poll
 ) {
     return BackEnd->GetStorageFreeSpace(
-        (DDS_BackEnd::FileSizeT*)StorageFreeSpace
+        StorageFreeSpace
     );
 }
 
@@ -288,7 +323,8 @@ DDSBackEndBridgeForLocalMemory::GetStorageFreeSpace(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::MoveFile(
     FileIdT FileId,
-    const char* NewFileName
+    const char* NewFileName,
+    PollT* Poll
 ) {
     return BackEnd->MoveFile(FileId, NewFileName);
 }

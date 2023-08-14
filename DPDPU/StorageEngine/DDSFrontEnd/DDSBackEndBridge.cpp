@@ -355,7 +355,8 @@ ErrorCodeT
 DDSBackEndBridge::CreateDirectory(
     const char* PathName,
     DirIdT DirId,
-    DirIdT ParentId
+    DirIdT ParentId,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -366,7 +367,8 @@ DDSBackEndBridge::CreateDirectory(
 //
 ErrorCodeT
 DDSBackEndBridge::RemoveDirectory(
-    DirIdT DirId
+    DirIdT DirId,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -380,7 +382,8 @@ DDSBackEndBridge::CreateFile(
     const char* FileName,
     FileAttributesT FileAttributes,
     FileIdT FileId,
-    DirIdT DirId
+    DirIdT DirId,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -392,7 +395,8 @@ DDSBackEndBridge::CreateFile(
 ErrorCodeT
 DDSBackEndBridge::DeleteFile(
     FileIdT FileId,
-    DirIdT DirId
+    DirIdT DirId,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -404,7 +408,8 @@ DDSBackEndBridge::DeleteFile(
 ErrorCodeT
 DDSBackEndBridge::ChangeFileSize(
     FileIdT FileId,
-    FileSizeT NewSize
+    FileSizeT NewSize,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -416,7 +421,8 @@ DDSBackEndBridge::ChangeFileSize(
 ErrorCodeT
 DDSBackEndBridge::GetFileSize(
     FileIdT FileId,
-    FileSizeT* FileSize
+    FileSizeT* FileSize,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -432,8 +438,8 @@ DDSBackEndBridge::ReadFile(
     BufferT DestBuffer,
     FileIOSizeT BytesToRead,
     FileIOSizeT* BytesRead,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -449,8 +455,8 @@ DDSBackEndBridge::ReadFileScatter(
     BufferT* DestBufferArray,
     FileIOSizeT BytesToRead,
     FileIOSizeT* BytesRead,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -466,8 +472,8 @@ DDSBackEndBridge::WriteFile(
     BufferT SourceBuffer,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -483,8 +489,8 @@ DDSBackEndBridge::WriteFileGather(
     BufferT* SourceBufferArray,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
-    BackEndReadWriteCallback Callback,
-    ContextT Context
+    ContextT Context,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -496,7 +502,8 @@ DDSBackEndBridge::WriteFileGather(
 ErrorCodeT
 DDSBackEndBridge::GetFileInformationById(
     FileIdT FileId,
-    FilePropertiesT* FileProperties
+    FilePropertiesT* FileProperties,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -508,7 +515,8 @@ DDSBackEndBridge::GetFileInformationById(
 ErrorCodeT
 DDSBackEndBridge::GetFileAttributes(
     FileIdT FileId,
-    FileAttributesT* FileAttributes
+    FileAttributesT* FileAttributes,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -519,7 +527,8 @@ DDSBackEndBridge::GetFileAttributes(
 //
 ErrorCodeT
 DDSBackEndBridge::GetStorageFreeSpace(
-    FileSizeT* StorageFreeSpace
+    FileSizeT* StorageFreeSpace,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }
@@ -532,7 +541,8 @@ DDSBackEndBridge::GetStorageFreeSpace(
 ErrorCodeT
 DDSBackEndBridge::MoveFile(
     FileIdT FileId,
-    const char* NewFileName
+    const char* NewFileName,
+    PollT* Poll
 ) {
     return DDS_ERROR_CODE_NOT_IMPLEMENTED;
 }

@@ -1,7 +1,5 @@
 #pragma once
 
-namespace DDS_BackEnd {
-
 template <typename T>
 struct NodeT {
     T Value;
@@ -28,5 +26,3 @@ public:
     NodeT<T>* Begin();
     NodeT<T>* End();
 };
-
-}

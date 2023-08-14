@@ -9,7 +9,7 @@
 // Types used in DDS
 //
 //
-typedef void* BufferT;
+typedef char* BufferT;
 typedef void* ContextT;
 typedef uint32_t DirIdT;
 typedef uint32_t ErrorCodeT;

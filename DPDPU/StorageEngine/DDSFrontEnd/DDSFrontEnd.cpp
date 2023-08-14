@@ -30,14 +30,15 @@ PollT::PollT() {
 // Set up the DMA buffer
 //
 //
-ErrorCodeT PollT::SetUpDMABuffer(DDSBackEndBridge* BackEndDPU) {
-    MsgBuffer = new DMABuffer(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, DDS_REQUEST_RING_BYTES + DDS_RESPONSE_RING_BYTES + 1024, BackEndDPU->ClientId);
+ErrorCodeT PollT::SetUpDMABuffer(void* BackEnd) {
+    DDSBackEndBridge* backEndDPU = (DDSBackEndBridge*)BackEnd;
+    MsgBuffer = new DMABuffer(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, DDS_REQUEST_RING_BYTES + DDS_RESPONSE_RING_BYTES + 1024, backEndDPU->ClientId);
     if (!MsgBuffer) {
         cout << __func__ << " [error]: Failed to allocate a DMABuffer object" << endl;
         return DDS_ERROR_CODE_OOM;
     }
 
-    bool allocResult = MsgBuffer->Allocate(&BackEndDPU->LocalSock, &BackEndDPU->BackEndSock, BackEndDPU->QueueDepth, BackEndDPU->MaxSge, BackEndDPU->InlineThreshold);
+    bool allocResult = MsgBuffer->Allocate(&backEndDPU->LocalSock, &backEndDPU->BackEndSock, backEndDPU->QueueDepth, backEndDPU->MaxSge, backEndDPU->InlineThreshold);
     if (!allocResult) {
         cout << __func__ << " [error]: Failed to allocate DMA buffer" << endl;
         delete MsgBuffer;
@@ -264,7 +265,7 @@ DDSFrontEnd::CreateDirectory(
     // Reflect the update on back end
     //
     //
-    return BackEnd->CreateDirectory(PathName, *DirId, parentId);
+    return BackEnd->CreateDirectory(PathName, *DirId, parentId, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 void
@@ -321,7 +322,7 @@ DDSFrontEnd::RemoveDirectory(
     // Reflect the update on back end
     //
     //
-    return BackEnd->RemoveDirectory(id);
+    return BackEnd->RemoveDirectory(id, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 //
@@ -395,7 +396,7 @@ DDSFrontEnd::CreateFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd->CreateFile(FileName, FileAttributes, *FileId, dirId);
+    return BackEnd->CreateFile(FileName, FileAttributes, *FileId, dirId, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 //
@@ -433,7 +434,7 @@ DDSFrontEnd::DeleteFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd->DeleteFile(id, dirId);
+    return BackEnd->DeleteFile(id, dirId, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 //
@@ -449,7 +450,7 @@ DDSFrontEnd::ChangeFileSize(
     // Change file size on back end first
     //
     //
-    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, NewSize);
+    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, NewSize, AllPolls[DDS_POLL_DEFAULT]);
     
     if (result == DDS_ERROR_CODE_SUCCESS) {
         AllFiles[FileId]->SetSize(NewSize);
@@ -473,7 +474,7 @@ DDSFrontEnd::SetEndOfFile(
     // Change file size on back end first
     //
     //
-    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, pFile->GetPointer());
+    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, pFile->GetPointer(), AllPolls[DDS_POLL_DEFAULT]);
     
     if (result == DDS_ERROR_CODE_SUCCESS) {
         pFile->SetSize(pFile->GetPointer());
@@ -545,28 +546,6 @@ DDSFrontEnd::GetFileSize(
     return DDS_ERROR_CODE_SUCCESS;
 }
 
-void
-BackEndReadWriteCallbackHandler(
-    ErrorCodeT ErrorCode,
-    FileIOSizeT BytesServiced,
-    ContextT Context
-) {
-    FileIOT* pIO = (FileIOT*)Context;
-
-    if (pIO->AppCallback) {
-        pIO->AppCallback(
-            ErrorCode,
-            BytesServiced,
-            pIO->Context
-        );
-
-        pIO->IsComplete = true;
-    }
-    else {
-        pIO->IsReadyForPoll = true;
-    }
-}
-
 //
 // Async read from a file
 // 
@@ -620,8 +599,8 @@ DDSFrontEnd::ReadFile(
         pIO->AppBuffer,
         pIO->BytesDesired,
         &pIO->BytesServiced,
-        BackEndReadWriteCallbackHandler,
-        pIO
+        pIO,
+        poll
     );
 
     if (BytesRead) {
@@ -632,8 +611,8 @@ DDSFrontEnd::ReadFile(
     // TODO: better handle file pointer
     //
     //
-    FileSizeT newPointer = pIO->FileReference->GetPointer() + BytesToRead;
-    pIO->FileReference->SetPointer(newPointer);
+    FileSizeT newPointer = ((DDSFile*)pIO->FileReference)->GetPointer() + BytesToRead;
+    ((DDSFile*)pIO->FileReference)->SetPointer(newPointer);
 
     if (!Callback) {
         return DDS_ERROR_CODE_IO_PENDING;
@@ -695,8 +674,8 @@ DDSFrontEnd::ReadFileScatter(
         pIO->AppBufferArray,
         pIO->BytesDesired,
         &pIO->BytesServiced,
-        BackEndReadWriteCallbackHandler,
-        pIO
+        pIO,
+        poll
     );
 
     if (BytesRead) {
@@ -707,8 +686,8 @@ DDSFrontEnd::ReadFileScatter(
     // TODO: better handle file pointer
     //
     //
-    FileSizeT newPointer = pIO->FileReference->GetPointer() + BytesToRead;
-    pIO->FileReference->SetPointer(newPointer);
+    FileSizeT newPointer = ((DDSFile*)pIO->FileReference)->GetPointer() + BytesToRead;
+    ((DDSFile*)pIO->FileReference)->SetPointer(newPointer);
 
     if (!Callback) {
         return DDS_ERROR_CODE_IO_PENDING;
@@ -770,8 +749,8 @@ DDSFrontEnd::WriteFile(
         pIO->AppBuffer,
         pIO->BytesDesired,
         &pIO->BytesServiced,
-        BackEndReadWriteCallbackHandler,
-        pIO
+        pIO,
+        poll
     );
 
     if (BytesWritten) {
@@ -783,8 +762,8 @@ DDSFrontEnd::WriteFile(
     // TODO: better handle file pointer
     //
     //
-    FileSizeT newPointer = pIO->FileReference->GetPointer() + BytesToWrite;
-    pIO->FileReference->SetPointer(newPointer);
+    FileSizeT newPointer = ((DDSFile*)pIO->FileReference)->GetPointer() + BytesToWrite;
+    ((DDSFile*)pIO->FileReference)->SetPointer(newPointer);
 
     if (!Callback) {
         return DDS_ERROR_CODE_IO_PENDING;
@@ -846,8 +825,8 @@ DDSFrontEnd::WriteFileGather(
         pIO->AppBufferArray,
         pIO->BytesDesired,
         &pIO->BytesServiced,
-        BackEndReadWriteCallbackHandler,
-        pIO
+        pIO,
+        poll
     );
 
     if (BytesWritten) {
@@ -859,8 +838,8 @@ DDSFrontEnd::WriteFileGather(
     // TODO: better handle file pointer
     //
     //
-    FileSizeT newPointer = pIO->FileReference->GetPointer() + BytesToWrite;
-    pIO->FileReference->SetPointer(newPointer);
+    FileSizeT newPointer = ((DDSFile*)pIO->FileReference)->GetPointer() + BytesToWrite;
+    ((DDSFile*)pIO->FileReference)->SetPointer(newPointer);
 
     if (!Callback) {
         return DDS_ERROR_CODE_IO_PENDING;
@@ -985,7 +964,7 @@ DDSFrontEnd::GetFileAttributes(
     // File attributes might be updated on the DPU, so get it from back end
     //
     //
-    return BackEnd->GetFileAttributes(id, FileAttributes);
+    return BackEnd->GetFileAttributes(id, FileAttributes, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 //
@@ -1021,7 +1000,7 @@ ErrorCodeT
 DDSFrontEnd::GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace
 ) {
-    return BackEnd->GetStorageFreeSpace(StorageFreeSpace);
+    return BackEnd->GetStorageFreeSpace(StorageFreeSpace, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 //
@@ -1084,7 +1063,7 @@ DDSFrontEnd::MoveFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd->MoveFile(id, NewFileName);
+    return BackEnd->MoveFile(id, NewFileName, AllPolls[DDS_POLL_DEFAULT]);
 }
 
 //

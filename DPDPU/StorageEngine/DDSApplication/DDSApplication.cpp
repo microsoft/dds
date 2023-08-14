@@ -1,19 +1,25 @@
 #include <atomic>
-#include <DDSFrontEnd.h>
+#include <chrono>
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
 #include <thread>
 
-#include <chrono>
-using namespace std;
-using namespace std::chrono;
-
+#include "DDSFrontEnd.h"
 #include "Profiler.h"
 
-#define PAGE_SIZE 8192
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
+#include <Windows.h>
+#undef CreateDirectory
+#undef CreateFile
+#endif
 
-using namespace std;
+using std::cout;
+using std::endl;
+using std::thread;
+using std::this_thread::yield;
+
+#define PAGE_SIZE 8192
 
 std::mutex mtx;
 std::condition_variable cv;
@@ -328,7 +334,7 @@ int main()
     const char* storeName = "DDS-Store0";
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
-    const FileSizeT maxFileSize = 10737418240ULL;
+    const FileSizeT maxFileSize = 1073741824ULL;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;
@@ -339,10 +345,10 @@ int main()
 
     ErrorCodeT result = store.Initialize();
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        cout << "Failed to initialize DDS front end" << endl;
+        cout << "Failed to initialize DDS front end" << std::endl;
     }
     else {
-        cout << "DDS front end initialized " << endl;
+        cout << "DDS front end initialized " << std::endl;
     }
 
     result = store.CreateDirectory(rootDirName, &rootDirId);
@@ -374,7 +380,7 @@ int main()
 
     result = store.WriteFile(
         fileId,
-        &dataToWrite,
+        (BufferT)&dataToWrite,
         sizeof(int),
         &bytesServiced,
         DummyCallback,
@@ -388,7 +394,7 @@ int main()
     }
 
     while (ioCount != 1) {
-        this_thread::yield();
+        yield();
     }
 
     cout << "Data has been written" << endl;
@@ -407,7 +413,7 @@ int main()
 
     result = store.ReadFile(
         fileId,
-        &readBuffer,
+        (BufferT)&readBuffer,
         sizeof(int),
         &bytesServiced,
         DummyCallback,
@@ -421,7 +427,7 @@ int main()
     }
 
     while (ioCount != 2) {
-        this_thread::yield();
+        yield();
     }
 
     cout << "Data has been read: " << readBuffer << endl;

@@ -145,6 +145,7 @@
     <ClInclude Include="..\..\Common\Include\DDSTypes.h" />
     <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\Host\DDSFrontEndInterface.h" />
+    <ClInclude Include="..\..\Common\Include\Host\LinkedList.h" />
     <ClInclude Include="..\..\Common\Include\Host\RingBufferProgressive.h" />
     <ClInclude Include="..\..\Common\Include\MsgType.h" />
     <ClInclude Include="..\..\Common\Include\Protocol.h" />
@@ -155,10 +156,12 @@
     <ClInclude Include="DDSDir.h" />
     <ClInclude Include="DDSFile.h" />
     <ClInclude Include="DDSFrontEnd.h" />
-    <ClInclude Include="LinkedList.h" />
+    <ClInclude Include="DDSFrontEndConfig.h" />
+    <ClInclude Include="DDSFrontEndTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\Source\Host\DMABuffer.cpp" />
+    <ClCompile Include="..\..\Common\Source\Host\LinkedList.cpp" />
     <ClCompile Include="..\..\Common\Source\Host\RDMC.cpp" />
     <ClCompile Include="..\..\Common\Source\Host\RingBufferProgressive.cpp" />
     <ClCompile Include="DDSBackEndBridge.cpp" />
@@ -166,7 +169,6 @@
     <ClCompile Include="DDSDir.cpp" />
     <ClCompile Include="DDSFile.cpp" />
     <ClCompile Include="DDSFrontEnd.cpp" />
-    <ClCompile Include="LinkedList.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BackEndLib\BackEndLib.vcxproj">

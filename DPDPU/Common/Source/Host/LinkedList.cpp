@@ -2,8 +2,6 @@
 
 #include "LinkedList.h"
 
-namespace DDS_FrontEnd {
-
 //
 // int instantiation
 //
@@ -230,6 +228,4 @@ LinkedList<unsigned long>::Begin() {
 NodeT<unsigned long>*
 LinkedList<unsigned long>::End() {
     return Tail;
-}
-
 }
