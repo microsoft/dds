@@ -358,7 +358,11 @@ DDSBackEndBridge::CreateDirectory(
     DirIdT ParentId,
     PollT* Poll
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    InsertToRequestBufferProgressive(Poll->RequestRing, )
+
+    return result;
 }
 
 //
