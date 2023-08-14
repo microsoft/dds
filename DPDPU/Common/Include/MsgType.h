@@ -20,8 +20,8 @@
 #define CTRL_MSG_B2F_ACK_CREATE_DIR 4
 
 #define BUFF_MSG_F2B_REQUEST_ID 100
-#define BUFF_MSG_B2F_RESPOND_ID 104
-#define BUFF_MSG_F2B_RELEASE 105
+#define BUFF_MSG_B2F_RESPOND_ID 101
+#define BUFF_MSG_F2B_RELEASE 102
 
 typedef struct {
     int MsgId;
@@ -54,3 +54,7 @@ typedef struct {
     int ClientId;
     int BufferId;
 } BuffMsgF2BRelease;
+
+typedef struct {
+    uint8_t ReqType;
+} DDSFilesReqHdr;

@@ -360,7 +360,30 @@ DDSBackEndBridge::CreateDirectory(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    InsertToRequestBufferProgressive(Poll->RequestRing, )
+    //
+    // Send a create directory request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+    ((CtrlMsgF2BRequestId*)(CtrlMsgBuf + sizeof(MsgHeader)))->Dummy = 42;
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BRequestId);
+    RDMC_Send(CtrlQPair, CtrlSgl, 1, 0, MSG_CTXT);
+
+    RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
+
+    CtrlSgl->BufferLength = CTRL_MSG_SIZE;
+    RDMC_PostReceive(CtrlQPair, CtrlSgl, 1, MSG_CTXT);
+
+    RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
+
+    if (((MsgHeader*)CtrlMsgBuf)->MsgId == CTRL_MSG_B2F_RESPOND_ID) {
+        ClientId = ((CtrlMsgB2FRespondId*)(CtrlMsgBuf + sizeof(MsgHeader)))->ClientId;
+        printf("DDSBackEndBridge: connected to the back end with assigned Id (%d)\n", ClientId);
+    }
+    else {
+        printf("DDSBackEndBridge: wrong message from the back end\n");
+        return DDS_ERROR_CODE_UNEXPECTED_MSG;
+    }
 
     return result;
 }
