@@ -16,4 +16,4 @@
 
 - [WDK for Windows Server 2022](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads#step-2-install-the-wdk)
 
-- [.NET SDK v5.0.408](https://dotnet.microsoft.com/en-us/download/dotnet/5.0)
+- [.NET SDK v5.0](https://dotnet.microsoft.com/en-us/download/dotnet/5.0#sdk-5.0.408-5.0.17)
