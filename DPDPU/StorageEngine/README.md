@@ -2,7 +2,7 @@
 
 - Windows Server 2022
 
-- [Visual Studio 2019](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk#download-icon-step-1-install-visual-studio-2019)  
+- [Visual Studio 2019](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads#step-1-install-visual-studio)  
 
 	Make sure to select the following workloads during installation:
 
@@ -14,6 +14,6 @@
 
 - Windows SDK 10.0 (which comes with Visual Studio 2019)
 
-- [WDK for Windows Server 2022](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads)
+- [WDK for Windows Server 2022](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads#step-2-install-the-wdk)
 
 - [.NET SDK v5.0.408](https://dotnet.microsoft.com/en-us/download/dotnet/5.0)
