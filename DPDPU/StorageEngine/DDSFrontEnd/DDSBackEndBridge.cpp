@@ -658,7 +658,7 @@ DDSBackEndBridge::GetFileInformationById(
     
     CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqGetFileInfo);
     
-    result = SendCtrlMsgAndWait(this, CTRL_MSG_F2B_ACK_GET_FILE_INFO);
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_GET_FILE_INFO);
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
     }
@@ -717,7 +717,7 @@ DDSBackEndBridge::GetStorageFreeSpace(
     ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_GET_FREE_SPACE;
 
     CtrlMsgF2BReqGetFreeSpace* req = (CtrlMsgF2BReqGetFreeSpace*)(CtrlMsgBuf + sizeof(MsgHeader));
-    req->FileId = FileId;
+    req->Dummy = 42;
     
     CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqGetFreeSpace);
     

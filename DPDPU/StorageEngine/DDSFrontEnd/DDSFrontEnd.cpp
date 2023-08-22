@@ -322,7 +322,7 @@ DDSFrontEnd::RemoveDirectory(
     // Reflect the update on back end
     //
     //
-    return BackEnd->RemoveDirectory(id, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->RemoveDirectory(id);
 }
 
 //
@@ -396,7 +396,7 @@ DDSFrontEnd::CreateFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd->CreateFile(FileName, FileAttributes, *FileId, dirId, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->CreateFile(FileName, FileAttributes, *FileId, dirId);
 }
 
 //
@@ -434,7 +434,7 @@ DDSFrontEnd::DeleteFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd->DeleteFile(id, dirId, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->DeleteFile(id, dirId);
 }
 
 //
@@ -450,7 +450,7 @@ DDSFrontEnd::ChangeFileSize(
     // Change file size on back end first
     //
     //
-    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, NewSize, AllPolls[DDS_POLL_DEFAULT]);
+    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, NewSize);
     
     if (result == DDS_ERROR_CODE_SUCCESS) {
         AllFiles[FileId]->SetSize(NewSize);
@@ -474,7 +474,7 @@ DDSFrontEnd::SetEndOfFile(
     // Change file size on back end first
     //
     //
-    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, pFile->GetPointer(), AllPolls[DDS_POLL_DEFAULT]);
+    ErrorCodeT result = BackEnd->ChangeFileSize(FileId, pFile->GetPointer());
     
     if (result == DDS_ERROR_CODE_SUCCESS) {
         pFile->SetSize(pFile->GetPointer());
@@ -964,7 +964,7 @@ DDSFrontEnd::GetFileAttributes(
     // File attributes might be updated on the DPU, so get it from back end
     //
     //
-    return BackEnd->GetFileAttributes(id, FileAttributes, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->GetFileAttributes(id, FileAttributes);
 }
 
 //
@@ -1000,7 +1000,7 @@ ErrorCodeT
 DDSFrontEnd::GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace
 ) {
-    return BackEnd->GetStorageFreeSpace(StorageFreeSpace, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->GetStorageFreeSpace(StorageFreeSpace);
 }
 
 //
@@ -1063,7 +1063,7 @@ DDSFrontEnd::MoveFile(
     // Reflect the update on back end
     //
     //
-    return BackEnd->MoveFile(id, NewFileName, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->MoveFile(id, NewFileName);
 }
 
 //
