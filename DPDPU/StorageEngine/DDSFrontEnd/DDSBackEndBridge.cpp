@@ -366,7 +366,7 @@ SendCtrlMsgAndWait(
     RDMC_WaitForCompletionAndCheckContext(BackEnd->CtrlCompQ, &BackEnd->Ov, MSG_CTXT, true);
 
     if (((MsgHeader*)BackEnd->CtrlMsgBuf)->MsgId != ExpectedMsgId) {
-        result = DDS_ERROR_CODE_UNEXPECTED_MSG
+        result = DDS_ERROR_CODE_UNEXPECTED_MSG;
     }
 
     return result;

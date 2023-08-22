@@ -265,7 +265,7 @@ DDSFrontEnd::CreateDirectory(
     // Reflect the update on back end
     //
     //
-    return BackEnd->CreateDirectory(PathName, *DirId, parentId, AllPolls[DDS_POLL_DEFAULT]);
+    return BackEnd->CreateDirectory(PathName, *DirId, parentId);
 }
 
 void

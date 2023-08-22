@@ -68,8 +68,7 @@ ErrorCodeT
 DDSBackEndBridgeForLocalMemory::CreateDirectory(
     const char* PathName,
     DirIdT DirId,
-    DirIdT ParentId,
-    PollT* Poll
+    DirIdT ParentId
 ) {
     return BackEnd->CreateDirectory(
         PathName,

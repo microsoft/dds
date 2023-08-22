@@ -45,8 +45,7 @@ public:
     CreateDirectory(
         const char* PathName,
         DirIdT DirId,
-        DirIdT ParentId,
-        PollT* Poll
+        DirIdT ParentId
     ) = 0;
 
     //
