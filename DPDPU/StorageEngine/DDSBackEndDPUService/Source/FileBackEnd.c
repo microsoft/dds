@@ -1201,13 +1201,17 @@ CtrlMsgHandler(
     MsgHeader* msgOut = (MsgHeader*)CtrlConn->SendBuff;
 
     switch(msgIn->MsgId) {
+        //
+        // Request client id
+        //
+        //
         case CTRL_MSG_F2B_REQUEST_ID: {
             CtrlMsgB2FRespondId *resp = (CtrlMsgB2FRespondId *)(msgOut + 1);
             struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
-            // Post a receiv first
+            // Post a receive first
             //
             //
             ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
@@ -1230,6 +1234,10 @@ CtrlMsgHandler(
             }
         }
             break;
+        //
+        // The client wants to terminate
+        //
+        //
         case CTRL_MSG_F2B_TERMINATE: {
             CtrlMsgF2BTerminate *req = (CtrlMsgF2BTerminate *)(msgIn + 1);
 
@@ -1246,6 +1254,10 @@ CtrlMsgHandler(
             }
         }
             break;
+        //
+        // CreateDirectory request
+        //
+        //
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
             CtrlMsgF2BReqCreateDirectory *req = (CtrlMsgF2BReqCreateDirectory *)(msgIn + 1);
             CtrlMsgB2FAckCreateDirectory *resp = (CtrlMsgB2FAckCreateDirectory *)(msgOut + 1);
@@ -1253,7 +1265,7 @@ CtrlMsgHandler(
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
-            // Post a receiv first
+            // Post a receive first
             //
             //
             ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
@@ -1266,7 +1278,7 @@ CtrlMsgHandler(
             // TODO: Create the directory
             //
             //
-	    printf("Creating a directory: %s\n", req->PathName);
+            printf("Creating a directory: %s\n", req->PathName);
             resp->Result = DDS_ERROR_CODE_SUCCESS;
 
             //
@@ -1275,6 +1287,370 @@ CtrlMsgHandler(
             //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // RemoveDirectory request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_REMOVE_DIR: {
+            CtrlMsgF2BReqRemoveDirectory *req = (CtrlMsgF2BReqRemoveDirectory *)(msgIn + 1);
+            CtrlMsgB2FAckRemoveDirectory *resp = (CtrlMsgB2FAckRemoveDirectory *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Remove the directory
+            //
+            //
+            printf("Removing a directory: %u\n", req->DirId);
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_REMOVE_DIR;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckRemoveDirectory);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // CreateFile request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_CREATE_FILE: {
+            CtrlMsgF2BReqCreateFile *req = (CtrlMsgF2BReqCreateFile *)(msgIn + 1);
+            CtrlMsgB2FAckCreateFile *resp = (CtrlMsgB2FAckCreateFile *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Create the file
+            //
+            //
+            printf("Creating a file: %s\n", req->FileName);
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_FILE;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateFile);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // DeleteFile request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_DELETE_FILE: {
+            CtrlMsgF2BReqDeleteFile *req = (CtrlMsgF2BReqDeleteFile *)(msgIn + 1);
+            CtrlMsgB2FAckDeleteFile *resp = (CtrlMsgB2FAckDeleteFile *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Delete the file
+            //
+            //
+            printf("Deleting a file: %u\n", req->FileId);
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_DELETE_FILE;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckDeleteFile);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // ChangeFileSize request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE: {
+            CtrlMsgF2BReqChangeFileSize *req = (CtrlMsgF2BReqChangeFileSize *)(msgIn + 1);
+            CtrlMsgB2FAckChangeFileSize *resp = (CtrlMsgB2FAckChangeFileSize *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Change the file size
+            //
+            //
+            printf("Changing the size of a file: %u\n", req->FileId);
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckChangeFileSize);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // GetFileSize request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_GET_FILE_SIZE: {
+            CtrlMsgF2BReqGetFileSize *req = (CtrlMsgF2BReqGetFileSize *)(msgIn + 1);
+            CtrlMsgB2FAckGetFileSize *resp = (CtrlMsgB2FAckGetFileSize *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Get the file size
+            //
+            //
+            printf("Getting the size of a file: %u\n", req->FileId);
+            resp->FileSize = 0;
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileSize);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // GetFileInformationById request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_GET_FILE_INFO: {
+            CtrlMsgF2BReqGetFileInfo *req = (CtrlMsgF2BReqGetFileInfo *)(msgIn + 1);
+            CtrlMsgB2FAckGetFileInfo *resp = (CtrlMsgB2FAckGetFileInfo *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Get the file info
+            //
+            //
+            printf("Getting the properties of a file: %u\n", req->FileId);
+            memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_INFO;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileInfo);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // GetFileAttributes request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_GET_FILE_ATTR: {
+            CtrlMsgF2BReqGetFileAttr *req = (CtrlMsgF2BReqGetFileAttr *)(msgIn + 1);
+            CtrlMsgB2FAckGetFileAttr *resp = (CtrlMsgB2FAckGetFileAttr *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Get the file attributes
+            //
+            //
+            printf("Getting the attributes of a file: %u\n", req->FileId);
+            resp->FileAttr = 0;
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_ATTR;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileAttr);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // GetStorageFreeSpace request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_GET_FREE_SPACE: {
+            CtrlMsgF2BReqGetFreeSpace *req = (CtrlMsgF2BReqGetFreeSpace *)(msgIn + 1);
+            CtrlMsgB2FAckGetFreeSpace *resp = (CtrlMsgB2FAckGetFreeSpace *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Get the free storage space
+            //
+            //
+            printf("Getting storage free space\n");
+            resp->FreeSpace = 0;
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFreeSpace);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
+        //
+        // MoveFile request
+        //
+        //
+        case CTRL_MSG_F2B_REQ_MOVE_FILE: {
+            CtrlMsgF2BReqMoveFile *req = (CtrlMsgF2BReqMoveFile *)(msgIn + 1);
+            CtrlMsgB2FAckMoveFile *resp = (CtrlMsgB2FAckMoveFile *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receive first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Move the file
+            //
+            //
+            printf("Moving the file %u to %s\n", req->FileId, req->NewFileName);
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckMoveFile);
             ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -1367,7 +1743,7 @@ BuffMsgHandler(
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
-            // Post a receiv first
+            // Post a receive first
             //
             //
             ret = ibv_post_recv(BuffConn->QPair, &BuffConn->RecvWr, &badRecvWr);

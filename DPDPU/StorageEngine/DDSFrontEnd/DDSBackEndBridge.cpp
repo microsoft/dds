@@ -412,10 +412,28 @@ DDSBackEndBridge::CreateDirectory(
 //
 ErrorCodeT
 DDSBackEndBridge::RemoveDirectory(
-    DirIdT DirId,
-    PollT* Poll
+    DirIdT DirId
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a remove directory request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_REMOVE_DIR;
+
+    CtrlMsgF2BReqRemoveDirectory* req = (CtrlMsgF2BReqRemoveDirectory*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->DirId = DirId;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqRemoveDirectory);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_REMOVE_DIR);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckRemoveDirectory* resp = (CtrlMsgB2FAckRemoveDirectory*)(CtrlMsgBuf + sizeof(MsgHeader));
+    return resp->Result;
 }
 
 //
@@ -427,10 +445,31 @@ DDSBackEndBridge::CreateFile(
     const char* FileName,
     FileAttributesT FileAttributes,
     FileIdT FileId,
-    DirIdT DirId,
-    PollT* Poll
+    DirIdT DirId
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a create tile request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+
+    CtrlMsgF2BReqCreateFile* req = (CtrlMsgF2BReqCreateFile*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    req->FileAttributes = FileAttributes;
+    req->DirId = DirId;
+    strcpy(req->FileName, FileName);
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqCreateFile);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_CREATE_FILE);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckCreateFile* resp = (CtrlMsgB2FAckCreateFile*)(CtrlMsgBuf + sizeof(MsgHeader));
+    return resp->Result;
 }
 
 //
@@ -440,10 +479,29 @@ DDSBackEndBridge::CreateFile(
 ErrorCodeT
 DDSBackEndBridge::DeleteFile(
     FileIdT FileId,
-    DirIdT DirId,
-    PollT* Poll
+    DirIdT DirId
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a delete file request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_DELETE_FILE;
+
+    CtrlMsgF2BReqDeleteFile* req = (CtrlMsgF2BReqDeleteFile*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->DirId = DirId;
+    req->FileId = FileId;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqDeleteFile);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_DELETE_FILE);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckDeleteFile* resp = (CtrlMsgB2FAckDeleteFile*)(CtrlMsgBuf + sizeof(MsgHeader));
+    return resp->Result;
 }
 
 //
@@ -453,10 +511,29 @@ DDSBackEndBridge::DeleteFile(
 ErrorCodeT
 DDSBackEndBridge::ChangeFileSize(
     FileIdT FileId,
-    FileSizeT NewSize,
-    PollT* Poll
+    FileSizeT NewSize
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a change file size request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE;
+
+    CtrlMsgF2BReqChangeFileSize* req = (CtrlMsgF2BReqChangeFileSize*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    req->NewSize = NewSize;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqChangeFileSize);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckChangeFileSize* resp = (CtrlMsgB2FAckChangeFileSize*)(CtrlMsgBuf + sizeof(MsgHeader));
+    return resp->Result;
 }
 
 //
@@ -466,10 +543,29 @@ DDSBackEndBridge::ChangeFileSize(
 ErrorCodeT
 DDSBackEndBridge::GetFileSize(
     FileIdT FileId,
-    FileSizeT* FileSize,
-    PollT* Poll
+    FileSizeT* FileSize
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a get file size request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_GET_FILE_SIZE;
+
+    CtrlMsgF2BReqGetFileSize* req = (CtrlMsgF2BReqGetFileSize*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqGetFileSize);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_GET_FILE_SIZE);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckGetFileSize* resp = (CtrlMsgB2FAckGetFileSize*)(CtrlMsgBuf + sizeof(MsgHeader));
+    *FileSize = resp->FileSize;
+    return resp->Result;
 }
 
 //
@@ -547,10 +643,29 @@ DDSBackEndBridge::WriteFileGather(
 ErrorCodeT
 DDSBackEndBridge::GetFileInformationById(
     FileIdT FileId,
-    FilePropertiesT* FileProperties,
-    PollT* Poll
+    FilePropertiesT* FileProperties
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a get file information request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_GET_FILE_INFO;
+
+    CtrlMsgF2BReqGetFileInfo* req = (CtrlMsgF2BReqGetFileInfo*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqGetFileInfo);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_F2B_ACK_GET_FILE_INFO);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckGetFileInfo* resp = (CtrlMsgB2FAckGetFileInfo*)(CtrlMsgBuf + sizeof(MsgHeader));
+    memcpy(FileProperties, &resp->FileInfo, sizeof(FilePropertiesT));
+    return resp->Result;
 }
 
 //
@@ -560,10 +675,29 @@ DDSBackEndBridge::GetFileInformationById(
 ErrorCodeT
 DDSBackEndBridge::GetFileAttributes(
     FileIdT FileId,
-    FileAttributesT* FileAttributes,
-    PollT* Poll
+    FileAttributesT* FileAttributes
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a get file attributes request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_GET_FILE_ATTR;
+
+    CtrlMsgF2BReqGetFileAttr* req = (CtrlMsgF2BReqGetFileAttr*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqGetFileAttr);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_GET_FILE_ATTR);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckGetFileAttr* resp = (CtrlMsgB2FAckGetFileAttr*)(CtrlMsgBuf + sizeof(MsgHeader));
+    *FileAttributes = resp->FileAttr;
+    return resp->Result;
 }
 
 //
@@ -572,10 +706,29 @@ DDSBackEndBridge::GetFileAttributes(
 //
 ErrorCodeT
 DDSBackEndBridge::GetStorageFreeSpace(
-    FileSizeT* StorageFreeSpace,
-    PollT* Poll
+    FileSizeT* StorageFreeSpace
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a get free space request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_GET_FREE_SPACE;
+
+    CtrlMsgF2BReqGetFreeSpace* req = (CtrlMsgF2BReqGetFreeSpace*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqGetFreeSpace);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_GET_FREE_SPACE);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckGetFreeSpace* resp = (CtrlMsgB2FAckGetFreeSpace*)(CtrlMsgBuf + sizeof(MsgHeader));
+    *StorageFreeSpace = resp->FreeSpace;
+    return resp->Result;
 }
 
 //
@@ -586,10 +739,29 @@ DDSBackEndBridge::GetStorageFreeSpace(
 ErrorCodeT
 DDSBackEndBridge::MoveFile(
     FileIdT FileId,
-    const char* NewFileName,
-    PollT* Poll
+    const char* NewFileName
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    //
+    // Send a move file request to the back end
+    //
+    //
+    ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_MOVE_FILE;
+
+    CtrlMsgF2BReqMoveFile* req = (CtrlMsgF2BReqMoveFile*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->FileId = FileId;
+    strcpy(req->NewFileName, NewFileName);
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqMoveFile);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_GET_FREE_SPACE);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    CtrlMsgB2FAckMoveFile* resp = (CtrlMsgB2FAckMoveFile*)(CtrlMsgBuf + sizeof(MsgHeader));
+    return resp->Result;
 }
 
 }

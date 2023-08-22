@@ -83,8 +83,7 @@ DDSBackEndBridgeForLocalMemory::CreateDirectory(
 //
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::RemoveDirectory(
-    DirIdT DirId,
-    PollT* Poll
+    DirIdT DirId
 ) {
     return BackEnd->RemoveDirectory(
         DirId
@@ -100,8 +99,7 @@ DDSBackEndBridgeForLocalMemory::CreateFile(
     const char* FileName,
     FileAttributesT FileAttributes,
     FileIdT FileId,
-    DirIdT DirId,
-    PollT* Poll
+    DirIdT DirId
 ) {
     return BackEnd->CreateFile(
         FileName,
@@ -118,8 +116,7 @@ DDSBackEndBridgeForLocalMemory::CreateFile(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::DeleteFile(
     FileIdT FileId,
-    DirIdT DirId,
-    PollT* Poll
+    DirIdT DirId
 ) {
     return BackEnd->DeleteFile(
         FileId,
@@ -134,8 +131,7 @@ DDSBackEndBridgeForLocalMemory::DeleteFile(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::ChangeFileSize(
     FileIdT FileId,
-    FileSizeT NewSize,
-    PollT* Poll
+    FileSizeT NewSize
 ) {
     return BackEnd->ChangeFileSize(
         FileId,
@@ -150,8 +146,7 @@ DDSBackEndBridgeForLocalMemory::ChangeFileSize(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetFileSize(
     FileIdT FileId,
-    FileSizeT* FileSize,
-    PollT* Poll
+    FileSizeT* FileSize
 ) {
     return BackEnd->GetFileSize(
         FileId,
@@ -266,8 +261,7 @@ DDSBackEndBridgeForLocalMemory::WriteFileGather(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetFileInformationById(
     FileIdT FileId,
-    FilePropertiesT* FileProperties,
-    PollT* Poll
+    FilePropertiesT* FileProperties
 ) {
     DDS_BackEnd::FilePropertiesT fileProperties;
     ErrorCodeT result = BackEnd->GetFileInformationById(
@@ -291,8 +285,7 @@ DDSBackEndBridgeForLocalMemory::GetFileInformationById(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetFileAttributes(
     FileIdT FileId,
-    FileAttributesT* FileAttributes,
-    PollT* Poll
+    FileAttributesT* FileAttributes
 ) {
     return BackEnd->GetFileAttributes(
         FileId,
@@ -306,8 +299,7 @@ DDSBackEndBridgeForLocalMemory::GetFileAttributes(
 //
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::GetStorageFreeSpace(
-    FileSizeT* StorageFreeSpace,
-    PollT* Poll
+    FileSizeT* StorageFreeSpace
 ) {
     return BackEnd->GetStorageFreeSpace(
         StorageFreeSpace
@@ -322,8 +314,7 @@ DDSBackEndBridgeForLocalMemory::GetStorageFreeSpace(
 ErrorCodeT
 DDSBackEndBridgeForLocalMemory::MoveFile(
     FileIdT FileId,
-    const char* NewFileName,
-    PollT* Poll
+    const char* NewFileName
 ) {
     return BackEnd->MoveFile(FileId, NewFileName);
 }

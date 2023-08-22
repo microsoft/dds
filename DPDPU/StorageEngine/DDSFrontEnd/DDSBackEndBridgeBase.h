@@ -54,8 +54,7 @@ public:
     //
     virtual ErrorCodeT
     RemoveDirectory(
-        DirIdT DirId,
-        PollT* Poll
+        DirIdT DirId
     ) = 0;
 
     //
@@ -67,8 +66,7 @@ public:
         const char* FileName,
         FileAttributesT FileAttributes,
         FileIdT FileId,
-        DirIdT DirId,
-        PollT* Poll
+        DirIdT DirId
     ) = 0;
 
     //
@@ -78,8 +76,7 @@ public:
     virtual ErrorCodeT
     DeleteFile(
         FileIdT FileId,
-        DirIdT DirId,
-        PollT* Poll
+        DirIdT DirId
     ) = 0;
 
     //
@@ -89,8 +86,7 @@ public:
     virtual ErrorCodeT
     ChangeFileSize(
         FileIdT FileId,
-        FileSizeT NewSize,
-        PollT* Poll
+        FileSizeT NewSize
     ) = 0;
 
     //
@@ -100,8 +96,7 @@ public:
     virtual ErrorCodeT
     GetFileSize(
         FileIdT FileId,
-        FileSizeT* FileSize,
-        PollT* Poll
+        FileSizeT* FileSize
     ) = 0;
 
     //
@@ -171,8 +166,7 @@ public:
     virtual ErrorCodeT
     GetFileInformationById(
         FileIdT FileId,
-        FilePropertiesT* FileProperties,
-        PollT* Poll
+        FilePropertiesT* FileProperties
     ) = 0;
 
     //
@@ -182,8 +176,7 @@ public:
     virtual ErrorCodeT
     GetFileAttributes(
         FileIdT FileId,
-        FileAttributesT* FileAttributes,
-        PollT* Poll
+        FileAttributesT* FileAttributes
     ) = 0;
 
     //
@@ -192,8 +185,7 @@ public:
     //
     virtual ErrorCodeT
     GetStorageFreeSpace(
-        FileSizeT* StorageFreeSpace,
-        PollT* Poll
+        FileSizeT* StorageFreeSpace
     ) = 0;
 
     //
@@ -204,8 +196,7 @@ public:
     virtual ErrorCodeT
     MoveFile(
         FileIdT FileId,
-        const char* NewFileName,
-        PollT* Poll
+        const char* NewFileName
     ) = 0;
 };
 
