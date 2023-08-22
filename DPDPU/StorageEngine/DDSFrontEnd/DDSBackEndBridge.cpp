@@ -348,6 +348,31 @@ DDSBackEndBridge::Disconnect() {
 }
 
 //
+// Send a control message and wait (w/ blocking) for response
+//
+//
+static inline ErrorCodeT
+SendCtrlMsgAndWait(
+    DDSBackEndBridge* BackEnd,
+    int ExpectedMsgId
+) {
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    RDMC_Send(BackEnd->CtrlQPair, BackEnd->CtrlSgl, 1, 0, MSG_CTXT);
+    RDMC_WaitForCompletionAndCheckContext(BackEnd->CtrlCompQ, &BackEnd->Ov, MSG_CTXT, true);
+
+    BackEnd->CtrlSgl->BufferLength = CTRL_MSG_SIZE;
+    RDMC_PostReceive(BackEnd->CtrlQPair, BackEnd->CtrlSgl, 1, MSG_CTXT);
+    RDMC_WaitForCompletionAndCheckContext(BackEnd->CtrlCompQ, &BackEnd->Ov, MSG_CTXT, true);
+
+    if (((MsgHeader*)BackEnd->CtrlMsgBuf)->MsgId != ExpectedMsgId) {
+        result = DDS_ERROR_CODE_UNEXPECTED_MSG
+    }
+
+    return result;
+}
+
+//
 // Create a diretory
 // 
 //
@@ -355,8 +380,7 @@ ErrorCodeT
 DDSBackEndBridge::CreateDirectory(
     const char* PathName,
     DirIdT DirId,
-    DirIdT ParentId,
-    PollT* Poll
+    DirIdT ParentId
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
@@ -365,27 +389,21 @@ DDSBackEndBridge::CreateDirectory(
     //
     //
     ((MsgHeader*)CtrlMsgBuf)->MsgId = CTRL_MSG_F2B_REQ_CREATE_DIR;
-    ((CtrlMsgF2BRequestId*)(CtrlMsgBuf + sizeof(MsgHeader)))->Dummy = 42;
-    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BRequestId);
-    RDMC_Send(CtrlQPair, CtrlSgl, 1, 0, MSG_CTXT);
 
-    RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
-
-    CtrlSgl->BufferLength = CTRL_MSG_SIZE;
-    RDMC_PostReceive(CtrlQPair, CtrlSgl, 1, MSG_CTXT);
-
-    RDMC_WaitForCompletionAndCheckContext(CtrlCompQ, &Ov, MSG_CTXT, false);
-
-    if (((MsgHeader*)CtrlMsgBuf)->MsgId == CTRL_MSG_B2F_RESPOND_ID) {
-        ClientId = ((CtrlMsgB2FRespondId*)(CtrlMsgBuf + sizeof(MsgHeader)))->ClientId;
-        printf("DDSBackEndBridge: connected to the back end with assigned Id (%d)\n", ClientId);
-    }
-    else {
-        printf("DDSBackEndBridge: wrong message from the back end\n");
-        return DDS_ERROR_CODE_UNEXPECTED_MSG;
+    CtrlMsgF2BReqCreateDirectory* req = (CtrlMsgF2BReqCreateDirectory*)(CtrlMsgBuf + sizeof(MsgHeader));
+    req->DirId = DirId;
+    req->ParentDirId = ParentId;
+    strcpy(req->PathName, PathName);
+    
+    CtrlSgl->BufferLength = sizeof(MsgHeader) + sizeof(CtrlMsgF2BReqCreateDirectory);
+    
+    result = SendCtrlMsgAndWait(this, CTRL_MSG_B2F_ACK_CREATE_DIR);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
     }
 
-    return result;
+    CtrlMsgB2FAckCreateDirectory* resp = (CtrlMsgB2FAckCreateDirectory*)(CtrlMsgBuf + sizeof(MsgHeader));
+    return resp->Result;
 }
 
 //

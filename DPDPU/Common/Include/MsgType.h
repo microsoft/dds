@@ -2,12 +2,14 @@
 
 #include <stdint.h>
 
+#include "DDSTypes.h"
+
 #define MSG_CTXT ((void *) 0x5000)
 
 #define CTRL_CONN_PRIV_DATA 42
 #define BUFF_CONN_PRIV_DATA 24
 
-#define CTRL_MSG_SIZE 64
+#define CTRL_MSG_SIZE 256
 #define BUFF_MSG_SIZE 64
 
 #define BUFF_MSG_SETUP (sizeof(int) + sizeof(uint64_t) + sizeof(uint32_t))
@@ -56,5 +58,11 @@ typedef struct {
 } BuffMsgF2BRelease;
 
 typedef struct {
-    uint8_t ReqType;
-} DDSFilesReqHdr;
+    DirIdT DirId;
+    DirIdT ParentDirId;
+    char PathName[DDS_MAX_FILE_PATH];
+} CtrlMsgF2BReqCreateDirectory;
+
+typedef struct {
+    ErrorCodeT Result;
+} CtrlMsgB2FAckCreateDirectory;

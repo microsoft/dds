@@ -1246,6 +1246,41 @@ CtrlMsgHandler(
             }
         }
             break;
+        case CTRL_MSG_F2B_REQ_CREATE_DIR: {
+            CtrlMsgF2BReqCreateDirectory *req = (CtrlMsgF2BReqCreateDirectory *)(msgIn + 1);
+            CtrlMsgB2FAckCreateDirectory *resp = (CtrlMsgB2FAckCreateDirectory *)(msgOut + 1);
+            struct ibv_send_wr *badSendWr = NULL;
+            struct ibv_recv_wr *badRecvWr = NULL;
+
+            //
+            // Post a receiv first
+            //
+            //
+            ret = ibv_post_recv(CtrlConn->QPair, &CtrlConn->RecvWr, &badRecvWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_recv failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+
+            //
+            // TODO: Create the directory
+            //
+            //
+            resp->Result = DDS_ERROR_CODE_SUCCESS;
+
+            //
+            // Respond
+            //
+            //
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
+            CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
+            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
+        }
+            break;
         default:
             fprintf(stderr, "%s [error]: unrecognized control message\n", __func__);
             ret = -1;
