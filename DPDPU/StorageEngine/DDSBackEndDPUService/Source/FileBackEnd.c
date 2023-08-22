@@ -1601,7 +1601,7 @@ CtrlMsgHandler(
             // TODO: Get the free storage space
             //
             //
-            printf("Getting storage free space\n");
+            printf("Getting storage free space (%d)\n", req->Dummy);
             resp->FreeSpace = 0;
             resp->Result = DDS_ERROR_CODE_SUCCESS;
 

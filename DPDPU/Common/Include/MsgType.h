@@ -96,7 +96,7 @@ typedef struct {
 typedef struct {
     FileIdT FileId;
     DirIdT DirId;
-    FileAttributesT FileAttributes,
+    FileAttributesT FileAttributes;
     char FileName[DDS_MAX_FILE_PATH];
 } CtrlMsgF2BReqCreateFile;
 
