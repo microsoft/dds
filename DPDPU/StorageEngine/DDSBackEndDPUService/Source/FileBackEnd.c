@@ -1266,6 +1266,7 @@ CtrlMsgHandler(
             // TODO: Create the directory
             //
             //
+	    printf("Creating a directory: %s\n", req->PathName);
             resp->Result = DDS_ERROR_CODE_SUCCESS;
 
             //
