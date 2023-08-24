@@ -198,3 +198,96 @@ int RunFileBackEnd(
     const uint32_t MaxClients,
     const uint32_t MaxBuffs
 );
+
+//
+// Types used in DPU
+//
+//
+typedef char* BufferT;
+typedef void* ContextT;
+typedef int DirIdT;
+typedef int ErrorCodeT;
+typedef unsigned long FileAttributesT;
+typedef int FileIdT;
+typedef unsigned long FileIOSizeT;
+typedef unsigned long long FileSizeT;
+typedef unsigned long long DiskSizeT;
+typedef int SegmentIdT;
+typedef unsigned int SegmentSizeT;
+typedef unsigned int FileNumberT;
+using Mutex = std::mutex;
+
+//
+// Persistent properties of DPU dir
+//
+//
+typedef struct DPUDirProperties {
+        DirIdT Id;
+        DirIdT Parent;
+        FileNumberT NumFiles;
+        char Name[DDS_MAX_FILE_PATH];
+        FileIdT Files[DDS_MAX_FILES_PER_DIR];
+}DPUDirPropertiesT;
+
+//
+// DPU dir, highly similar with BackEndDir
+//
+//
+typedef struct DPUDir {
+    DPUDirPropertiesT Properties;
+    Mutex ModificationMutex;
+    const SegmentSizeT AddressOnSegment;
+};
+
+//
+// DPU segment, highly similar with Segement but has formatted mark
+//
+//
+typedef struct DPUSegment {
+    SegmentIdT Id;
+    FileIdT FileId;
+    FileSizeT DiskAddress;
+    bool Allocatable;
+    bool Formatted;
+} DPUSegmentT;
+
+//
+// Persistent properties of DPU file
+//
+//
+typedef struct DPUFileProperties {
+        FileIdT Id;
+        FileProperties FProperties;
+        SegmentIdT Segments[DDS_BACKEND_MAX_SEGMENTS_PER_FILE];
+} DPUFilePropertiesT;
+
+//
+// DPU file, highly similar with BackEndFile
+//
+//
+typedef struct DPUFile {
+    DPUFilePropertiesT Properties;
+    SegmentIdT NumSegments;
+    const SegmentSizeT AddressOnSegment;
+};
+
+//
+// DPU storage, highly similar with BackEndStorage
+//
+//
+typedef struct DPUStorage {
+    SegmentT* AllSegments;
+    const SegmentIdT TotalSegments;
+    SegmentIdT AvailableSegments;
+    
+    struct DPUDir* AllDirs[DDS_MAX_DIRS];
+    struct DPUFile* AllFiles[DDS_MAX_FILES];
+    int TotalDirs;
+    int TotalFiles;
+
+    Mutex SectorModificationMutex;
+    Mutex SegmentAllocationMutex;
+    
+    // Atomic<size_t> TargetProgress;
+    // Atomic<size_t> CurrentProgress;
+};
