@@ -31,31 +31,33 @@ DPUFile BackEndFile(
     FileAttributesT FileAttributes
 );
 
-const char* GetName();
+const char* GetName(struct DPUFile* Dir);
 
-FileAttributesT GetAttributes();
+FileAttributesT GetAttributes(struct DPUFile* Dir);
 
-FileSizeT GetSize();
+FileSizeT GetSize(struct DPUFile* Dir);
 
-SegmentSizeT GetAddressOnSegment();
+SegmentSizeT GetAddressOnSegment(struct DPUFile* Dir);
 
-PersistentPropertiesT* GetProperties();
+DPUFilePropertiesT* GetProperties(struct DPUFile* Dir);
 
-SegmentIdT GetNumSegments();
+SegmentIdT GetNumSegments(struct DPUFile* Dir);
 
 void SetName(
-    const char* FileName
+    const char* FileName,
+    struct DPUFile* Dir
 );
 
 void SetSize(
-    FileSizeT FileSize
+    FileSizeT FileSize,
+    struct DPUFile* Dir
 );
 
 //
 // Set number of segments based on the allocation
 //
 //
-void SetNumAllocatedSegments();
+void SetNumAllocatedSegments(struct DPUFile* Dir);
 
 //
 // Allocate a segment
@@ -64,7 +66,8 @@ void SetNumAllocatedSegments();
 //
 //
 inline void AllocateSegment(
-    SegmentIdT NewSegment
+    SegmentIdT NewSegment,
+    struct DPUFile* Dir
 );
 
 //
@@ -73,4 +76,4 @@ inline void AllocateSegment(
 // Not thread-safe
 //
 //
-inline void DeallocateSegment();
+inline void DeallocateSegment(struct DPUFile* Dir);
