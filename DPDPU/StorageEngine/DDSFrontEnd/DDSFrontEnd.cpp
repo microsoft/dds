@@ -582,7 +582,6 @@ DDSFrontEnd::ReadFile(
     }
 
     pIO->IsRead = true;
-    pIO->IsSegmented = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -657,7 +656,6 @@ DDSFrontEnd::ReadFileScatter(
     }
 
     pIO->IsRead = true;
-    pIO->IsSegmented = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -732,7 +730,6 @@ DDSFrontEnd::WriteFile(
     }
 
     pIO->IsRead = false;
-    pIO->IsSegmented = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -808,7 +805,6 @@ DDSFrontEnd::WriteFileGather(
     }
 
     pIO->IsRead = false;
-    pIO->IsSegmented = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();

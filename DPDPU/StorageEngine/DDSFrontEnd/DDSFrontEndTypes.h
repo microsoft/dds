@@ -21,7 +21,6 @@ using Atomic = std::atomic<T>;
 //
 typedef struct FileIOT {
     bool IsRead = false;
-    bool IsSegmented = false;
     ContextT FileReference = (ContextT)nullptr;
     FileIdT FileId = (FileIdT)DDS_FILE_INVALID;
     FileSizeT Offset = (FileSizeT)0;
