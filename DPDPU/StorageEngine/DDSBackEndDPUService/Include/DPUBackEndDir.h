@@ -37,9 +37,9 @@ struct DPUDir* BackEndDir(
     const char* Name
 );
 
-SegmentSizeT GetDirAddressOnSegment(DPUDir* Dir);
+SegmentSizeT GetDirAddressOnSegment(struct DPUDir* Dir);
 
-DPUDirPropertiesT* GetDirProperties(DPUDir* Dir);
+DPUDirPropertiesT* GetDirProperties(struct DPUDir* Dir);
 
 //
 // Add a file

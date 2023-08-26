@@ -40,78 +40,78 @@ struct DPUFile* BackEndFile(
 }
 
 const char* GetName(
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    return Dir->Properties.FProperties.FileName;
+    return File->Properties.FProperties.FileName;
 }
 
 FileAttributesT GetAttributes(
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    return Dir->Properties.FProperties.FileAttributes;
+    return File->Properties.FProperties.FileAttributes;
 }
 
 FileSizeT GetSize(
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    return Dir->Properties.FProperties.FileSize;
+    return File->Properties.FProperties.FileSize;
 }
 
-SegmentSizeT GetAddressOnSegment(
-    struct DPUFile* Dir
+SegmentSizeT GetFileAddressOnSegment(
+    struct DPUFile* File
 ){
-    return Dir->AddressOnSegment;
+    return File->AddressOnSegment;
 }
 
-DPUFilePropertiesT* GetProperties(
-    struct DPUFile* Dir
+DPUFilePropertiesT* GetFileProperties(
+    struct DPUFile* File
 ){
-    return &Dir->Properties;
+    return &File->Properties;
 }
 
 SegmentIdT GetNumSegments(
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    return Dir->NumSegments;
+    return File->NumSegments;
 }
 
 void SetName(
     const char* FileName,
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    strcpy(Dir->Properties.FProperties.FileName, FileName);
+    strcpy(File->Properties.FProperties.FileName, FileName);
 }
 
 void SetSize(
     FileSizeT FileSize,
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    Dir->Properties.FProperties.FileSize = FileSize;
+    File->Properties.FProperties.FileSize = FileSize;
 }
 
 void SetNumAllocatedSegments(
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    Dir->NumSegments = 0;
+    File->NumSegments = 0;
     for (size_t s = 0; s != DDS_BACKEND_MAX_SEGMENTS_PER_FILE; s++) {
-        if (Dir->Properties.Segments[s] == DDS_BACKEND_SEGMENT_INVALID) {
+        if (File->Properties.Segments[s] == DDS_BACKEND_SEGMENT_INVALID) {
             break;
         }
-        Dir->NumSegments++;
+        File->NumSegments++;
     }
 }
 
 inline void AllocateSegment(
     SegmentIdT NewSegment,
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    Dir->Properties.Segments[Dir->NumSegments] = NewSegment;
-    Dir->NumSegments++;
+    File->Properties.Segments[File->NumSegments] = NewSegment;
+    File->NumSegments++;
 }
 
 inline void DeallocateSegment(
-    struct DPUFile* Dir
+    struct DPUFile* File
 ){
-    Dir->NumSegments--;
-    Dir->Properties.Segments[Dir->NumSegments] = DDS_BACKEND_SEGMENT_INVALID;
+    File->NumSegments--;
+    File->Properties.Segments[File->NumSegments] = DDS_BACKEND_SEGMENT_INVALID;
 }

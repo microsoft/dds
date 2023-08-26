@@ -52,9 +52,13 @@ typedef struct DPUStorage {
     pthread_mutex_t SectorModificationMutex;
     pthread_mutex_t SegmentAllocationMutex;
     
-    atomic_ulong TargetProgress;
-    atomic_ulong CurrentProgress;
+    atomic_size_t TargetProgress;
+    atomic_size_t CurrentProgress;
 };
+
+struct DPUStorage BackEndStorage();
+
+void ~BackEndStorage(struct DPUStorage* Sto);
 
 //
 // Read from disk synchronously
@@ -64,18 +68,20 @@ ErrorCodeT ReadFromDiskSync(
     BufferT DstBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
-    FileIOSizeT Bytes
+    FileIOSizeT Bytes,
+    struct DPUStorage* Sto
 );
 
 //
 // Write from disk synchronously
 //
 //
-ErrorCodeT WriteFromDiskSync(
-    BufferT DstBuffer,
+ErrorCodeT WriteToDiskSync(
+    BufferT SrcBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
-    FileIOSizeT Bytes
+    FileIOSizeT Bytes,
+    struct DPUStorage* Sto
 );
 
 //
@@ -88,75 +94,83 @@ ErrorCodeT ReadFromDiskAsync(
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     DiskIOCallback Callback,
-    ContextT Context
+    ContextT Context,
+    struct DPUStorage* Sto
 );
 
 //
 // Write from disk asynchronously
 //
 //
-ErrorCodeT WriteFromDiskAsync(
-    BufferT DstBuffer,
+ErrorCodeT WriteToDiskAsync(
+    BufferT SrcBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     DiskIOCallback Callback,
-    ContextT Context
+    ContextT Context,
+    struct DPUStorage* Sto
 );
 
 //
 // Retrieve all segments on the disk
 //
 //
-ErrorCodeT RetrieveSegments();
+ErrorCodeT RetrieveSegments(struct DPUStorage* Sto);
 
 //
 // Return all segments back to the disk
 //
 //
-void ReturnSegments();
+void ReturnSegments(struct DPUStorage* Sto);
 
 //
 // Load all directories and files from the reserved segment
 //
 //
-ErrorCodeT LoadDirectoriesAndFiles();
+ErrorCodeT LoadDirectoriesAndFiles(struct DPUStorage* Sto);
 
 //
 // Synchronize a directory to the disk
 //
 //
-inline ErrorCodeT SyncDirToDisk(DPUDir* Dir);
+inline ErrorCodeT SyncDirToDisk(
+    struct DPUDir* Dir, 
+    struct DPUStorage* Sto
+);
 
 //
 // Synchronize a file to the disk
 //
 //
-inline ErrorCodeT SyncFileToDisk(DPUFile* Dir);
+inline ErrorCodeT SyncFileToDisk(
+    struct DPUFile* File,
+    struct DPUStorage* Sto
+);
 
 //
 // Synchronize the first sector on the reserved segment
 //
 //
-inline ErrorCodeT SyncReservedInformationToDisk();
+inline ErrorCodeT SyncReservedInformationToDisk(struct DPUStorage* Sto);
 
-DPUStorage BackEndStorage();
 
 //
 // Initialize the backend service
 //
 //
-ErrorCodeT Initialize();
+ErrorCodeT Initialize(struct DPUStorage* Sto);
 
 //
 // Create a diretory
 // Assuming id and parent id have been computed by host
- // 
+// 
 //
 ErrorCodeT CreateDirectory(
     const char* PathName,
     DirIdT DirId,
-    DirIdT ParentId
+    DirIdT ParentId,
+    struct DPUStorage* Sto
 );
 
 //
@@ -164,7 +178,8 @@ ErrorCodeT CreateDirectory(
 // 
 //
 ErrorCodeT RemoveDirectory(
-    DirIdT DirId
+    DirIdT DirId,
+    struct DPUStorage* Sto
 );
 
 //
@@ -175,7 +190,8 @@ ErrorCodeT CreateFile(
     const char* FileName,
     FileAttributesT FileAttributes,
     FileIdT FileId,
-    DirIdT DirId
+    DirIdT DirId,
+    struct DPUStorage* Sto
 );
 
 //
@@ -184,7 +200,8 @@ ErrorCodeT CreateFile(
 //
 ErrorCodeT DeleteFile(
     FileIdT FileId,
-    DirIdT DirId
+    DirIdT DirId,
+    struct DPUStorage* Sto
 );
 
 //
@@ -193,7 +210,8 @@ ErrorCodeT DeleteFile(
 //
 ErrorCodeT ChangeFileSize(
     FileIdT FileId,
-    FileSizeT NewSize
+    FileSizeT NewSize,
+    struct DPUStorage* Sto
 );
 
 //
@@ -202,7 +220,8 @@ ErrorCodeT ChangeFileSize(
 //
 ErrorCodeT GetFileSize(
     FileIdT FileId,
-    FileSizeT* FileSize
+    FileSizeT* FileSize,
+    struct DPUStorage* Sto
 );
 
 
@@ -216,7 +235,8 @@ ErrorCodeT ReadFile(
     BufferT DestBuffer,
     FileIOSizeT BytesToRead,
     DiskIOCallback Callback,
-    ContextT Context
+    ContextT Context,
+    struct DPUStorage* Sto
 );
 
 //
@@ -229,7 +249,8 @@ ErrorCodeT WriteFile(
     BufferT SourceBuffer,
     FileIOSizeT BytesToWrite,
     DiskIOCallback Callback,
-    ContextT Context
+    ContextT Context,
+    struct DPUStorage* Sto
 );
 
 //
@@ -238,7 +259,8 @@ ErrorCodeT WriteFile(
 //
 ErrorCodeT GetFileInformationById(
     FileIdT FileId,
-    FilePropertiesT* FileProperties
+    FilePropertiesT* FileProperties,
+    struct DPUStorage* Sto
 );
 
 //
@@ -248,7 +270,8 @@ ErrorCodeT GetFileInformationById(
 ErrorCodeT
 GetFileAttributes(
     FileIdT FileId,
-    FileAttributesT* FileAttributes
+    FileAttributesT* FileAttributes,
+    struct DPUStorage* Sto
 );
 
 //
@@ -256,7 +279,8 @@ GetFileAttributes(
 // 
 //
 ErrorCodeT GetStorageFreeSpace(
-    FileSizeT* StorageFreeSpace
+    FileSizeT* StorageFreeSpace,
+    struct DPUStorage* Sto
 );
 
 //
@@ -268,5 +292,6 @@ ErrorCodeT MoveFile(
     FileIdT FileId,
     DirIdT OldDirId,
     DirIdT NewDirId,
-     const char* NewFileName
+    const char* NewFileName,
+    struct DPUStorage* Sto
 );

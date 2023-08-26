@@ -9,7 +9,7 @@
 //
 typedef struct DPUFileProperties {
         FileIdT Id;
-        FileProperties FProperties;
+        FilePropertiesT FProperties;
         SegmentIdT Segments[DDS_BACKEND_MAX_SEGMENTS_PER_FILE];
 } DPUFilePropertiesT;
 
@@ -23,41 +23,41 @@ typedef struct DPUFile {
     const SegmentSizeT AddressOnSegment;
 };
 
-DPUFile BackEndFile();
+struct DPUFile* BackEndFile();
 
-DPUFile BackEndFile(
+struct DPUFile* BackEndFile(
     FileIdT FileId,
     const char* FileName,
     FileAttributesT FileAttributes
 );
 
-const char* GetName(struct DPUFile* Dir);
+const char* GetName(struct DPUFile* File);
 
-FileAttributesT GetAttributes(struct DPUFile* Dir);
+FileAttributesT GetAttributes(struct DPUFile* File);
 
-FileSizeT GetSize(struct DPUFile* Dir);
+FileSizeT GetSize(struct DPUFile* File);
 
-SegmentSizeT GetAddressOnSegment(struct DPUFile* Dir);
+SegmentSizeT GetFileAddressOnSegment(struct DPUFile* File);
 
-DPUFilePropertiesT* GetProperties(struct DPUFile* Dir);
+DPUFilePropertiesT* GetFileProperties(struct DPUFile* File);
 
-SegmentIdT GetNumSegments(struct DPUFile* Dir);
+SegmentIdT GetNumSegments(struct DPUFile* File);
 
 void SetName(
     const char* FileName,
-    struct DPUFile* Dir
+    struct DPUFile* File
 );
 
 void SetSize(
     FileSizeT FileSize,
-    struct DPUFile* Dir
+    struct DPUFile* File
 );
 
 //
 // Set number of segments based on the allocation
 //
 //
-void SetNumAllocatedSegments(struct DPUFile* Dir);
+void SetNumAllocatedSegments(struct DPUFile* File);
 
 //
 // Allocate a segment
@@ -67,7 +67,7 @@ void SetNumAllocatedSegments(struct DPUFile* Dir);
 //
 inline void AllocateSegment(
     SegmentIdT NewSegment,
-    struct DPUFile* Dir
+    struct DPUFile* File
 );
 
 //
@@ -76,4 +76,4 @@ inline void AllocateSegment(
 // Not thread-safe
 //
 //
-inline void DeallocateSegment(struct DPUFile* Dir);
+inline void DeallocateSegment(struct DPUFile* File);
