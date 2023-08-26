@@ -58,6 +58,20 @@ InsertToRequestBufferProgressive(
 );
 
 //
+// Insert a WriteFile request into the request buffer
+//
+//
+bool
+InsertWriteFileRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestIdAndFlag,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes,
+    const BufferT SourceBuffer
+);
+
+//
 // Fetch requests from the request buffer
 //
 //

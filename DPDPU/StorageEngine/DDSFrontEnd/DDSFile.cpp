@@ -102,7 +102,25 @@ DDSFile::SetSize(FileSizeT FileSize) {
 
 void
 DDSFile::SetPointer(FileSizeT FilePointer) {
-    this->Properties.Position = FilePointer;
+    this->Properties.Position.store(FilePointer, std::memory_order_relaxed);
+}
+
+void
+DDSFile::IncrementPointer(FileSizeT Delta) {
+    PositionInFileT delta = Delta;
+    PositionInFileT currentPointer = this->Properties.Position;
+    while(this->Properties.Position.compare_exchange_weak(currentPointer, currentPointer + delta, std::memory_order_relaxed) == false) {
+        currentPointer = this->Properties.Position;
+    }
+}
+
+void
+DDSFile::DecrementPointer(FileSizeT Delta) {
+    PositionInFileT delta = Delta;
+    PositionInFileT currentPointer = this->Properties.Position;
+    while(this->Properties.Position.compare_exchange_weak(currentPointer, currentPointer - delta, std::memory_order_relaxed) == false) {
+        currentPointer = this->Properties.Position;
+    }
 }
 
 void

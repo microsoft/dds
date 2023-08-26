@@ -187,6 +187,15 @@ DDSFrontEnd::Initialize() {
     PollT* poll = new PollT();
     for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
         poll->OutstandingRequests[i] = new FileIOT();
+        if (!poll->OutstandingRequests[i]) {
+            fprintf(stderr, "%s [error]: Failed to allocate a file I/O object\n", __func__);
+            for (size_t j = 0; j != i; j++) {
+                delete poll->OutstandingRequests[j];
+            }
+            return DDS_ERROR_CODE_OOM;
+        }
+
+        poll->OutstandingRequests[i]->RequestId = i;
     }
     poll->NextRequestSlot = 0;
     AllPolls[DDS_POLL_DEFAULT] = poll;
@@ -238,7 +247,7 @@ DDSFrontEnd::CreateDirectory(
     }
 
     if (id == DDS_MAX_DIRS) {
-        return DDS_ERROR_CODE_DIRS_TOO_MANY;
+        return DDS_ERROR_CODE_TOO_MANY_DIRS;
     }
 
     //
@@ -365,7 +374,7 @@ DDSFrontEnd::CreateFile(
     }
 
     if (id == DDS_MAX_FILES) {
-        return DDS_ERROR_CODE_FILES_TOO_MANY;
+        return DDS_ERROR_CODE_TOO_MANY_FILES;
     }
 
     //
@@ -588,7 +597,6 @@ DDSFrontEnd::ReadFile(
     pIO->AppBuffer = DestBuffer;
     pIO->AppBufferArray = nullptr;
     pIO->BytesDesired = BytesToRead;
-    pIO->BytesServiced = 0;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
@@ -597,14 +605,10 @@ DDSFrontEnd::ReadFile(
         pIO->Offset,
         pIO->AppBuffer,
         pIO->BytesDesired,
-        &pIO->BytesServiced,
+        BytesRead,
         pIO,
         poll
     );
-
-    if (BytesRead) {
-        *BytesRead = pIO->BytesServiced;
-    }
 
     //
     // TODO: better handle file pointer
@@ -662,7 +666,6 @@ DDSFrontEnd::ReadFileScatter(
     pIO->AppBuffer = nullptr;
     pIO->AppBufferArray = DestBufferArray;
     pIO->BytesDesired = BytesToRead;
-    pIO->BytesServiced = 0;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
@@ -671,14 +674,10 @@ DDSFrontEnd::ReadFileScatter(
         pIO->Offset,
         pIO->AppBufferArray,
         pIO->BytesDesired,
-        &pIO->BytesServiced,
+        BytesRead,
         pIO,
         poll
     );
-
-    if (BytesRead) {
-        *BytesRead = pIO->BytesServiced;
-    }
 
     //
     // TODO: better handle file pointer
@@ -694,6 +693,7 @@ DDSFrontEnd::ReadFileScatter(
     return result;
 }
 
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // Async write to a file
 // 
@@ -736,7 +736,6 @@ DDSFrontEnd::WriteFile(
     pIO->AppBuffer = DestBuffer;
     pIO->AppBufferArray = nullptr;
     pIO->BytesDesired = BytesToWrite;
-    pIO->BytesServiced = 0;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
@@ -745,14 +744,10 @@ DDSFrontEnd::WriteFile(
         pIO->Offset,
         pIO->AppBuffer,
         pIO->BytesDesired,
-        &pIO->BytesServiced,
+        BytesWritten,
         pIO,
         poll
     );
-
-    if (BytesWritten) {
-        *BytesWritten = pIO->BytesServiced;
-    }
 
     //
     // Update file pointer
@@ -768,6 +763,70 @@ DDSFrontEnd::WriteFile(
 
     return result;
 }
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Async write to a file
+// 
+//
+ErrorCodeT
+DDSFrontEnd::WriteFile(
+    FileIdT FileId,
+    BufferT DestBuffer,
+    FileIOSizeT BytesToWrite,
+    FileIOSizeT* BytesWritten,
+    ReadWriteCallback Callback,
+    ContextT Context
+) {
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
+    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    FileIOT* pIO = poll->OutstandingRequests[mySlot];
+
+    bool expectedAvail = true;
+    if (pIO->IsAvailable.compare_exchange_weak(
+        expectedAvail,
+        false,
+        std::memory_order_relaxed
+    ) == false) {
+        return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
+    }
+
+    pIO->IsRead = false;
+    pIO->FileReference = AllFiles[FileId];
+    pIO->FileId = FileId;
+    pIO->Offset = AllFiles[FileId]->GetPointer();
+    pIO->BytesDesired = BytesToWrite;
+    pIO->BytesServiced = 0;
+    pIO->AppCallback = Callback;
+    pIO->Context = Context;
+
+    result = BackEnd->WriteFile(
+        pIO->FileId,
+        pIO->Offset,
+        pIO->AppBuffer,
+        pIO->BytesDesired,
+        nullptr,
+        pIO,
+        poll
+    );
+
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    //
+    // Update file pointer
+    //
+    //
+    ((DDSFile*)pIO->FileReference)->IncrementPointer(BytesToWrite);
+
+    return DDS_ERROR_CODE_IO_PENDING;
+}
+#else
+#error "Unknown backend type"
+#endif
 
 //
 // Async write to a file with gathering
@@ -811,7 +870,6 @@ DDSFrontEnd::WriteFileGather(
     pIO->AppBuffer = nullptr;
     pIO->AppBufferArray = DestBufferArray;
     pIO->BytesDesired = BytesToWrite;
-    pIO->BytesServiced = 0;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
@@ -820,7 +878,7 @@ DDSFrontEnd::WriteFileGather(
         pIO->Offset,
         pIO->AppBufferArray,
         pIO->BytesDesired,
-        &pIO->BytesServiced,
+        BytesWritten,
         pIO,
         poll
     );
@@ -1097,7 +1155,7 @@ DDSFrontEnd::PollCreate(
     }
 
     if (id == DDS_MAX_POLLS) {
-        return DDS_ERROR_CODE_POLLS_TOO_MANY;
+        return DDS_ERROR_CODE_TOO_MANY_POLLS;
     }
 
     PollT* poll = new PollT();

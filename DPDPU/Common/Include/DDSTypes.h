@@ -1,9 +1,13 @@
 #pragma once
 
+#include <atomic>
 #include <stdint.h>
 #include <time.h>
 
 #include "Protocol.h"
+
+template <class C>
+using Atomic=std::atomic<C>;
 
 //
 // Types used in DDS
@@ -24,6 +28,7 @@ typedef uint64_t FileSizeT;
 typedef uint32_t PollIdT;
 typedef uint32_t RingSizeT;
 typedef uint32_t RingSlotSizeT;
+typedef uint16_t RequestIdT;
 
 //
 // Types of position in file
@@ -46,7 +51,7 @@ typedef struct FileProperties {
   time_t LastWriteTime;
   FileSizeT FileSize;
   FileAccessT Access;
-  PositionInFileT Position;
+  Atomic<PositionInFileT> Position;
   FileShareModeT ShareMode;
   char FileName[DDS_MAX_FILE_PATH];
 } FilePropertiesT;
