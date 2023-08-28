@@ -56,7 +56,7 @@ typedef struct DPUStorage {
     atomic_size_t CurrentProgress;
 };
 
-struct DPUStorage BackEndStorage();
+struct DPUStorage* BackEndStorage();
 
 void ~BackEndStorage(struct DPUStorage* Sto);
 

@@ -13,6 +13,10 @@
 
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
+#include "DPUBackEnd.h"
+#include "DPUBackEndDir.h"
+#include "DPUBackEndFile.h"
+#include "DPUBackEndStorage.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -2060,6 +2064,17 @@ int RunFileBackEnd(
     config.BuffConns = NULL;
     config.DMAConf.CmChannel = NULL;
     config.DMAConf.CmId = NULL;
+
+    //
+    // Initialize Storage
+    //
+    //
+    struct DPUStorage* Sto = BackEndStorage();
+    ErrorCodeT result = Initialize(Sto);
+    if (result !=DDS_ERROR_CODE_SUCCESS){
+        fprintf(stderr, "InitStorage failed with %d\n", result);
+        return result;
+    }
 
     //
     // Initialize DMA

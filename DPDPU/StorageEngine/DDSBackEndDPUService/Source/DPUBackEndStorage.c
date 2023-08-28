@@ -9,7 +9,7 @@
 // Constructor
 // 
 //
-struct DPUStorage BackEndStorage(){
+struct DPUStorage* BackEndStorage(){
     struct DPUStorage *tmp;
     tmp = malloc(sizeof(struct DPUStorage))
     tmp->AllSegments = NULL;
