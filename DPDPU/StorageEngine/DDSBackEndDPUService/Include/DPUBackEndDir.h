@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "DPUBackEnd.h"
 
@@ -27,11 +28,21 @@ typedef struct DPUDirProperties {
 typedef struct DPUDir {
     DPUDirPropertiesT Properties;
     pthread_mutex_t ModificationMutex;
-    const SegmentSizeT AddressOnSegment;
+    //remove const before SegmentSizeT
+    SegmentSizeT AddressOnSegment;
 };
+//
+// Since C doesn't support overload, I separate these two constructors by 
+// BackEndDirX (without input) and BackEndDirI (with input)
+//
+//
+struct DPUDir* BackEndDirX();
 
-struct DPUDir* BackEndDir();
-struct DPUDir* BackEndDir(
+//
+// BackEndDir constructor with input
+//
+//
+struct DPUDir* BackEndDirI(
     DirIdT Id,
     DirIdT Parent,
     const char* Name

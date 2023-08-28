@@ -1,8 +1,9 @@
 #include <string.h>
+#include <stdlib.h>
 
-#include "DPUBackEndFile.h"
+#include "../Include/DPUBackEndFile.h"
 
-struct DPUFile* BackEndFile(){
+struct DPUFile* BackEndFileX(){
     struct DPUFile *tmp;
     tmp = malloc(sizeof(struct DPUFile));
     tmp->Properties.Id = DDS_FILE_INVALID;
@@ -18,7 +19,7 @@ struct DPUFile* BackEndFile(){
     return tmp;
 }
 
-struct DPUFile* BackEndFile(
+struct DPUFile* BackEndFileI(
     FileIdT FileId,
     const char* FileName,
     FileAttributesT FileAttributes

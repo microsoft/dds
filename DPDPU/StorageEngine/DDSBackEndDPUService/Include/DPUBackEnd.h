@@ -1,5 +1,6 @@
 #pragma once
 #include <time.h>
+#include <stdbool.h>
 #define DDS_MAX_DIRS 1000
 #define DDS_MAX_FILE_PATH 64
 #define DDS_MAX_FILES 1000

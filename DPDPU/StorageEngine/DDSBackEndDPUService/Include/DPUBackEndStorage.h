@@ -5,6 +5,7 @@
 // #include <mutex>
 #include <pthread.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include "DPUBackEndDir.h"
 #include "DPUBackEndFile.h"
@@ -41,7 +42,8 @@ typedef void (*DiskIOCallback)(
 //
 typedef struct DPUStorage {
     SegmentT* AllSegments;
-    const SegmentIdT TotalSegments;
+    //remove const before SegmentIdT
+    SegmentIdT TotalSegments;
     SegmentIdT AvailableSegments;
     
     struct DPUDir* AllDirs[DDS_MAX_DIRS];
@@ -58,7 +60,7 @@ typedef struct DPUStorage {
 
 struct DPUStorage* BackEndStorage();
 
-void ~BackEndStorage(struct DPUStorage* Sto);
+void DeBackEndStorage(struct DPUStorage* Sto);
 
 //
 // Read from disk synchronously
@@ -198,7 +200,7 @@ ErrorCodeT CreateFile(
 // Delete a file
 // 
 //
-ErrorCodeT DeleteFile(
+ErrorCodeT DeleteFileOnSto(
     FileIdT FileId,
     DirIdT DirId,
     struct DPUStorage* Sto

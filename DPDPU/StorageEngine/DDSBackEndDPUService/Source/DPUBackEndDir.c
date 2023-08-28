@@ -1,8 +1,9 @@
 #include <string.h>
+#include <stdlib.h>
 
-#include "DPUBackEndDir.h"
+#include "../Include/DPUBackEndDir.h"
 
-struct DPUDir* BackEndDir(){
+struct DPUDir* BackEndDirX(){
     struct DPUDir *tmp;
     tmp = malloc(sizeof(struct DPUDir));
     tmp->Properties.Id = DDS_DIR_INVALID;
@@ -17,7 +18,7 @@ struct DPUDir* BackEndDir(){
     return tmp;
 }
 
-struct DPUDir* BackEndDir(
+struct DPUDir* BackEndDirI(
     DirIdT Id,
     DirIdT Parent,
     const char* Name
@@ -39,7 +40,7 @@ struct DPUDir* BackEndDir(
 DPUDirPropertiesT* GetDirProperties(
     struct DPUDir* Dir
 ){
-    return Dir->Properties;
+    return &Dir->Properties;
 }
 
 SegmentSizeT GetDirAddressOnSegment(
@@ -87,12 +88,12 @@ ErrorCodeT DeleteFile(
 inline void Lock(
     struct DPUDir* Dir
 ){
-    pthread_mutex_lock(&Dir->ModificationMutex)
+    pthread_mutex_lock(&Dir->ModificationMutex);
 }
 
 #pragma warning (disable:26110)
 inline void Unlock(
     struct DPUDir* Dir
 ){
-    pthread_mutex_unlock(&Dir->ModificationMutex)
+    pthread_mutex_unlock(&Dir->ModificationMutex);
 }

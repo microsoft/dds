@@ -1,9 +1,11 @@
-#include <iostream>
-#include <thread>
+//#include <iostream>
+// #include <threads.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdlib.h>
+#include <sched.h>
 
-#include "DPUBackEndStorage.h"
+#include "../Include/DPUBackEndStorage.h"
 
 //
 // Constructor
@@ -11,7 +13,7 @@
 //
 struct DPUStorage* BackEndStorage(){
     struct DPUStorage *tmp;
-    tmp = malloc(sizeof(struct DPUStorage))
+    tmp = malloc(sizeof(struct DPUStorage));
     tmp->AllSegments = NULL;
     tmp->AvailableSegments = 0;
 
@@ -38,7 +40,7 @@ struct DPUStorage* BackEndStorage(){
 // Destructor
 // 
 //
-void ~BackEndStorage(
+void DeBackEndStorage(
     struct DPUStorage* Sto
 ){
     //
@@ -195,7 +197,7 @@ void ReturnSegments(
             if (Sto->AllSegments[i].DiskAddress) {
                 //delete[] (char*)AllSegments[i].DiskAddress;
                 //not sure is this correct?
-                free((char*)Sto->AllSegments[i].DiskAddress)
+                free((char*)Sto->AllSegments[i].DiskAddress);
             }
 
             if (Sto->AllSegments[i].Allocatable) {
@@ -204,7 +206,7 @@ void ReturnSegments(
         }
 
         //delete[] AllSegments;
-        free(Sto->AllSegments)
+        free(Sto->AllSegments);
     }
 }
 
@@ -261,7 +263,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
         }
 
         if (dirOnDisk.Id != DDS_DIR_INVALID) {
-            Sto->AllDirs[d] = BackEndDir(dirOnDisk.Id, DDS_DIR_ROOT, dirOnDisk.Name);
+            Sto->AllDirs[d] = BackEndDirI(dirOnDisk.Id, DDS_DIR_ROOT, dirOnDisk.Name);
             if (Sto->AllDirs[d]) {
                 //why do we have 2 sizeof() here
                 memcpy(GetDirProperties(Sto->AllDirs[d]), &dirOnDisk, sizeof(sizeof(DPUDirPropertiesT)));
@@ -299,7 +301,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
         }
 
         if (fileOnDisk.Id != DDS_DIR_INVALID) {
-            Sto->AllFiles[f] = BackEndFile(fileOnDisk.Id, fileOnDisk.FProperties.FileName, fileOnDisk.FProperties.FileAttributes);
+            Sto->AllFiles[f] = BackEndFileI(fileOnDisk.Id, fileOnDisk.FProperties.FileName, fileOnDisk.FProperties.FileAttributes);
             if (Sto->AllFiles[f]) {
                 memcpy(GetFileProperties(Sto->AllFiles[f]), &fileOnDisk, sizeof(sizeof(DPUFilePropertiesT)));
                 SetNumAllocatedSegments(Sto->AllFiles[f]);
@@ -461,7 +463,8 @@ ErrorCodeT Initialize(
             while (Sto->CurrentProgress != Sto->TargetProgress) {
                 //std::this_thread::yield();
                 //not sure does this function have the same effect
-                pthread_yield();
+                //pthread_yield() is non-standard function so I replace it by
+                sched_yield();
             }
 
             numPagesWritten += DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT;
@@ -492,14 +495,14 @@ ErrorCodeT Initialize(
 
         while (Sto->CurrentProgress != Sto->TargetProgress) {
             //std::this_thread::yield();
-            pthread_yield();
+            sched_yield();
         }
 
         //
         // Create the root directory, which is on the second sector on the segment
         //
         //
-        struct DPUDir* rootDir = BackEndDir(DDS_DIR_ROOT, DDS_DIR_INVALID, DDS_BACKEND_ROOT_DIR_NAME);
+        struct DPUDir* rootDir = BackEndDirI(DDS_DIR_ROOT, DDS_DIR_INVALID, DDS_BACKEND_ROOT_DIR_NAME);
         result = SyncDirToDisk(rootDir, Sto);
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -569,7 +572,7 @@ ErrorCodeT CreateDirectory(
     DirIdT ParentId,
     struct DPUStorage* Sto
 ){
-    struct DPUDir* dir = BackEndDir(DirId, ParentId, PathName);
+    struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
         return DDS_ERROR_CODE_OUT_OF_MEMORY;
     }
@@ -607,7 +610,7 @@ ErrorCodeT RemoveDirectory(
     }
 
     GetDirProperties(Sto->AllDirs[DirId])->Id = DDS_DIR_INVALID;
-    ErrorCodeT result = SyncDirToDisk(AllDirs[DirId], Sto);
+    ErrorCodeT result = SyncDirToDisk(Sto->AllDirs[DirId], Sto);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -645,7 +648,7 @@ ErrorCodeT CreateFile(
         return DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
-    struct DPUFile* file = BackEndFile(FileId, FileName, FileAttributes);
+    struct DPUFile* file = BackEndFileI(FileId, FileName, FileAttributes);
     if (!file) {
         return DDS_ERROR_CODE_OUT_OF_MEMORY;
     }
@@ -697,7 +700,7 @@ ErrorCodeT CreateFile(
 // Delete a file
 // 
 //
-ErrorCodeT DeleteFile(
+ErrorCodeT DeleteFileOnSto(
     FileIdT FileId,
     DirIdT DirId,
     struct DPUStorage* Sto

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DPUBackEnd.h"
+#include <stdbool.h>
 
 
 //
@@ -10,6 +11,7 @@
 typedef struct DPUFileProperties {
         FileIdT Id;
         FilePropertiesT FProperties;
+        //remove const before SegmentIdT
         SegmentIdT Segments[DDS_BACKEND_MAX_SEGMENTS_PER_FILE];
 } DPUFilePropertiesT;
 
@@ -20,12 +22,21 @@ typedef struct DPUFileProperties {
 typedef struct DPUFile {
     DPUFilePropertiesT Properties;
     SegmentIdT NumSegments;
-    const SegmentSizeT AddressOnSegment;
+    //remove const before SegmentIdT
+    SegmentSizeT AddressOnSegment;
 };
 
-struct DPUFile* BackEndFile();
+//
+// BackEndFile constructor without input
+//
+//
+struct DPUFile* BackEndFileX();
 
-struct DPUFile* BackEndFile(
+//
+// BackEndFile constructor with input
+//
+//
+struct DPUFile* BackEndFileI(
     FileIdT FileId,
     const char* FileName,
     FileAttributesT FileAttributes
