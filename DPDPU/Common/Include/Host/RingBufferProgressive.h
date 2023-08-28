@@ -68,7 +68,21 @@ InsertWriteFileRequest(
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes,
-    const BufferT SourceBuffer
+    BufferT SourceBuffer
+);
+
+//
+// Insert a WriteFileGather request into the request buffer
+//
+//
+bool
+InsertWriteFileGatherRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestIdAndFlag,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes,
+    BufferT* SourceBufferArray
 );
 
 //

@@ -648,7 +648,22 @@ DDSBackEndBridge::WriteFileGather(
     ContextT Context,
     PollT* Poll
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    RequestIdT requestId = ((FileIOT*)Context)->RequestId;
+
+    bool bufferResult = InsertWriteFileGatherRequest(
+        Poll->RequestRing,
+        (requestId << 1) | BUFF_MSG_REQUEST_FLAG_WRITE,
+        FileId,
+        Offset,
+        BytesToWrite,
+        SourceBufferArray
+    );
+
+    if (!bufferResult) {
+        return DDS_ERROR_CODE_REQUEST_RING_FAILURE;
+    }
+
+    return DDS_ERROR_CODE_SUCCESS;
 }
 
 //
