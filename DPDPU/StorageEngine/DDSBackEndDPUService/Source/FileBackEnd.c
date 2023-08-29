@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "ControlPlaneHandlers.h"
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
 
@@ -1275,11 +1276,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Create the directory
+            // Create the directory
             //
             //
-            printf("Creating a directory: %s\n", req->PathName);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            CreateDirectoryHandler(req, resp);
 
             //
             // Respond
@@ -1315,11 +1315,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Remove the directory
+            // Remove the directory
             //
             //
-            printf("Removing a directory: %u\n", req->DirId);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            RemoveDirectoryHandler(req, resp);
 
             //
             // Respond
@@ -1355,11 +1354,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Create the file
+            // Create the file
             //
             //
-            printf("Creating a file: %s\n", req->FileName);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            CreateFileHandler(req, resp);
 
             //
             // Respond
@@ -1395,11 +1393,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Delete the file
+            // Delete the file
             //
             //
-            printf("Deleting a file: %u\n", req->FileId);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            DeleteFileHandler(req, resp);
 
             //
             // Respond
@@ -1435,11 +1432,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Change the file size
+            // Change the file size
             //
             //
-            printf("Changing the size of a file: %u\n", req->FileId);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            ChangeFileSizeHandler(req, resp);
 
             //
             // Respond
@@ -1475,12 +1471,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the file size
+            // Get the file size
             //
             //
-            printf("Getting the size of a file: %u\n", req->FileId);
-            resp->FileSize = 0;
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetFileSizeHandler(req, resp);
 
             //
             // Respond
@@ -1516,12 +1510,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the file info
+            // Get the file info
             //
             //
-            printf("Getting the properties of a file: %u\n", req->FileId);
-            memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetFileInformationByIdHandler(req, resp);
 
             //
             // Respond
@@ -1557,12 +1549,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the file attributes
+            // Get the file attributes
             //
             //
-            printf("Getting the attributes of a file: %u\n", req->FileId);
-            resp->FileAttr = 0;
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetFileAttributesHandler(req, resp);
 
             //
             // Respond
@@ -1598,12 +1588,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the free storage space
+            // Get the free storage space
             //
             //
-            printf("Getting storage free space (%d)\n", req->Dummy);
-            resp->FreeSpace = 0;
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetStorageFreeSpaceHandler(req, resp);
 
             //
             // Respond
@@ -1639,11 +1627,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Move the file
+            // Move the file
             //
             //
-            printf("Moving the file %u to %s\n", req->FileId, req->NewFileName);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            MoveFileHandler(req, resp);
 
             //
             // Respond
