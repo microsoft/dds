@@ -555,6 +555,7 @@ DDSFrontEnd::GetFileSize(
     return DDS_ERROR_CODE_SUCCESS;
 }
 
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // Async read from a file
 // 
@@ -623,7 +624,74 @@ DDSFrontEnd::ReadFile(
 
     return result;
 }
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Async read from a file
+// 
+//
+ErrorCodeT
+DDSFrontEnd::ReadFile(
+    FileIdT FileId,
+    BufferT DestBuffer,
+    FileIOSizeT BytesToRead,
+    FileIOSizeT* BytesRead,
+    ReadWriteCallback Callback,
+    ContextT Context
+) {
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
+    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
+    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    FileIOT* pIO = poll->OutstandingRequests[mySlot];
+
+    bool expectedAvail = true;
+    if (pIO->IsAvailable.compare_exchange_weak(
+        expectedAvail,
+        false,
+        std::memory_order_relaxed
+    ) == false) {
+        return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
+    }
+
+    pIO->IsRead = true;
+    pIO->FileReference = AllFiles[FileId];
+    pIO->FileId = FileId;
+    pIO->Offset = AllFiles[FileId]->GetPointer();
+    pIO->BytesDesired = BytesToRead;
+    pIO->BytesServiced = 0;
+    pIO->AppBuffer = DestBuffer;
+    pIO->AppBufferArray = nullptr;
+    pIO->AppCallback = Callback;
+    pIO->Context = Context;
+
+    result = BackEnd->ReadFile(
+        FileId,
+        pIO->Offset,
+        DestBuffer,
+        BytesToRead,
+        nullptr,
+        pIO,
+        poll
+    );
+
+    if (result != DDS_ERROR_CODE_IO_PENDING) {
+        return result;
+    }
+
+    //
+    // Update file pointer
+    //
+    //
+    ((DDSFile*)pIO->FileReference)->IncrementPointer(BytesToRead);
+
+    return DDS_ERROR_CODE_IO_PENDING;
+}
+#else
+#error "Unknown backend type"
+#endif
+
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // Async read from a file with scattering
 // 
@@ -692,6 +760,72 @@ DDSFrontEnd::ReadFileScatter(
 
     return result;
 }
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Async read from a file with scattering
+// 
+//
+ErrorCodeT
+DDSFrontEnd::ReadFileScatter(
+    FileIdT FileId,
+    BufferT* DestBufferArray,
+    FileIOSizeT BytesToRead,
+    FileIOSizeT* BytesRead,
+    ReadWriteCallback Callback,
+    ContextT Context
+) {
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
+    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    FileIOT* pIO = poll->OutstandingRequests[mySlot];
+
+    bool expectedAvail = true;
+    if (pIO->IsAvailable.compare_exchange_weak(
+        expectedAvail,
+        false,
+        std::memory_order_relaxed
+    ) == false) {
+        return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
+    }
+
+    pIO->IsRead = true;
+    pIO->FileReference = AllFiles[FileId];
+    pIO->FileId = FileId;
+    pIO->Offset = AllFiles[FileId]->GetPointer();
+    pIO->BytesDesired = BytesToRead;
+    pIO->BytesServiced = 0;
+    pIO->AppBuffer = nullptr;
+    pIO->AppBufferArray = DestBufferArray;
+    pIO->AppCallback = Callback;
+    pIO->Context = Context;
+
+    result = BackEnd->ReadFileScatter(
+        FileId,
+        pIO->Offset,
+        DestBufferArray,
+        BytesToRead,
+        nullptr,
+        pIO,
+        poll
+    );
+
+    if (result != DDS_ERROR_CODE_IO_PENDING) {
+        return result;
+    }
+
+    //
+    // Update file pointer
+    //
+    //
+    ((DDSFile*)pIO->FileReference)->IncrementPointer(BytesToRead);
+
+    return DDS_ERROR_CODE_IO_PENDING;
+}
+#else
+#error "Unknown backend type"
+#endif
 
 #if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
@@ -799,6 +933,8 @@ DDSFrontEnd::WriteFile(
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->BytesDesired = BytesToWrite;
     pIO->BytesServiced = 0;
+    pIO->AppBuffer = nullptr;
+    pIO->AppBufferArray = nullptr;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
@@ -940,6 +1076,8 @@ DDSFrontEnd::WriteFileGather(
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->BytesDesired = BytesToWrite;
     pIO->BytesServiced = 0;
+    pIO->AppBuffer = nullptr;
+    pIO->AppBufferArray = nullptr;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
