@@ -86,6 +86,19 @@ InsertWriteFileGatherRequest(
 );
 
 //
+// Insert a ReadFile or ReadFileScatter request into the request buffer
+//
+//
+bool
+InsertReadRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestIdAndFlag,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes
+);
+
+//
 // Fetch requests from the request buffer
 //
 //

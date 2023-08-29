@@ -771,7 +771,7 @@ DDSFrontEnd::WriteFile(
 ErrorCodeT
 DDSFrontEnd::WriteFile(
     FileIdT FileId,
-    BufferT DestBuffer,
+    BufferT SourceBuffer,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
     ReadWriteCallback Callback,
@@ -803,16 +803,16 @@ DDSFrontEnd::WriteFile(
     pIO->Context = Context;
 
     result = BackEnd->WriteFile(
-        pIO->FileId,
+        FileId,
         pIO->Offset,
-        pIO->AppBuffer,
-        pIO->BytesDesired,
+        SourceBuffer,
+        BytesToWrite,
         nullptr,
         pIO,
         poll
     );
 
-    if (result != DDS_ERROR_CODE_SUCCESS) {
+    if (result != DDS_ERROR_CODE_IO_PENDING) {
         return result;
     }
 
@@ -828,6 +828,7 @@ DDSFrontEnd::WriteFile(
 #error "Unknown backend type"
 #endif
 
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // Async write to a file with gathering
 // 
@@ -835,7 +836,7 @@ DDSFrontEnd::WriteFile(
 ErrorCodeT
 DDSFrontEnd::WriteFileGather(
     FileIdT FileId,
-    BufferT* DestBufferArray,
+    BufferT* SourceBufferArray,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
     ReadWriteCallback Callback,
@@ -864,12 +865,14 @@ DDSFrontEnd::WriteFileGather(
     }
 
     pIO->IsRead = false;
+    pIO->IsSegmented = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->AppBuffer = nullptr;
-    pIO->AppBufferArray = DestBufferArray;
+    pIO->AppBufferArray = SourceBufferArray;
     pIO->BytesDesired = BytesToWrite;
+    pIO->BytesServiced = 0;
     pIO->AppCallback = Callback;
     pIO->Context = Context;
 
@@ -878,7 +881,7 @@ DDSFrontEnd::WriteFileGather(
         pIO->Offset,
         pIO->AppBufferArray,
         pIO->BytesDesired,
-        BytesWritten,
+        &pIO->BytesServiced,
         pIO,
         poll
     );
@@ -901,6 +904,70 @@ DDSFrontEnd::WriteFileGather(
 
     return result;
 }
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Async write to a file with gathering
+// 
+//
+ErrorCodeT
+DDSFrontEnd::WriteFileGather(
+    FileIdT FileId,
+    BufferT* SourceBufferArray,
+    FileIOSizeT BytesToWrite,
+    FileIOSizeT* BytesWritten,
+    ReadWriteCallback Callback,
+    ContextT Context
+) {
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
+    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    FileIOT* pIO = poll->OutstandingRequests[mySlot];
+
+    bool expectedAvail = true;
+    if (pIO->IsAvailable.compare_exchange_weak(
+        expectedAvail,
+        false,
+        std::memory_order_relaxed
+    ) == false) {
+        return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
+    }
+
+    pIO->IsRead = false;
+    pIO->FileReference = AllFiles[FileId];
+    pIO->FileId = FileId;
+    pIO->Offset = AllFiles[FileId]->GetPointer();
+    pIO->BytesDesired = BytesToWrite;
+    pIO->BytesServiced = 0;
+    pIO->AppCallback = Callback;
+    pIO->Context = Context;
+
+    result = BackEnd->WriteFileGather(
+        FileId,
+        pIO->Offset,
+        SourceBufferArray,
+        BytesToWrite,
+        nullptr,
+        pIO,
+        poll
+    );
+
+    if (result != DDS_ERROR_CODE_IO_PENDING) {
+        return result;
+    }
+
+    //
+    // Update file pointer
+    //
+    //
+    ((DDSFile*)pIO->FileReference)->IncrementPointer(BytesToWrite);
+
+    return DDS_ERROR_CODE_IO_PENDING;
+}
+#else
+#error "Unknown backend type"
+#endif
 
 //
 // Flush buffered data to storage

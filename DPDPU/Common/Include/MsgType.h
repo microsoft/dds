@@ -172,4 +172,4 @@ typedef struct {
     FileIdT FileId;
     FileSizeT Offset;
     FileIOSizeT Bytes;
-} BuffMsgF2BReqWrite;
+} BuffMsgF2BReqHeader;
