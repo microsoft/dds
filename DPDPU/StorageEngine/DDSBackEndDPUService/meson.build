@@ -45,6 +45,7 @@ src = 'Source/'
 
 app_srcs += [
         src + 'FileBackEnd.c',
+        src + 'ControlPlaneHandlers.c',
         '../../Common/Source/DPU/RingBufferPolling.c',
 ]
 
