@@ -160,7 +160,7 @@ public:
     ) = 0;
 
     //
-    // Get file properties by 
+    // Get file properties by file id
     // 
     //
     virtual ErrorCodeT

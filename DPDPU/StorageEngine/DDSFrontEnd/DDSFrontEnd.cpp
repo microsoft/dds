@@ -972,7 +972,7 @@ DDSFrontEnd::FindNextFile(
 }
 
 //
-// Get file properties by 
+// Get file properties by file id
 // 
 //
 ErrorCodeT
