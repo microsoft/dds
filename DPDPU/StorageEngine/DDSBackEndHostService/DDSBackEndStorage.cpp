@@ -999,7 +999,7 @@ BackEndStorage::WriteFile(
 }
 
 //
-// Get file properties by file Id
+// Get file properties by 
 // 
 //
 ErrorCodeT

@@ -255,7 +255,7 @@ DDSBackEndBridgeForLocalMemory::WriteFileGather(
 }
 
 //
-// Get file properties by file Id
+// Get file properties by 
 // 
 //
 ErrorCodeT

@@ -260,7 +260,7 @@ DDSBackEndBridge::Connect() {
 
     if (((MsgHeader*)CtrlMsgBuf)->MsgId == CTRL_MSG_B2F_RESPOND_ID) {
         ClientId = ((CtrlMsgB2FRespondId*)(CtrlMsgBuf + sizeof(MsgHeader)))->ClientId;
-        printf("DDSBackEndBridge: connected to the back end with assigned Id (%d)\n", ClientId);
+        printf("DDSBackEndBridge: connected to the back end with assigned id (%d)\n", ClientId);
     }
     else {
         printf("DDSBackEndBridge: wrong message from the back end\n");
@@ -667,7 +667,7 @@ DDSBackEndBridge::WriteFileGather(
 }
 
 //
-// Get file properties by file Id
+// Get file properties by file id
 // 
 //
 ErrorCodeT
