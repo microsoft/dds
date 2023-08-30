@@ -6,6 +6,7 @@
 #include <sched.h>
 
 #include "../Include/DPUBackEndStorage.h"
+#include "../Include/bdev.h"
 
 //
 // Constructor
@@ -75,10 +76,12 @@ ErrorCodeT ReadFromDiskSync(
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
+    bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
+    //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
     
     return DDS_ERROR_CODE_SUCCESS;
 }
@@ -92,10 +95,12 @@ ErrorCodeT WriteToDiskSync(
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
+    bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
+    //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     return DDS_ERROR_CODE_SUCCESS;
 }
@@ -111,10 +116,12 @@ ErrorCodeT ReadFromDiskAsync(
     FileIOSizeT Bytes,
     DiskIOCallback Callback,
     ContextT Context,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
+    bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset,Bytes, 0);
+    //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     Callback(true, Context);
 
@@ -132,10 +139,12 @@ ErrorCodeT WriteToDiskAsync(
     FileIOSizeT Bytes,
     DiskIOCallback Callback,
     ContextT Context,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
+    bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
+    //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     Callback(true, Context);
 
@@ -160,14 +169,22 @@ ErrorCodeT RetrieveSegments(
         Sto->AllSegments[i].Id = i;
         Sto->AllSegments[i].FileId = DDS_FILE_INVALID;
         
-        char* newSegment = malloc(sizeof(char) * DDS_BACKEND_SEGMENT_SIZE);
 
-        if (!newSegment) {
-            return DDS_ERROR_CODE_SEGMENT_RETRIEVAL_FAILURE;
-        }
+        // we dont allocate memory to newSegment. Instead, we calculate 
+        // the start position of each segment by i*DDS_BACKEND_SEGMENT_SIZE
+        // and use this position as disk address
 
-        memset(newSegment, 0, sizeof(char) * DDS_BACKEND_SEGMENT_SIZE);
-        Sto->AllSegments[i].DiskAddress = (DiskSizeT)newSegment;
+        // char* newSegment = malloc(sizeof(char) * DDS_BACKEND_SEGMENT_SIZE);
+
+        // if (!newSegment) {
+        //     return DDS_ERROR_CODE_SEGMENT_RETRIEVAL_FAILURE;
+        // }
+
+        DiskSizeT newSegment = i * DDS_BACKEND_SEGMENT_SIZE;
+
+        // memset(newSegment, 0, sizeof(char) * DDS_BACKEND_SEGMENT_SIZE);
+
+        Sto->AllSegments[i].DiskAddress = newSegment;
         
         if (i == DDS_BACKEND_RESERVED_SEGMENT) {
             Sto->AllSegments[i].Allocatable = false;
@@ -194,11 +211,11 @@ void ReturnSegments(
     //
     if (Sto->AllSegments) {
         for (size_t i = 0; i != Sto->TotalSegments; i++) {
-            if (Sto->AllSegments[i].DiskAddress) {
-                //delete[] (char*)AllSegments[i].DiskAddress;
-                //not sure is this correct?
-                free((char*)Sto->AllSegments[i].DiskAddress);
-            }
+            // we should do nothing because now segment is on disk?
+            // if (Sto->AllSegments[i].DiskAddress) {
+            //     //delete[] (char*)AllSegments[i].DiskAddress;
+            //     //free((char*)Sto->AllSegments[i].DiskAddress);
+            // }
 
             if (Sto->AllSegments[i].Allocatable) {
                 Sto->AvailableSegments--;
@@ -207,6 +224,8 @@ void ReturnSegments(
 
         //delete[] AllSegments;
         free(Sto->AllSegments);
+        // we call this function to stop spdk
+        spdk_app_stop(0);
     }
 }
 
@@ -215,7 +234,8 @@ void ReturnSegments(
 //
 //
 ErrorCodeT LoadDirectoriesAndFiles(
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     if (!Sto->AllSegments || Sto->TotalSegments == 0) {
         return DDS_ERROR_CODE_RESERVED_SEGMENT_ERROR;
@@ -233,7 +253,8 @@ ErrorCodeT LoadDirectoriesAndFiles(
         DDS_BACKEND_RESERVED_SEGMENT,
         0,
         DDS_BACKEND_SECTOR_SIZE,
-        Sto
+        Sto,
+        arg
     );
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -255,7 +276,8 @@ ErrorCodeT LoadDirectoriesAndFiles(
             DDS_BACKEND_RESERVED_SEGMENT,
             nextAddress,
             sizeof(DPUDirPropertiesT),
-            Sto
+            Sto,
+            arg
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -266,7 +288,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
             Sto->AllDirs[d] = BackEndDirI(dirOnDisk.Id, DDS_DIR_ROOT, dirOnDisk.Name);
             if (Sto->AllDirs[d]) {
                 //why do we have 2 sizeof() here
-                memcpy(GetDirProperties(Sto->AllDirs[d]), &dirOnDisk, sizeof(sizeof(DPUDirPropertiesT)));
+                memcpy(GetDirProperties(Sto->AllDirs[d]), &dirOnDisk, sizeof(DPUDirPropertiesT));
             }
             else {
                 return DDS_ERROR_CODE_OUT_OF_MEMORY;
@@ -293,7 +315,8 @@ ErrorCodeT LoadDirectoriesAndFiles(
             DDS_BACKEND_RESERVED_SEGMENT,
             nextAddress,
             sizeof(DPUFilePropertiesT),
-            Sto
+            Sto,
+            arg
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -303,7 +326,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
         if (fileOnDisk.Id != DDS_DIR_INVALID) {
             Sto->AllFiles[f] = BackEndFileI(fileOnDisk.Id, fileOnDisk.FProperties.FileName, fileOnDisk.FProperties.FileAttributes);
             if (Sto->AllFiles[f]) {
-                memcpy(GetFileProperties(Sto->AllFiles[f]), &fileOnDisk, sizeof(sizeof(DPUFilePropertiesT)));
+                memcpy(GetFileProperties(Sto->AllFiles[f]), &fileOnDisk, sizeof(DPUFilePropertiesT));
                 SetNumAllocatedSegments(Sto->AllFiles[f]);
             }
             else {
@@ -328,14 +351,16 @@ ErrorCodeT LoadDirectoriesAndFiles(
 //
 inline ErrorCodeT SyncDirToDisk(
     struct DPUDir* Dir, 
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     return WriteToDiskSync(
         (BufferT)GetDirProperties(Dir),
         DDS_BACKEND_RESERVED_SEGMENT,
         GetDirAddressOnSegment(Dir),
         sizeof(DPUDirPropertiesT),
-        Sto
+        Sto,
+        arg
     );
 }
 
@@ -345,14 +370,16 @@ inline ErrorCodeT SyncDirToDisk(
 //
 inline ErrorCodeT SyncFileToDisk(
     struct DPUFile* File,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     return WriteToDiskSync(
         (BufferT)GetFileProperties(File),
         DDS_BACKEND_RESERVED_SEGMENT,
         GetFileAddressOnSegment(File),
         sizeof(DPUFilePropertiesT),
-        Sto
+        Sto,
+        arg
     );
 }
 
@@ -361,7 +388,8 @@ inline ErrorCodeT SyncFileToDisk(
 //
 //
 inline ErrorCodeT SyncReservedInformationToDisk(
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE];
 
@@ -378,7 +406,8 @@ inline ErrorCodeT SyncReservedInformationToDisk(
         DDS_BACKEND_RESERVED_SEGMENT,
         0,
         DDS_BACKEND_SECTOR_SIZE,
-        Sto
+        Sto,
+        arg
     );
 }
 
@@ -400,7 +429,8 @@ IncrementProgressCallback(
 //
 //
 ErrorCodeT Initialize(
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     //
     // Retrieve all segments on disk
@@ -421,7 +451,7 @@ ErrorCodeT Initialize(
     char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE];
     memset(tmpSectorBuf, 0, DDS_BACKEND_SECTOR_SIZE);
 
-    result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto);
+    result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -452,7 +482,8 @@ ErrorCodeT Initialize(
                     DDS_BACKEND_PAGE_SIZE,
                     IncrementProgressCallback,
                     &Sto->CurrentProgress,
-                    Sto
+                    Sto,
+                    arg
                 );
 
                 if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -485,7 +516,8 @@ ErrorCodeT Initialize(
                 DDS_BACKEND_PAGE_SIZE,
                 IncrementProgressCallback,
                 &Sto->CurrentProgress,
-                Sto
+                Sto,
+                arg
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -503,7 +535,7 @@ ErrorCodeT Initialize(
         //
         //
         struct DPUDir* rootDir = BackEndDirI(DDS_DIR_ROOT, DDS_DIR_INVALID, DDS_BACKEND_ROOT_DIR_NAME);
-        result = SyncDirToDisk(rootDir, Sto);
+        result = SyncDirToDisk(rootDir, Sto, arg);
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             return result;
@@ -517,7 +549,7 @@ ErrorCodeT Initialize(
         //
         Sto->TotalDirs = 1;
         Sto->TotalFiles = 0;
-        result = SyncReservedInformationToDisk(Sto);
+        result = SyncReservedInformationToDisk(Sto, arg);
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             return result;
@@ -528,7 +560,7 @@ ErrorCodeT Initialize(
         // Load directories and files
         //
         //
-        result = LoadDirectoriesAndFiles(Sto);
+        result = LoadDirectoriesAndFiles(Sto, arg);
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             return result;
@@ -560,6 +592,7 @@ ErrorCodeT Initialize(
             }
         }
     }
+    return DDS_ERROR_CODE_SUCCESS;
 }
 //
 // Create a diretory
@@ -570,14 +603,15 @@ ErrorCodeT CreateDirectory(
     const char* PathName,
     DirIdT DirId,
     DirIdT ParentId,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
         return DDS_ERROR_CODE_OUT_OF_MEMORY;
     }
     
-    ErrorCodeT result = SyncDirToDisk(dir, Sto);
+    ErrorCodeT result = SyncDirToDisk(dir, Sto, arg);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -589,7 +623,7 @@ ErrorCodeT CreateDirectory(
     pthread_mutex_lock(&Sto->SectorModificationMutex);
 
     Sto->TotalDirs++;
-    result = SyncReservedInformationToDisk(Sto);
+    result = SyncReservedInformationToDisk(Sto, arg);
 
     //SectorModificationMutex.unlock();
     pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -603,14 +637,15 @@ ErrorCodeT CreateDirectory(
 //
 ErrorCodeT RemoveDirectory(
     DirIdT DirId,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     if (!Sto->AllDirs[DirId]) {
         return DDS_ERROR_CODE_SUCCESS;
     }
 
     GetDirProperties(Sto->AllDirs[DirId])->Id = DDS_DIR_INVALID;
-    ErrorCodeT result = SyncDirToDisk(Sto->AllDirs[DirId], Sto);
+    ErrorCodeT result = SyncDirToDisk(Sto->AllDirs[DirId], Sto, arg);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -624,7 +659,7 @@ ErrorCodeT RemoveDirectory(
     pthread_mutex_lock(&Sto->SectorModificationMutex);
 
     Sto->TotalDirs--;
-    result = SyncReservedInformationToDisk(Sto);
+    result = SyncReservedInformationToDisk(Sto, arg);
 
     //SectorModificationMutex.unlock();
     pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -641,7 +676,8 @@ ErrorCodeT CreateFile(
     FileAttributesT FileAttributes,
     FileIdT FileId,
     DirIdT DirId,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     struct DPUDir* dir = Sto->AllDirs[DirId];
     if (!dir) {
@@ -657,7 +693,7 @@ ErrorCodeT CreateFile(
     // Make file persistent
     //
     //
-    ErrorCodeT result = SyncFileToDisk(file, Sto);
+    ErrorCodeT result = SyncFileToDisk(file, Sto, arg);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -670,7 +706,7 @@ ErrorCodeT CreateFile(
     Lock(dir);
     
     AddFile(FileId, dir);
-    result = SyncDirToDisk(dir, Sto);
+    result = SyncDirToDisk(dir, Sto, arg);
     
     Unlock(dir);
 
@@ -688,7 +724,7 @@ ErrorCodeT CreateFile(
     pthread_mutex_lock(&Sto->SectorModificationMutex);
 
     Sto->TotalFiles++;
-    result = SyncReservedInformationToDisk(Sto);
+    result = SyncReservedInformationToDisk(Sto, arg);
 
     //SectorModificationMutex.unlock();
     pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -703,7 +739,8 @@ ErrorCodeT CreateFile(
 ErrorCodeT DeleteFileOnSto(
     FileIdT FileId,
     DirIdT DirId,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     struct DPUFile* file = Sto->AllFiles[FileId];
     struct DPUDir* dir = Sto->AllDirs[DirId];
@@ -718,7 +755,7 @@ ErrorCodeT DeleteFileOnSto(
     // Make the change persistent
     //
     //
-    ErrorCodeT result = SyncFileToDisk(file, Sto);
+    ErrorCodeT result = SyncFileToDisk(file, Sto, arg);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -731,7 +768,7 @@ ErrorCodeT DeleteFileOnSto(
     Lock(dir);
 
     DeleteFile(FileId, dir);
-    result = SyncDirToDisk(dir, Sto);
+    result = SyncDirToDisk(dir, Sto, arg);
 
     Unlock(dir);
 
@@ -746,7 +783,7 @@ ErrorCodeT DeleteFileOnSto(
     pthread_mutex_lock(&Sto->SectorModificationMutex);
 
     Sto->TotalFiles--;
-    result = SyncReservedInformationToDisk(Sto);
+    result = SyncReservedInformationToDisk(Sto, arg);
 
    //SectorModificationMutex.unlock();
     pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -881,7 +918,8 @@ ErrorCodeT ReadFile(
     FileIOSizeT BytesToRead,
     DiskIOCallback Callback,
     ContextT Context,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
     struct DPUFile* file = Sto->AllFiles[FileId];
@@ -923,7 +961,8 @@ ErrorCodeT ReadFile(
             bytesToIssue,
             Callback,
             Context,
-            Sto
+            Sto,
+            arg
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -950,7 +989,8 @@ ErrorCodeT WriteFile(
     FileIOSizeT BytesToWrite,
     DiskIOCallback Callback,
     ContextT Context,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     struct DPUFile* file = Sto->AllFiles[FileId];
     FileSizeT newSize = Offset + BytesToWrite;
@@ -1039,7 +1079,8 @@ ErrorCodeT WriteFile(
             bytesToIssue,
             Callback,
             Context,
-            Sto
+            Sto,
+            arg
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1123,7 +1164,8 @@ ErrorCodeT MoveFile(
     DirIdT OldDirId,
     DirIdT NewDirId,
     const char* NewFileName,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    void *arg
 ){
     struct DPUFile* file = Sto->AllFiles[FileId];
     struct DPUDir* oldDir = Sto->AllDirs[OldDirId];
@@ -1148,7 +1190,7 @@ ErrorCodeT MoveFile(
         return result;
     }
 
-    result = SyncDirToDisk(oldDir, Sto);
+    result = SyncDirToDisk(oldDir, Sto, arg);
 
     Unlock(oldDir);
 
@@ -1169,7 +1211,7 @@ ErrorCodeT MoveFile(
         return result;
     }
 
-    result = SyncDirToDisk(newDir, Sto);
+    result = SyncDirToDisk(newDir, Sto, arg);
 
     Unlock(newDir);
 
