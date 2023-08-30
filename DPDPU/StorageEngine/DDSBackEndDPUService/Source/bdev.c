@@ -84,7 +84,7 @@ static void bdev_read(
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		hello_context->bdev_io_wait.bdev = hello_context->bdev;
-		hello_context->bdev_io_wait.cb_fn = hello_read;
+		hello_context->bdev_io_wait.cb_fn = bdev_read;
 		hello_context->bdev_io_wait.cb_arg = hello_context;
 		spdk_bdev_queue_io_wait(hello_context->bdev, hello_context->bdev_io_channel,
 					&hello_context->bdev_io_wait);
@@ -129,8 +129,7 @@ static void bdev_write(
     uint64_t offset,
     uint64_t nbytes,
     bool zeroCopy
-);
-{
+){
 	struct hello_context_t *hello_context = arg;
 	int rc = 0;
     char* buffer = zeroCopy? SrcBuffer: hello_context->buff;
@@ -144,7 +143,7 @@ static void bdev_write(
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		hello_context->bdev_io_wait.bdev = hello_context->bdev;
-		hello_context->bdev_io_wait.cb_fn = hello_write;
+		hello_context->bdev_io_wait.cb_fn = bdev_write;
 		hello_context->bdev_io_wait.cb_arg = hello_context;
 		spdk_bdev_queue_io_wait(hello_context->bdev, hello_context->bdev_io_channel,
 					&hello_context->bdev_io_wait);
