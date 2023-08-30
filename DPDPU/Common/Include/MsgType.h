@@ -197,7 +197,7 @@ typedef struct {
 //
 //
 assert_static_msg_type(sizeof(BuffMsgF2BReqHeader) % sizeof(FileIOSizeT) == 0, 0);
-assert_static_msg_type(sizeof(BuffMsgF2BAckHeader) % sizeof(FileIOSizeT) == 0, 1);
+assert_static_msg_type(sizeof(BuffMsgB2FAckHeader) % sizeof(FileIOSizeT) == 0, 1);
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #else
