@@ -67,6 +67,16 @@ public:
     );
 
     void
+    IncrementPointer(
+        FileSizeT Delta
+    );
+
+    void
+    DecrementPointer(
+        FileSizeT Delta
+    );
+
+    void
     SetLastAccessTime(
         time_t NewTime
     );

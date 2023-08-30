@@ -53,7 +53,7 @@ ErrorCodeT AddFile(
     FileIdT FileId,
     struct DPUDir* Dir
 ){
-    ErrorCodeT result = DDS_ERROR_CODE_FILES_TOO_MANY;
+    ErrorCodeT result = DDS_ERROR_CODE_TOO_MANY_FILES;
 
     for (size_t f = 0; f != DDS_MAX_FILES_PER_DIR; f++) {
         if (Dir->Properties.Files[f] == DDS_FILE_INVALID) {

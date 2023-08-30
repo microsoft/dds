@@ -256,7 +256,7 @@ ErrorCodeT WriteFile(
 );
 
 //
-// Get file properties by file Id
+// Get file properties by file id
 // 
 //
 ErrorCodeT GetFileInformationById(

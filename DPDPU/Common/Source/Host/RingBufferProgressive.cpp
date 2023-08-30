@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "MsgType.h"
 #include "RingBufferProgressive.h"
 
 namespace DDS_FrontEnd {
@@ -173,6 +174,608 @@ InsertToRequestBufferProgressive(
             memcpy(requestAddress1 + sizeof(FileIOSizeT), CopyFrom, remainingBytes);
         }
         memcpy(requestAddress2, (const char*)CopyFrom + remainingBytes, RequestSize - remainingBytes);
+
+        //
+        // Increment the progress
+        //
+        //
+        int progress = RingBuffer->Progress[0];
+        while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+            progress = RingBuffer->Progress[0];
+        }
+    }
+
+    return true;
+}
+
+//
+// Insert a WriteFile request into the request buffer
+//
+//
+bool
+InsertWriteFileRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestId,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes,
+    BufferT SourceBuffer
+) {
+    FileIOSizeT requestSize = sizeof(BuffMsgF2BReqHeader) + Bytes;
+
+    //
+    // Check if the tail exceeds the allowable advance
+    //
+    //
+    int tail = RingBuffer->Tail[0];
+    int head = RingBuffer->Head[0];
+    RingSizeT distance = 0;
+
+    if (tail < head) {
+        distance = tail + DDS_REQUEST_RING_BYTES - head;
+    }
+    else {
+        distance = tail - head;
+    }
+
+    //
+    // Append request size to the beginning of the request
+    // Check alignment
+    //
+    //
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + requestSize;
+
+    if (requestBytes % sizeof(FileIOSizeT) != 0) {
+        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
+    }
+
+    if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
+        return false;
+    }
+
+    if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
+        return false;
+    }
+
+    while (RingBuffer->Tail[0].compare_exchange_weak(tail, (tail + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+
+        //
+        // Check if the tail exceeds the allowable advance
+        //
+        //
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+
+        if (tail <= head) {
+            distance = tail + DDS_REQUEST_RING_BYTES - head;
+        }
+        else {
+            distance = tail - head;
+        }
+
+        if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
+            return false;
+        }
+
+        //
+        // Check space
+        //
+        //
+        if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
+            return false;
+        }
+    }
+
+    //
+    // Now, both tail and space are good
+    //
+    //
+    if (tail + sizeof(FileIOSizeT) + requestSize <= DDS_REQUEST_RING_BYTES) {
+        char* requestAddress = &RingBuffer->Buffer[tail];
+
+        //
+        // Write the number of bytes in this request
+        //
+        //
+        *((FileIOSizeT*)requestAddress) = requestBytes;
+
+        //
+        // Write the request
+        //
+        //
+        BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress + sizeof(FileIOSizeT));
+        header->RequestId = RequestId;
+        header->FileId = FileId;
+        header->Offset = Offset;
+        header->Bytes = Bytes;
+        memcpy(requestAddress + sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader), SourceBuffer, Bytes);
+
+        //
+        // Increment the progress
+        //
+        //
+        int progress = RingBuffer->Progress[0];
+        while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+            progress = RingBuffer->Progress[0];
+        }
+    }
+    else {
+        //
+        // We need to wrap the buffer around
+        //
+        //
+        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);
+        char* requestAddress1 = &RingBuffer->Buffer[tail];
+        char* requestAddress2 = &RingBuffer->Buffer[0];
+
+        //
+        // Write the number of bytes in this request
+        //
+        //
+        *((FileIOSizeT*)requestAddress1) = requestBytes;
+
+        //
+        // Write the request to two memory locations
+        //
+        //
+        if (remainingBytes >= sizeof(BuffMsgF2BReqHeader)) {
+            BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress1 + sizeof(FileIOSizeT));
+            header->RequestId = RequestId;
+            header->FileId = FileId;
+            header->Offset = Offset;
+            header->Bytes = Bytes;
+
+            remainingBytes -= sizeof(BuffMsgF2BReqHeader);
+            if (remainingBytes > 0) {
+                memcpy(requestAddress1 + sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader), SourceBuffer, remainingBytes);
+            }
+            memcpy(requestAddress2, (const char*)SourceBuffer + remainingBytes, Bytes - remainingBytes);
+        }
+        else {
+            BuffMsgF2BReqHeader header;
+            header.RequestId = RequestId;
+            header.FileId = FileId;
+            header.Offset = Offset;
+            header.Bytes = Bytes;
+            size_t headerOverflowSize = sizeof(BuffMsgF2BReqHeader) - remainingBytes;
+
+            memcpy(requestAddress1 + sizeof(FileIOSizeT), &header, remainingBytes);
+            memcpy(requestAddress2, (const char*)&header + remainingBytes, headerOverflowSize);
+            memcpy(requestAddress2 + headerOverflowSize, SourceBuffer, Bytes);
+        }
+
+        //
+        // Increment the progress
+        //
+        //
+        int progress = RingBuffer->Progress[0];
+        while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+            progress = RingBuffer->Progress[0];
+        }
+    }
+
+    return true;
+}
+
+//
+// Insert a WriteFileGather request into the request buffer
+//
+//
+bool
+InsertWriteFileGatherRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestId,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes,
+    BufferT* SourceBufferArray
+) {
+    FileIOSizeT requestSize = sizeof(BuffMsgF2BReqHeader) + Bytes;
+
+    //
+    // Check if the tail exceeds the allowable advance
+    //
+    //
+    int tail = RingBuffer->Tail[0];
+    int head = RingBuffer->Head[0];
+    RingSizeT distance = 0;
+
+    if (tail < head) {
+        distance = tail + DDS_REQUEST_RING_BYTES - head;
+    }
+    else {
+        distance = tail - head;
+    }
+
+    //
+    // Append request size to the beginning of the request
+    // Check alignment
+    //
+    //
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + requestSize;
+
+    if (requestBytes % sizeof(FileIOSizeT) != 0) {
+        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
+    }
+
+    if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
+        return false;
+    }
+
+    if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
+        return false;
+    }
+
+    while (RingBuffer->Tail[0].compare_exchange_weak(tail, (tail + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+
+        //
+        // Check if the tail exceeds the allowable advance
+        //
+        //
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+
+        if (tail <= head) {
+            distance = tail + DDS_REQUEST_RING_BYTES - head;
+        }
+        else {
+            distance = tail - head;
+        }
+
+        if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
+            return false;
+        }
+
+        //
+        // Check space
+        //
+        //
+        if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
+            return false;
+        }
+    }
+
+    //
+    // Now, both tail and space are good
+    //
+    //
+    if (tail + sizeof(FileIOSizeT) + requestSize <= DDS_REQUEST_RING_BYTES) {
+        char* requestAddress = &RingBuffer->Buffer[tail];
+
+        //
+        // Write the number of bytes in this request
+        //
+        //
+        *((FileIOSizeT*)requestAddress) = requestBytes;
+
+        //
+        // Write the request
+        //
+        //
+        BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress + sizeof(FileIOSizeT));
+        header->RequestId = RequestId;
+        header->FileId = FileId;
+        header->Offset = Offset;
+        header->Bytes = Bytes;
+
+        int numSegments = (int)(Bytes / DDS_PAGE_SIZE);
+        int p = 0;
+        char* writeBuffer = requestAddress + sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
+
+        for (; p != numSegments; p++) {
+            memcpy(writeBuffer, SourceBufferArray[p], DDS_PAGE_SIZE);
+            writeBuffer += DDS_PAGE_SIZE;
+        }
+
+        //
+        // Handle the residual
+        //
+        //
+        FileIOSizeT residual = Bytes - (FileIOSizeT)(DDS_PAGE_SIZE * numSegments);
+        if (residual) {
+            memcpy(writeBuffer, SourceBufferArray[p], residual);
+        }
+
+        //
+        // Increment the progress
+        //
+        //
+        int progress = RingBuffer->Progress[0];
+        while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+            progress = RingBuffer->Progress[0];
+        }
+    }
+    else {
+        //
+        // We need to wrap the buffer around
+        //
+        //
+        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);
+        char* requestAddress1 = &RingBuffer->Buffer[tail];
+        char* requestAddress2 = &RingBuffer->Buffer[0];
+
+        //
+        // Write the number of bytes in this request
+        //
+        //
+        *((FileIOSizeT*)requestAddress1) = requestBytes;
+
+        //
+        // Write the request to two memory locations
+        //
+        //
+        if (remainingBytes >= sizeof(BuffMsgF2BReqHeader)) {
+            BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress1 + sizeof(FileIOSizeT));
+            header->RequestId = RequestId;
+            header->FileId = FileId;
+            header->Offset = Offset;
+            header->Bytes = Bytes;
+
+            remainingBytes -= sizeof(BuffMsgF2BReqHeader);
+            FileIOSizeT residualLeft = 0;
+            int numSegmentsLeft = 0;
+            if (remainingBytes > 0) {
+                // memcpy(requestAddress1 + sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader), SourceBuffer, remainingBytes);
+                numSegmentsLeft = (int)(remainingBytes / DDS_PAGE_SIZE);
+                int p = 0;
+                char* writeBuffer = requestAddress1 + sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
+
+                for (; p != numSegmentsLeft; p++) {
+                    memcpy(writeBuffer, SourceBufferArray[p], DDS_PAGE_SIZE);
+                    writeBuffer += DDS_PAGE_SIZE;
+                }
+
+                //
+                // Handle the residual
+                //
+                //
+                residualLeft = remainingBytes - (FileIOSizeT)(DDS_PAGE_SIZE * numSegmentsLeft);
+                if (residualLeft) {
+                    memcpy(writeBuffer, SourceBufferArray[p], residualLeft);
+                }
+            }
+
+            
+            if (numSegmentsLeft || residualLeft) {
+                int numSegments = (int)(Bytes / DDS_PAGE_SIZE);
+                int p = numSegmentsLeft;
+                char* writeBuffer = requestAddress2;
+
+                //
+                // Handle the residual on the left side
+                //
+                //
+                if (residualLeft) {
+                    size_t remainingBytesLeft = DDS_PAGE_SIZE - residualLeft;
+                    memcpy(writeBuffer, SourceBufferArray[p] + residualLeft, remainingBytesLeft);
+                    writeBuffer += remainingBytesLeft;
+                    p++;
+                }
+
+                //
+                // Copy whole pages
+                //
+                //
+                for (; p != numSegments; p++) {
+                    memcpy(writeBuffer, SourceBufferArray[p], DDS_PAGE_SIZE);
+                    writeBuffer += DDS_PAGE_SIZE;
+                }
+
+                //
+                // Handle the residual on the right side
+                //
+                //
+                FileIOSizeT residualRight = Bytes - (FileIOSizeT)(DDS_PAGE_SIZE * numSegments);
+                if (residualRight) {
+                    memcpy(writeBuffer, SourceBufferArray[p], residualRight);
+                }
+            }
+            else {
+                int numSegments = (int)(Bytes / DDS_PAGE_SIZE);
+                int p = 0;
+                char* writeBuffer = requestAddress2;
+
+                for (; p != numSegments; p++) {
+                    memcpy(writeBuffer, SourceBufferArray[p], DDS_PAGE_SIZE);
+                    writeBuffer += DDS_PAGE_SIZE;
+                }
+
+                //
+                // Handle the residual
+                //
+                //
+                FileIOSizeT residual = Bytes - (FileIOSizeT)(DDS_PAGE_SIZE * numSegments);
+                if (residual) {
+                    memcpy(writeBuffer, SourceBufferArray[p], residual);
+                }
+            }
+        }
+        else {
+            BuffMsgF2BReqHeader header;
+            header.RequestId = RequestId;
+            header.FileId = FileId;
+            header.Offset = Offset;
+            header.Bytes = Bytes;
+            size_t headerOverflowSize = sizeof(BuffMsgF2BReqHeader) - remainingBytes;
+
+            memcpy(requestAddress1 + sizeof(FileIOSizeT), &header, remainingBytes);
+            memcpy(requestAddress2, (const char*)&header + remainingBytes, headerOverflowSize);
+
+            int numSegments = Bytes / DDS_PAGE_SIZE;
+            int p = 0;
+            char* writeBuffer = requestAddress2 + headerOverflowSize;
+
+            for (; p != numSegments; p++) {
+                memcpy(writeBuffer, SourceBufferArray[p], DDS_PAGE_SIZE);
+                writeBuffer += DDS_PAGE_SIZE;
+            }
+
+            //
+            // Handle the residual
+            //
+            //
+            FileIOSizeT residual = Bytes - (FileIOSizeT)(DDS_PAGE_SIZE * numSegments);
+            if (residual) {
+                memcpy(writeBuffer, SourceBufferArray[p], residual);
+            }
+        }
+
+        //
+        // Increment the progress
+        //
+        //
+        int progress = RingBuffer->Progress[0];
+        while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+            progress = RingBuffer->Progress[0];
+        }
+    }
+
+    return true;
+}
+
+//
+// Insert a ReadFile or ReadFileScatter request into the request buffer
+//
+//
+bool
+InsertReadRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestId,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes
+) {
+    FileIOSizeT requestSize = sizeof(BuffMsgF2BReqHeader);
+
+    //
+    // Check if the tail exceeds the allowable advance
+    //
+    //
+    int tail = RingBuffer->Tail[0];
+    int head = RingBuffer->Head[0];
+    RingSizeT distance = 0;
+
+    if (tail < head) {
+        distance = tail + DDS_REQUEST_RING_BYTES - head;
+    }
+    else {
+        distance = tail - head;
+    }
+
+    //
+    // Append request size to the beginning of the request
+    // Check alignment
+    //
+    //
+    FileIOSizeT requestBytes = sizeof(FileIOSizeT) + requestSize;
+
+    if (requestBytes % sizeof(FileIOSizeT) != 0) {
+        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
+    }
+
+    if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
+        return false;
+    }
+
+    if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
+        return false;
+    }
+
+    while (RingBuffer->Tail[0].compare_exchange_weak(tail, (tail + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+
+        //
+        // Check if the tail exceeds the allowable advance
+        //
+        //
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+
+        if (tail <= head) {
+            distance = tail + DDS_REQUEST_RING_BYTES - head;
+        }
+        else {
+            distance = tail - head;
+        }
+
+        if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
+            return false;
+        }
+
+        //
+        // Check space
+        //
+        //
+        if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
+            return false;
+        }
+    }
+
+    //
+    // Now, both tail and space are good
+    //
+    //
+    if (tail + sizeof(FileIOSizeT) + requestSize <= DDS_REQUEST_RING_BYTES) {
+        char* requestAddress = &RingBuffer->Buffer[tail];
+
+        //
+        // Write the number of bytes in this request
+        //
+        //
+        *((FileIOSizeT*)requestAddress) = requestBytes;
+
+        //
+        // Write the request
+        //
+        //
+        BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress + sizeof(FileIOSizeT));
+        header->RequestId = RequestId;
+        header->FileId = FileId;
+        header->Offset = Offset;
+        header->Bytes = Bytes;
+
+        //
+        // Increment the progress
+        //
+        //
+        int progress = RingBuffer->Progress[0];
+        while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + requestBytes) % DDS_REQUEST_RING_BYTES) == false) {
+            progress = RingBuffer->Progress[0];
+        }
+    }
+    else {
+        //
+        // We need to wrap the buffer around
+        //
+        //
+        RingSizeT remainingBytes = DDS_REQUEST_RING_BYTES - tail - sizeof(FileIOSizeT);
+        char* requestAddress1 = &RingBuffer->Buffer[tail];
+        char* requestAddress2 = &RingBuffer->Buffer[0];
+
+        //
+        // Write the number of bytes in this request
+        //
+        //
+        *((FileIOSizeT*)requestAddress1) = requestBytes;
+
+        //
+        // Write the request to two memory locations
+        //
+        //
+        BuffMsgF2BReqHeader header;
+        header.RequestId = RequestId;
+        header.FileId = FileId;
+        header.Offset = Offset;
+        header.Bytes = Bytes;
+        size_t headerOverflowSize = sizeof(BuffMsgF2BReqHeader) - remainingBytes;
+
+        memcpy(requestAddress1 + sizeof(FileIOSizeT), &header, remainingBytes);
+        memcpy(requestAddress2, (const char*)&header + remainingBytes, headerOverflowSize);
 
         //
         // Increment the progress

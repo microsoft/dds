@@ -260,7 +260,7 @@ DDSBackEndBridge::Connect() {
 
     if (((MsgHeader*)CtrlMsgBuf)->MsgId == CTRL_MSG_B2F_RESPOND_ID) {
         ClientId = ((CtrlMsgB2FRespondId*)(CtrlMsgBuf + sizeof(MsgHeader)))->ClientId;
-        printf("DDSBackEndBridge: connected to the back end with assigned Id (%d)\n", ClientId);
+        printf("DDSBackEndBridge: connected to the back end with assigned id (%d)\n", ClientId);
     }
     else {
         printf("DDSBackEndBridge: wrong message from the back end\n");
@@ -582,7 +582,21 @@ DDSBackEndBridge::ReadFile(
     ContextT Context,
     PollT* Poll
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    RequestIdT requestId = ((FileIOT*)Context)->RequestId;
+
+    bool bufferResult = InsertReadRequest(
+        Poll->RequestRing,
+        requestId,
+        FileId,
+        Offset,
+        BytesToRead
+    );
+
+    if (!bufferResult) {
+        return DDS_ERROR_CODE_REQUEST_RING_FAILURE;
+    }
+
+    return DDS_ERROR_CODE_IO_PENDING;
 }
 
 //
@@ -599,7 +613,21 @@ DDSBackEndBridge::ReadFileScatter(
     ContextT Context,
     PollT* Poll
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    RequestIdT requestId = ((FileIOT*)Context)->RequestId;
+
+    bool bufferResult = InsertReadRequest(
+        Poll->RequestRing,
+        requestId,
+        FileId,
+        Offset,
+        BytesToRead
+    );
+
+    if (!bufferResult) {
+        return DDS_ERROR_CODE_REQUEST_RING_FAILURE;
+    }
+
+    return DDS_ERROR_CODE_IO_PENDING;
 }
 
 //
@@ -616,7 +644,22 @@ DDSBackEndBridge::WriteFile(
     ContextT Context,
     PollT* Poll
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    RequestIdT requestId = ((FileIOT*)Context)->RequestId;
+
+    bool bufferResult = InsertWriteFileRequest(
+        Poll->RequestRing,
+        requestId,
+        FileId,
+        Offset,
+        BytesToWrite,
+        SourceBuffer
+    );
+
+    if (!bufferResult) {
+        return DDS_ERROR_CODE_REQUEST_RING_FAILURE;
+    }
+
+    return DDS_ERROR_CODE_IO_PENDING;
 }
 
 //
@@ -633,11 +676,26 @@ DDSBackEndBridge::WriteFileGather(
     ContextT Context,
     PollT* Poll
 ) {
-    return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    RequestIdT requestId = ((FileIOT*)Context)->RequestId;
+
+    bool bufferResult = InsertWriteFileGatherRequest(
+        Poll->RequestRing,
+        requestId,
+        FileId,
+        Offset,
+        BytesToWrite,
+        SourceBufferArray
+    );
+
+    if (!bufferResult) {
+        return DDS_ERROR_CODE_REQUEST_RING_FAILURE;
+    }
+
+    return DDS_ERROR_CODE_IO_PENDING;
 }
 
 //
-// Get file properties by file Id
+// Get file properties by file id
 // 
 //
 ErrorCodeT

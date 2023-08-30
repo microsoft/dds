@@ -58,6 +58,47 @@ InsertToRequestBufferProgressive(
 );
 
 //
+// Insert a WriteFile request into the request buffer
+//
+//
+bool
+InsertWriteFileRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestId,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes,
+    BufferT SourceBuffer
+);
+
+//
+// Insert a WriteFileGather request into the request buffer
+//
+//
+bool
+InsertWriteFileGatherRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestId,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes,
+    BufferT* SourceBufferArray
+);
+
+//
+// Insert a ReadFile or ReadFileScatter request into the request buffer
+//
+//
+bool
+InsertReadRequest(
+    RequestRingBufferProgressive* RingBuffer,
+    RequestIdT RequestId,
+    FileIdT FileId,
+    FileSizeT Offset,
+    FileIOSizeT Bytes
+);
+
+//
 // Fetch requests from the request buffer
 //
 //

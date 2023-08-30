@@ -20,19 +20,22 @@ using Atomic = std::atomic<T>;
 //
 //
 typedef struct FileIOT {
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
     bool IsRead = false;
-    bool IsSegmented = false;
+    Atomic<bool> IsComplete = true;
+    Atomic<bool> IsReadyForPoll = false;
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+    RequestIdT RequestId = 0;
+    Atomic<bool> IsAvailable = true;
+#endif
     ContextT FileReference = (ContextT)nullptr;
     FileIdT FileId = (FileIdT)DDS_FILE_INVALID;
     FileSizeT Offset = (FileSizeT)0;
     BufferT AppBuffer = (BufferT)nullptr;
     BufferT* AppBufferArray = (BufferT*)nullptr;
     FileIOSizeT BytesDesired = (FileIOSizeT)0;
-    FileIOSizeT BytesServiced = (FileIOSizeT)0;
     ReadWriteCallback AppCallback = (ReadWriteCallback)nullptr;
     ContextT Context = (ContextT)nullptr;
-    Atomic<bool> IsComplete = true;
-    Atomic<bool> IsReadyForPoll = false;
 } FileIOT;
 
 //

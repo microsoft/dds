@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "ControlPlaneHandlers.h"
+#include "DataPlaneHandlers.h"
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
 #include "DPUBackEnd.h"
@@ -630,6 +632,9 @@ SetUpForRequests(
     BuffConn->RequestDMAWriteMetaWr.num_sge = 1;
     BuffConn->RequestDMAWriteMetaWr.wr_id = BUFF_WRITE_REQUEST_META_WR_ID;
 
+    BuffConn->RequestHead = 0;
+    BuffConn->RequestTail = 0;
+
     return 0;
 
 DeregisterBuffReadMetaMrForRequestsReturn:
@@ -666,6 +671,9 @@ DestroyForRequests(
     memset(&BuffConn->RequestDMAWriteMetaWr, 0, sizeof(BuffConn->RequestDMAWriteMetaWr));
     memset(&BuffConn->RequestDMAReadMetaWr, 0, sizeof(BuffConn->RequestDMAReadMetaWr));
     memset(&BuffConn->RequestDMAReadDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+
+    BuffConn->RequestHead = 0;
+    BuffConn->RequestTail = 0;
 }
 
 //
@@ -765,6 +773,9 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteMetaWr.num_sge = 1;
     BuffConn->ResponseDMAWriteMetaWr.wr_id = BUFF_WRITE_RESPONSE_META_WR_ID;
 
+    BuffConn->ResponseHead = 0;
+    BuffConn->ResponseTail = 0;
+
     return 0;
 
 DeregisterBuffReadMetaMrForResponsesReturn:
@@ -801,6 +812,9 @@ DestroyForResponses(
     memset(&BuffConn->ResponseDMAWriteMetaWr, 0, sizeof(BuffConn->ResponseDMAWriteMetaWr));
     memset(&BuffConn->ResponseDMAReadMetaWr, 0, sizeof(BuffConn->ResponseDMAReadMetaWr));
     memset(&BuffConn->ResponseDMAWriteDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+
+    BuffConn->ResponseHead = 0;
+    BuffConn->ResponseTail = 0;
 }
 
 //
@@ -899,7 +913,7 @@ FindConnId(
 // Process communication channel events
 //
 //
-static int inline
+static inline int
 ProcessCmEvents(
     struct BackEndConfig *Config,
     struct rdma_cm_event *Event
@@ -1279,11 +1293,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Create the directory
+            // Create the directory
             //
             //
-            printf("Creating a directory: %s\n", req->PathName);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            CreateDirectoryHandler(req, resp);
 
             //
             // Respond
@@ -1319,11 +1332,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Remove the directory
+            // Remove the directory
             //
             //
-            printf("Removing a directory: %u\n", req->DirId);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            RemoveDirectoryHandler(req, resp);
 
             //
             // Respond
@@ -1359,11 +1371,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Create the file
+            // Create the file
             //
             //
-            printf("Creating a file: %s\n", req->FileName);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            CreateFileHandler(req, resp);
 
             //
             // Respond
@@ -1399,11 +1410,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Delete the file
+            // Delete the file
             //
             //
-            printf("Deleting a file: %u\n", req->FileId);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            DeleteFileHandler(req, resp);
 
             //
             // Respond
@@ -1439,11 +1449,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Change the file size
+            // Change the file size
             //
             //
-            printf("Changing the size of a file: %u\n", req->FileId);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            ChangeFileSizeHandler(req, resp);
 
             //
             // Respond
@@ -1479,12 +1488,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the file size
+            // Get the file size
             //
             //
-            printf("Getting the size of a file: %u\n", req->FileId);
-            resp->FileSize = 0;
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetFileSizeHandler(req, resp);
 
             //
             // Respond
@@ -1520,12 +1527,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the file info
+            // Get the file info
             //
             //
-            printf("Getting the properties of a file: %u\n", req->FileId);
-            memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetFileInformationByIdHandler(req, resp);
 
             //
             // Respond
@@ -1561,12 +1566,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the file attributes
+            // Get the file attributes
             //
             //
-            printf("Getting the attributes of a file: %u\n", req->FileId);
-            resp->FileAttr = 0;
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetFileAttributesHandler(req, resp);
 
             //
             // Respond
@@ -1602,12 +1605,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Get the free storage space
+            // Get the free storage space
             //
             //
-            printf("Getting storage free space (%d)\n", req->Dummy);
-            resp->FreeSpace = 0;
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            GetStorageFreeSpaceHandler(req, resp);
 
             //
             // Respond
@@ -1643,11 +1644,10 @@ CtrlMsgHandler(
             }
 
             //
-            // TODO: Move the file
+            // Move the file
             //
             //
-            printf("Moving the file %u to %s\n", req->FileId, req->NewFileName);
-            resp->Result = DDS_ERROR_CODE_SUCCESS;
+            MoveFileHandler(req, resp);
 
             //
             // Respond
@@ -1835,10 +1835,74 @@ BuffMsgHandler(
 }
 
 //
+// Calculate available space on a ring
+//
+//
+static inline RingSizeT
+FreeRingCapacity(
+    RingSizeT Tail,
+    RingSizeT Head,
+    RingSizeT Capacity
+) {
+    if (Tail >= Head) {
+        return Capacity - Tail + Head;
+    }
+    else {
+        return Head - Tail;
+    }
+}
+
+//
+// Execute the requests on the request ring
+//
+//
+static inline void
+ExecuteRequests(
+    struct BuffConnConfig* BuffConn
+) {
+    //
+    // Parse all file requests in the batch
+    //
+    //
+    char* curReq;
+    FileIOSizeT curReqSize;
+    FileIOSizeT bytesParsed = 0;
+    FileIOSizeT bytesTotal = BuffConn->RequestDMAReadDataSize;
+
+    curReq = BuffConn->RequestDMAReadDataBuff;
+    while (bytesParsed < bytesTotal) {
+        curReq = BuffConn->RequestDMAReadDataBuff + bytesParsed;
+        curReqSize = *(FileIOSizeT*)(curReq) - sizeof(FileIOSizeT);
+        curReq = curReq + sizeof(FileIOSizeT);
+        if (curReqSize > sizeof(BuffMsgF2BReqHeader)) {
+            //
+            // A write request
+            //
+            //
+            if (FreeRingCapacity(
+                BuffConn->ResponseTail,
+                BuffConn->ResponseHead,
+                BACKEND_RESPONSE_MAX_DMA_SIZE
+            ) >= sizeof(BuffMsgB2FAckHeader)) {
+                
+            }
+            WriteHandler((BuffMsgF2BReqHeader*)curReq, curReq + sizeof(BuffMsgF2BReqHeader));
+        }
+        else {
+            //
+            // A read request
+            //
+            //
+            ReadHandler((BuffMsgF2BReqHeader*)curReq, );
+        }
+    }
+}
+
+//
 // Process communication channel events for buffer connections
 //
 //
-static int inline
+static inline int
 ProcessBuffCqEvents(
     struct BackEndConfig *Config
 ) {
@@ -1971,9 +2035,10 @@ ProcessBuffCqEvents(
                         //
                         if (buffConn->RequestDMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
                             //
-                            // Parse all file requests in the batch
+                            // Execute all the requests
                             //
                             //
+                            ExecuteRequests(buffConn);
                         }
                         else {
                             buffConn->RequestDMAReadDataSplitState++;
@@ -1986,10 +2051,11 @@ ProcessBuffCqEvents(
                         //
                         //
                         if (buffConn->RequestDMAReadDataSplitState == BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT) {
+                            ///
+                            // Execute all the requests
                             //
-                            // Parse all file requests in the batch
                             //
-                            //
+                            ExecuteRequests(buffConn);
                         }
                         else {
                             buffConn->RequestDMAReadDataSplitState++;

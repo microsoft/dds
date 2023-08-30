@@ -216,7 +216,7 @@ BackEndInMemory::ReadFile(
         result = DDS_ERROR_CODE_READ_OVERFLOW;
         if (remainingBytes > 0) {
             char* dataPointer = this->Data + pFile->GetStartAddressOnStorage() + Offset;
-            memcpy(DestBuffer, dataPointer, *BytesRead);
+            memcpy(DestBuffer, dataPointer, remainingBytes);
             bytesRead = (FileIOSizeT)remainingBytes;
             pFile->SetLastAccessTime(time(NULL));
         }
@@ -417,7 +417,7 @@ BackEndInMemory::WriteFileGather(
 }
 
 //
-// Get file properties by file Id
+// Get file properties by file id
 // 
 //
 ErrorCodeT
