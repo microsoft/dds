@@ -10,7 +10,7 @@ void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
     CtrlMsgB2FAckCreateDirectory *Resp
 ) {
-    printf("Creating a directory: %s\n", req->PathName);
+    printf("Creating a directory: %s\n", Req->PathName);
 
     //
     // TODO: Create the directory
@@ -28,7 +28,7 @@ void CreateDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
     CtrlMsgB2FAckRemoveDirectory *Resp
 ) {
-    printf("Removing a directory: %u\n", req->DirId);
+    printf("Removing a directory: %u\n", Req->DirId);
 
     //
     // TODO: Remove the directory
@@ -46,7 +46,7 @@ void CreateFileHandler(
     CtrlMsgF2BReqCreateFile *Req,
     CtrlMsgB2FAckCreateFile *Resp
 ) {
-    printf("Creating a file: %s\n", req->FileName);
+    printf("Creating a file: %s\n", Req->FileName);
 
     //
     // TODO: Create the file
@@ -64,7 +64,7 @@ void DeleteFileHandler(
     CtrlMsgF2BReqDeleteFile *Req,
     CtrlMsgB2FAckDeleteFile *Resp
 ) {
-    printf("Deleting a file: %u\n", req->FileId);
+    printf("Deleting a file: %u\n", Req->FileId);
 
     //
     // TODO: Delete the file
@@ -82,7 +82,7 @@ void ChangeFileSizeHandler(
     CtrlMsgF2BReqChangeFileSize *Req,
     CtrlMsgB2FAckChangeFileSize *Resp
 ) {
-    printf("Changing the size of a file: %u\n", req->FileId);
+    printf("Changing the size of a file: %u\n", Req->FileId);
 
     //
     // TODO: Change the file size
@@ -100,7 +100,7 @@ void GetFileSizeHandler(
     CtrlMsgF2BReqGetFileSize *Req,
     CtrlMsgB2FAckGetFileSize *Resp
 ) {
-    printf("Getting the size of a file: %u\n", req->FileId);
+    printf("Getting the size of a file: %u\n", Req->FileId);
 
     //
     // TODO: Get the file size

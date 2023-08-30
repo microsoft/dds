@@ -64,7 +64,7 @@ InsertToRequestBufferProgressive(
 bool
 InsertWriteFileRequest(
     RequestRingBufferProgressive* RingBuffer,
-    RequestIdT RequestIdAndFlag,
+    RequestIdT RequestId,
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes,
@@ -78,7 +78,7 @@ InsertWriteFileRequest(
 bool
 InsertWriteFileGatherRequest(
     RequestRingBufferProgressive* RingBuffer,
-    RequestIdT RequestIdAndFlag,
+    RequestIdT RequestId,
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes,
@@ -92,7 +92,7 @@ InsertWriteFileGatherRequest(
 bool
 InsertReadRequest(
     RequestRingBufferProgressive* RingBuffer,
-    RequestIdT RequestIdAndFlag,
+    RequestIdT RequestId,
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes

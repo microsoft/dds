@@ -195,7 +195,7 @@ InsertToRequestBufferProgressive(
 bool
 InsertWriteFileRequest(
     RequestRingBufferProgressive* RingBuffer,
-    RequestIdT RequestIdAndFlag,
+    RequestIdT RequestId,
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes,
@@ -286,7 +286,7 @@ InsertWriteFileRequest(
         //
         //
         BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress + sizeof(FileIOSizeT));
-        header->RequestIdAndFlag = RequestIdAndFlag;
+        header->RequestId = RequestId;
         header->FileId = FileId;
         header->Offset = Offset;
         header->Bytes = Bytes;
@@ -322,7 +322,7 @@ InsertWriteFileRequest(
         //
         if (remainingBytes >= sizeof(BuffMsgF2BReqHeader)) {
             BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress1 + sizeof(FileIOSizeT));
-            header->RequestIdAndFlag = RequestIdAndFlag;
+            header->RequestId = RequestId;
             header->FileId = FileId;
             header->Offset = Offset;
             header->Bytes = Bytes;
@@ -335,7 +335,7 @@ InsertWriteFileRequest(
         }
         else {
             BuffMsgF2BReqHeader header;
-            header.RequestIdAndFlag = RequestIdAndFlag;
+            header.RequestId = RequestId;
             header.FileId = FileId;
             header.Offset = Offset;
             header.Bytes = Bytes;
@@ -366,7 +366,7 @@ InsertWriteFileRequest(
 bool
 InsertWriteFileGatherRequest(
     RequestRingBufferProgressive* RingBuffer,
-    RequestIdT RequestIdAndFlag,
+    RequestIdT RequestId,
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes,
@@ -457,7 +457,7 @@ InsertWriteFileGatherRequest(
         //
         //
         BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress + sizeof(FileIOSizeT));
-        header->RequestIdAndFlag = RequestIdAndFlag;
+        header->RequestId = RequestId;
         header->FileId = FileId;
         header->Offset = Offset;
         header->Bytes = Bytes;
@@ -510,7 +510,7 @@ InsertWriteFileGatherRequest(
         //
         if (remainingBytes >= sizeof(BuffMsgF2BReqHeader)) {
             BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress1 + sizeof(FileIOSizeT));
-            header->RequestIdAndFlag = RequestIdAndFlag;
+            header->RequestId = RequestId;
             header->FileId = FileId;
             header->Offset = Offset;
             header->Bytes = Bytes;
@@ -596,7 +596,7 @@ InsertWriteFileGatherRequest(
         }
         else {
             BuffMsgF2BReqHeader header;
-            header.RequestIdAndFlag = RequestIdAndFlag;
+            header.RequestId = RequestId;
             header.FileId = FileId;
             header.Offset = Offset;
             header.Bytes = Bytes;
@@ -644,7 +644,7 @@ InsertWriteFileGatherRequest(
 bool
 InsertReadRequest(
     RequestRingBufferProgressive* RingBuffer,
-    RequestIdT RequestIdAndFlag,
+    RequestIdT RequestId,
     FileIdT FileId,
     FileSizeT Offset,
     FileIOSizeT Bytes
@@ -734,7 +734,7 @@ InsertReadRequest(
         //
         //
         BuffMsgF2BReqHeader* header = (BuffMsgF2BReqHeader*)(requestAddress + sizeof(FileIOSizeT));
-        header->RequestIdAndFlag = RequestIdAndFlag;
+        header->RequestId = RequestId;
         header->FileId = FileId;
         header->Offset = Offset;
         header->Bytes = Bytes;
@@ -768,7 +768,7 @@ InsertReadRequest(
         //
         //
         BuffMsgF2BReqHeader header;
-        header.RequestIdAndFlag = RequestIdAndFlag;
+        header.RequestId = RequestId;
         header.FileId = FileId;
         header.Offset = Offset;
         header.Bytes = Bytes;

@@ -120,9 +120,6 @@ struct BuffConnConfig {
 
     //
     // Setup for data exchange for requests
-    // Every time we poll progess, we fetch two cache lines
-    // One for the progress, one for the tail
-    // Also, we separate pointers and content to enable prefetching
     //
     //
     struct ibv_send_wr RequestDMAReadDataWr;
@@ -131,8 +128,8 @@ struct BuffConnConfig {
     char* RequestDMAReadDataBuff;
     struct ibv_send_wr RequestDMAReadDataSplitWr;
     struct ibv_sge RequestDMAReadDataSplitSgl;
-    uint32_t RequestDMAReadDataSize;
-    uint8_t RequestDMAReadDataSplitState;
+    RingSizeT RequestDMAReadDataSize;
+    RingSizeT RequestDMAReadDataSplitState;
     struct ibv_send_wr RequestDMAReadMetaWr;
     struct ibv_sge RequestDMAReadMetaSgl;
     struct ibv_mr *RequestDMAReadMetaMr;
@@ -141,12 +138,16 @@ struct BuffConnConfig {
     struct ibv_sge RequestDMAWriteMetaSgl;
     struct ibv_mr *RequestDMAWriteMetaMr;
     char* RequestDMAWriteMetaBuff;
+    
+    //
+    // Two pointers to bookkeep request execution
+    //
+    //
+    RingSizeT RequestHead;
+    RingSizeT RequestTail;
 
     //
     // Setup for data exchange for responses
-    // Every time we poll progess, we fetch two cache lines
-    // One for the progress, one for the tail
-    // Also, we separate pointers and content to enable prefetching
     //
     //
     struct ibv_send_wr ResponseDMAWriteDataWr;
@@ -155,7 +156,7 @@ struct BuffConnConfig {
     char* ResponseDMAWriteDataBuff;
     struct ibv_send_wr ResponseDMAWriteDataSplitWr;
     struct ibv_sge ResponseDMAWriteDataSplitSgl;
-    uint32_t ResponseDMAWriteDataSize;
+    RingSizeT ResponseDMAWriteDataSize;
     uint8_t ResponseDMAWriteDataSplitState;
     struct ibv_send_wr ResponseDMAReadMetaWr;
     struct ibv_sge ResponseDMAReadMetaSgl;
@@ -165,6 +166,13 @@ struct BuffConnConfig {
     struct ibv_sge ResponseDMAWriteMetaSgl;
     struct ibv_mr *ResponseDMAWriteMetaMr;
     char* ResponseDMAWriteMetaBuff;
+
+    //
+    // Two pointers to bookkeep response usage
+    //
+    //
+    RingSizeT ResponseHead;
+    RingSizeT ResponseTail;
 
     //
     // Ring buffers

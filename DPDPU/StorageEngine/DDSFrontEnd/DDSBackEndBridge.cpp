@@ -586,7 +586,7 @@ DDSBackEndBridge::ReadFile(
 
     bool bufferResult = InsertReadRequest(
         Poll->RequestRing,
-        (requestId << 1) | BUFF_MSG_REQUEST_FLAG_READ,
+        requestId,
         FileId,
         Offset,
         BytesToRead
@@ -617,7 +617,7 @@ DDSBackEndBridge::ReadFileScatter(
 
     bool bufferResult = InsertReadRequest(
         Poll->RequestRing,
-        (requestId << 1) | BUFF_MSG_REQUEST_FLAG_READ,
+        requestId,
         FileId,
         Offset,
         BytesToRead
@@ -648,7 +648,7 @@ DDSBackEndBridge::WriteFile(
 
     bool bufferResult = InsertWriteFileRequest(
         Poll->RequestRing,
-        (requestId << 1) | BUFF_MSG_REQUEST_FLAG_WRITE,
+        requestId,
         FileId,
         Offset,
         BytesToWrite,
@@ -680,7 +680,7 @@ DDSBackEndBridge::WriteFileGather(
 
     bool bufferResult = InsertWriteFileGatherRequest(
         Poll->RequestRing,
-        (requestId << 1) | BUFF_MSG_REQUEST_FLAG_WRITE,
+        requestId,
         FileId,
         Offset,
         BytesToWrite,

@@ -35,9 +35,9 @@
 #define DDS_MAX_DIRS 2
 #define DDS_MAX_FILES 1
 #define DDS_MAX_POLLS 1
-#define DDS_DIR_INVALID 0xFFFFFFFFUL
+#define DDS_DIR_INVALID 0xFFFFUL
 #define DDS_DIR_ROOT 0
-#define DDS_FILE_INVALID 0xFFFFFFFFUL
+#define DDS_FILE_INVALID 0xFFFFUL
 #define DDS_PAGE_SIZE 4096
 #define DDS_POLL_DEFAULT 0
 #define DDS_POLL_MAX_LATENCY_MICROSECONDS 100
@@ -59,7 +59,7 @@
 #define RING_BUFFER_RESPONSE_META_DATA_SIZE 128
 
 //
-// Checking a few parameters at the compile time
+// Check a few parameters at the compile time
 //
 //
 #define assert_static_protocol(e, num) \

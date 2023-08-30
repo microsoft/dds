@@ -40,9 +40,6 @@
 #define BUFF_MSG_B2F_RESPOND_ID 101
 #define BUFF_MSG_F2B_RELEASE 102
 
-#define BUFF_MSG_REQUEST_FLAG_READ 0x0
-#define BUFF_MSG_REQUEST_FLAG_WRITE 0x1
-
 typedef struct {
     int MsgId;
 } MsgHeader;
@@ -168,8 +165,41 @@ typedef struct {
 } CtrlMsgB2FAckMoveFile;
 
 typedef struct {
-    RequestIdT RequestIdAndFlag;
+    RequestIdT RequestId;
     FileIdT FileId;
-    FileSizeT Offset;
     FileIOSizeT Bytes;
+    FileSizeT Offset;
 } BuffMsgF2BReqHeader;
+
+typedef struct {
+    RequestIdT RequestId;
+    ErrorCodeT Result;
+    FileIOSizeT BytesServiced;
+} BuffMsgB2FAckHeader;
+
+//
+// Check a few parameters at the compile time
+//
+//
+#define assert_static_msg_type(e, num) \
+    enum { assert_static_msg_type__##num = 1/(e) }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result" 
+#else
+#pragma warning(push)
+#pragma warning (disable: 4804)
+#endif
+//
+// File requests and responses should be aligned with |FileIOSizeT|
+// This is also enforced once a request/response is inserted into the ring
+//
+//
+assert_static_msg_type(sizeof(BuffMsgF2BReqHeader) % sizeof(FileIOSizeT) == 0, 0);
+assert_static_msg_type(sizeof(BuffMsgF2BAckHeader) % sizeof(FileIOSizeT) == 0, 1);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#else
+#pragma warning(pop)
+#endif
