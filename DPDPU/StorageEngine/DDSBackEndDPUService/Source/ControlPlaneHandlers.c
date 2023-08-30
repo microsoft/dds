@@ -24,7 +24,7 @@ void CreateDirectoryHandler(
 // Handler for a RemoveDirectory request
 //
 //
-void CreateDirectoryHandler(
+void RemoveDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
     CtrlMsgB2FAckRemoveDirectory *Resp
 ) {
