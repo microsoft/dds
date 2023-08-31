@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "ControlPlaneHandlers.h"
+#include "../Include/ControlPlaneHandlers.h"
 
 //
 // Handler for a CreateDirectory request
@@ -8,7 +8,9 @@
 //
 void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
-    CtrlMsgB2FAckCreateDirectory *Resp
+    CtrlMsgB2FAckCreateDirectory *Resp,
+    struct DPUStorage* Sto,
+    void *arg
 ) {
     printf("Creating a directory: %s\n", Req->PathName);
 
@@ -16,8 +18,8 @@ void CreateDirectoryHandler(
     // TODO: Create the directory
     //
     //
+    Resp->Result = CreateDirectory(Req->PathName, Req->DirId, Req->ParentDirId, Sto, arg);
 
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
 }
 
 //
@@ -26,7 +28,9 @@ void CreateDirectoryHandler(
 //
 void RemoveDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
-    CtrlMsgB2FAckRemoveDirectory *Resp
+    CtrlMsgB2FAckRemoveDirectory *Resp,
+    struct DPUStorage* Sto,
+    void *arg
 ) {
     printf("Removing a directory: %u\n", Req->DirId);
 
@@ -34,8 +38,8 @@ void RemoveDirectoryHandler(
     // TODO: Remove the directory
     //
     //
+    Resp->Result = RemoveDirectory(Req->DirId, Sto, arg);
 
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
 }
 
 //
@@ -44,7 +48,9 @@ void RemoveDirectoryHandler(
 //
 void CreateFileHandler(
     CtrlMsgF2BReqCreateFile *Req,
-    CtrlMsgB2FAckCreateFile *Resp
+    CtrlMsgB2FAckCreateFile *Resp,
+    struct DPUStorage* Sto,
+    void *arg
 ) {
     printf("Creating a file: %s\n", Req->FileName);
 
@@ -52,8 +58,9 @@ void CreateFileHandler(
     // TODO: Create the file
     //
     //
+    Resp->Result = CreateFile(Req->FileName, Req->FileAttributes, Req->FileId, 
+    Req->DirId, Sto, arg);
 
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
 }
 
 //
@@ -62,7 +69,9 @@ void CreateFileHandler(
 //
 void DeleteFileHandler(
     CtrlMsgF2BReqDeleteFile *Req,
-    CtrlMsgB2FAckDeleteFile *Resp
+    CtrlMsgB2FAckDeleteFile *Resp,
+    struct DPUStorage* Sto,
+    void *arg
 ) {
     printf("Deleting a file: %u\n", Req->FileId);
 
@@ -71,7 +80,7 @@ void DeleteFileHandler(
     //
     //
 
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    Resp->Result = DeleteFileOnSto(Req->FileId, Req->DirId, Sto, arg);
 }
 
 //
@@ -80,7 +89,8 @@ void DeleteFileHandler(
 //
 void ChangeFileSizeHandler(
     CtrlMsgF2BReqChangeFileSize *Req,
-    CtrlMsgB2FAckChangeFileSize *Resp
+    CtrlMsgB2FAckChangeFileSize *Resp,
+    struct DPUStorage* Sto
 ) {
     printf("Changing the size of a file: %u\n", Req->FileId);
 
@@ -89,7 +99,7 @@ void ChangeFileSizeHandler(
     //
     //
 
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    Resp->Result = ChangeFileSize(Req->FileId, Req->NewSize, Sto);
 }
 
 //
@@ -98,7 +108,8 @@ void ChangeFileSizeHandler(
 //
 void GetFileSizeHandler(
     CtrlMsgF2BReqGetFileSize *Req,
-    CtrlMsgB2FAckGetFileSize *Resp
+    CtrlMsgB2FAckGetFileSize *Resp,
+    struct DPUStorage* Sto
 ) {
     printf("Getting the size of a file: %u\n", Req->FileId);
 
@@ -106,9 +117,7 @@ void GetFileSizeHandler(
     // TODO: Get the file size
     //
     //
-
-    Resp->FileSize = 0;
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    Resp->Result = GetFileSize(Req->FileId, &Resp->FileSize, Sto);
 }
 
 //
@@ -117,7 +126,8 @@ void GetFileSizeHandler(
 //
 void GetFileInformationByIdHandler(
     CtrlMsgF2BReqGetFileInfo *Req,
-    CtrlMsgB2FAckGetFileInfo *Resp
+    CtrlMsgB2FAckGetFileInfo *Resp,
+    struct DPUStorage* Sto
 ) {
     printf("Getting the properties of a file: %u\n", Req->FileId);
 
@@ -125,9 +135,7 @@ void GetFileInformationByIdHandler(
     // TODO: Get the file info
     //
     //
-            
-    memset(&Resp->FileInfo, 0, sizeof(Resp->FileInfo));
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    Resp->Result = GetFileInformationById(Req->FileId, &Resp->FileInfo, Sto); 
 }
 
 //
@@ -136,7 +144,8 @@ void GetFileInformationByIdHandler(
 //
 void GetFileAttributesHandler(
     CtrlMsgF2BReqGetFileAttr *Req,
-    CtrlMsgB2FAckGetFileAttr *Resp
+    CtrlMsgB2FAckGetFileAttr *Resp,
+    struct DPUStorage* Sto
 ) {
     printf("Getting the attributes of a file: %u\n", Req->FileId);
 
@@ -144,9 +153,7 @@ void GetFileAttributesHandler(
     // TODO: Get the file attributes
     //
     //
-
-    Resp->FileAttr = 0;
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    Resp->Result = GetFileAttributes(Req->FileId, &Resp->FileAttr, Sto);
 }
 
 //
@@ -155,7 +162,8 @@ void GetFileAttributesHandler(
 //
 void GetStorageFreeSpaceHandler(
     CtrlMsgF2BReqGetFreeSpace *Req,
-    CtrlMsgB2FAckGetFreeSpace *Resp
+    CtrlMsgB2FAckGetFreeSpace *Resp,
+    struct DPUStorage* Sto
 ) {
     printf("Getting storage free space (%d)\n", Req->Dummy);
 
@@ -163,9 +171,7 @@ void GetStorageFreeSpaceHandler(
     // TODO: Get the free storage space
     //
     //
-
-    Resp->FreeSpace = 0;
-    Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    Resp->Result = GetStorageFreeSpace(&Resp->FreeSpace, Sto);
 }
 
 //
@@ -174,7 +180,9 @@ void GetStorageFreeSpaceHandler(
 //
 void MoveFileHandler(
     CtrlMsgF2BReqMoveFile *Req,
-    CtrlMsgB2FAckMoveFile *Resp
+    CtrlMsgB2FAckMoveFile *Resp,
+    struct DPUStorage* Sto,
+    void *arg
 ) {
     printf("Moving the file %u to %s\n", Req->FileId, Req->NewFileName);
 
@@ -182,6 +190,8 @@ void MoveFileHandler(
     // TODO: Move the file
     //
     //
-
+    
+    // NewDirID and OldDirID are required here.
+    //Resp->Result = MoveFile(Req->FileId, ?,?,Req->NewFileName, Sto, arg);
     Resp->Result = DDS_ERROR_CODE_SUCCESS;
 }
