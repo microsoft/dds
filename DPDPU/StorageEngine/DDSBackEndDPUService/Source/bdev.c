@@ -46,54 +46,66 @@ hello_bdev_parse_arg(int ch, char *arg)
  * Callback function for read io completion.
  */
 static void
-read_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
+read_complete_dummy(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
-	struct hello_context_t *hello_context = cb_arg;
+	spdkContextT *spdkContext = cb_arg;
 
 	if (success) {
-		SPDK_NOTICELOG("Read string from bdev : %s\n", hello_context->buff);
+		SPDK_NOTICELOG("Read string from bdev : %s\n", spdkContext->buff);
 	} else {
 		SPDK_ERRLOG("bdev io read error\n");
 	}
 
 	/* Complete the bdev io and close the channel */
 	spdk_bdev_free_io(bdev_io);
-	spdk_put_io_channel(hello_context->bdev_io_channel);
-	spdk_bdev_close(hello_context->bdev_desc);
+	spdk_put_io_channel(spdkContext->bdev_io_channel);
+	spdk_bdev_close(spdkContext->bdev_desc);
 	SPDK_NOTICELOG("Stopping app\n");
 	spdk_app_stop(success ? 0 : -1);
 }
 
-static void bdev_read(
+static int bdev_read(
     void *arg,
     char* DstBuffer,
     uint64_t offset,
     uint64_t nbytes,
+	spdk_bdev_io_completion_cb cb,
+	void *cb_arg,
     bool zeroCopy
 ){
-	struct hello_context_t *hello_context = arg;
+	spdkContextT *spdkContext = arg;
 	int rc = 0; 
-    char* buffer = zeroCopy? DstBuffer: hello_context->buff;
+
+	// we'll need to actually allocate spdk buffer here if not zero copy
+	spdkContext->buff_size = nbytes;
+	spdkContext->buff = spdk_dma_zmalloc(nbytes, 0, NULL);  // TODO: will need to free it somewhere. Where?
+    char* buffer = zeroCopy ? DstBuffer: spdkContext->buff;
 
 	SPDK_NOTICELOG("Reading io\n");
-	rc = spdk_bdev_read(hello_context->bdev_desc, hello_context->bdev_io_channel,
-			    buffer, offset, nbytes, read_complete,
-			    hello_context);
+	rc = spdk_bdev_read(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
+			    buffer, offset, nbytes, cb, cb_arg);
 
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
-		hello_context->bdev_io_wait.bdev = hello_context->bdev;
-		hello_context->bdev_io_wait.cb_fn = bdev_read;
-		hello_context->bdev_io_wait.cb_arg = hello_context;
-		spdk_bdev_queue_io_wait(hello_context->bdev, hello_context->bdev_io_channel,
-					&hello_context->bdev_io_wait);
-	} else if (rc) {
+		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
+		spdkContext->bdev_io_wait.cb_fn = bdev_read;
+		spdkContext->bdev_io_wait.cb_arg = spdkContext;
+		spdk_bdev_queue_io_wait(spdkContext->bdev, spdkContext->bdev_io_channel,
+					&spdkContext->bdev_io_wait);
+		return 0;  // eventually this IO should finish successfully
+	} else if (rc == -EINVAL) {
+		SPDK_ERRLOG("offset and/or nbytes are not aligned or out of range\n");
+		return rc;
+	}
+	else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
-		spdk_put_io_channel(hello_context->bdev_io_channel);
-		spdk_bdev_close(hello_context->bdev_desc);
+		spdk_put_io_channel(spdkContext->bdev_io_channel);
+		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1);
 	}
+	else
+		return 0;  // success
 }
 
 /*

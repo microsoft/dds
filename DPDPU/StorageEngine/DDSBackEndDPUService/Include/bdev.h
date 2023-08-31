@@ -1,3 +1,5 @@
+#pragma once
+
 #include "spdk/stdinc.h"
 #include "spdk/thread.h"
 #include "spdk/bdev.h"
@@ -23,11 +25,24 @@ struct hello_context_t {
 	struct spdk_bdev_io_wait_entry bdev_io_wait;
 };
 
+static char *G_BDEV_NAME = "Malloc0";
+
+typedef struct spdkContext {
+	struct spdk_bdev *bdev;
+	struct spdk_bdev_desc *bdev_desc;
+	struct spdk_io_channel *bdev_io_channel;
+	char *buff;
+	uint32_t buff_size;
+	char *bdev_name;
+	struct spdk_bdev_io_wait_entry bdev_io_wait;
+    void *cookie;  // just in case, a completion cookie that could be anything
+} spdkContextT;
+
 //
-// Callback function for read io completion.
+// Dummy Callback function for read io completion.
 //
 //
-static void read_complete(
+static void read_complete_dummy(
     struct spdk_bdev_io *bdev_io, 
     bool success, 
     void *cb_arg
@@ -39,11 +54,13 @@ static void read_complete(
 // when it is 0, it means we will use context->buff as buffer
 //
 //
-static void bdev_read(
+static int bdev_read(
     void *arg,
     char* DstBuffer,
     uint64_t offset,
     uint64_t nbytes,
+    spdk_bdev_io_completion_cb cb,
+	void *cb_arg,
     bool zeroCopy
 );
 
@@ -74,3 +91,9 @@ static void bdev_write(
 //
 //
 static struct hello_context_t* Init();
+
+static void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
+		    void *event_ctx)
+{
+	SPDK_NOTICELOG("Unsupported bdev event: type %d\n", type);
+}
