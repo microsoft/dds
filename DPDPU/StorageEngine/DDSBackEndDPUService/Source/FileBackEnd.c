@@ -11,15 +11,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "spdk/stdinc.h"
-#include "spdk/thread.h"
-#include "spdk/bdev.h"
-#include "spdk/env.h"
-#include "spdk/event.h"
-#include "spdk/log.h"
-#include "spdk/string.h"
-#include "spdk/bdev_zone.h"
-
 #include "ControlPlaneHandlers.h"
 #include "DataPlaneHandlers.h"
 #include "DDSTypes.h"
