@@ -19,6 +19,7 @@
 #include "DPUBackEndDir.h"
 #include "DPUBackEndFile.h"
 #include "DPUBackEndStorage.h"
+#include "bdev.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -2147,12 +2148,42 @@ int RunFileBackEnd(
     config.DMAConf.CmId = NULL;
 
     //
+    // Initialize SPDK stuff
+    //
+    //
+    spdkContextT *spdkContext = malloc(sizeof(spdkContextT));
+    spdkContext->bdev_name = G_BDEV_NAME;
+
+    SPDK_NOTICELOG("Successfully started the application\n");
+    ret = spdk_bdev_open_ext(spdkContext->bdev_name, true, dds_bdev_event_cb, NULL,
+				spdkContext->bdev_desc);
+	if (ret) {
+		SPDK_ERRLOG("Could not open bdev: %s\n", spdkContext->bdev_name);
+		spdk_app_stop(-1);
+		return;
+	}
+
+    /* A bdev pointer is valid while the bdev is opened. */
+	spdkContext->bdev = spdk_bdev_desc_get_bdev(spdkContext->bdev_desc);
+    SPDK_NOTICELOG("Opening io channel\n");
+	/* Open I/O channel */
+	spdkContext->bdev_io_channel = spdk_bdev_get_io_channel(spdkContext->bdev_desc);
+	if (spdkContext->bdev_io_channel == NULL) {
+		SPDK_ERRLOG("Could not create bdev I/O channel!!\n");
+		spdk_bdev_close(spdkContext->bdev_desc);
+		spdk_app_stop(-1);
+		return;
+	}
+
+    // TODO: maybe spdk malloc buffer here? See bdev.c sample
+    
+    //
     // Initialize Storage
     //
     //
     struct DPUStorage* Sto = BackEndStorage();
-    ErrorCodeT result = Initialize(Sto);
-    if (result !=DDS_ERROR_CODE_SUCCESS){
+    ErrorCodeT result = Initialize(Sto, spdkContext);
+    if (result != DDS_ERROR_CODE_SUCCESS){
         fprintf(stderr, "InitStorage failed with %d\n", result);
         return result;
     }
