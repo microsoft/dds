@@ -31,6 +31,7 @@ typedef struct BackEndIOContext {
 //
 //
 typedef void (*DiskIOCallback)(
+    struct spdk_bdev_io *bdev_io,
     bool Success,
     ContextT Context
 );
@@ -61,6 +62,14 @@ typedef struct DPUStorage {
 struct DPUStorage* BackEndStorage();
 
 void DeBackEndStorage(struct DPUStorage* Sto);
+
+typedef atomic_ushort SyncRWCompletionStatus;
+
+enum SyncRWCompletion {
+    SyncRWCompletion_NOT_COMPLETED = 0,
+    SyncRWCompletionSUCCESS = 1,
+    SyncRWCompletionFAILED = 2
+};
 
 //
 // Read from disk synchronously
@@ -104,7 +113,7 @@ ErrorCodeT ReadFromDiskAsync(
 );
 
 //
-// Write from disk asynchronously
+// Write to disk asynchronously
 //
 //
 ErrorCodeT WriteToDiskAsync(

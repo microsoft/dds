@@ -1,6 +1,6 @@
 //#include <iostream>
 // #include <threads.h>
-#include <pthread.h>
+// #include <pthread.h>  // already included in DPUBackEndStorage.h
 #include <string.h>
 #include <stdlib.h>
 #include <sched.h>
@@ -69,6 +69,7 @@ void DeBackEndStorage(
 
 //
 // Read from disk synchronously
+// Jason: Do a busy wait for the async completion to appear as sync/blocking IO
 //
 //
 ErrorCodeT ReadFromDiskSync(
@@ -80,10 +81,41 @@ ErrorCodeT ReadFromDiskSync(
     void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
+    SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
+    int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
+        ReadFromDiskSyncCallback, &completionStatus, false);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
-    
-    return DDS_ERROR_CODE_SUCCESS;
+
+    if (rc)
+    {
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
+    // otherwise it should be fine, wait for completion
+    printf("ReadFromDiskSync entering busy waiting\n");
+    while (true)  // busy wait for IO completion
+    {
+        if (completionStatus == SyncRWCompletionSUCCESS)
+            return DDS_ERROR_CODE_SUCCESS;
+        else if (completionStatus == SyncRWCompletionFAILED)  // doc: use spdk_bdev_io_get_nvme_status() to obtain info
+            return DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE;
+    }
+}
+
+ErrorCodeT ReadFromDiskSyncCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool success,
+    void *cb_arg
+){
+    if (success)
+    {
+        *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
+        printf("ReadFromDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+    }
+    else
+    {
+        *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionFAILED;
+        printf("ReadFromDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+    }
 }
 
 //
@@ -120,16 +152,16 @@ ErrorCodeT ReadFromDiskAsync(
     void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset,Bytes, 0);
+    bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
-    Callback(true, Context);
+    //Callback(true, Context);
 
-    return DDS_ERROR_CODE_SUCCESS;
+    return DDS_ERROR_CODE_SUCCESS; // TODO: since it's async, we don't know if the actual read will be successful
 }
 
 //
-// Write from disk asynchronously
+// Write to disk asynchronously
 //
 //
 ErrorCodeT WriteToDiskAsync(
@@ -146,13 +178,14 @@ ErrorCodeT WriteToDiskAsync(
     bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
-    Callback(true, Context);
+    // Callback(true, Context);
 
     return DDS_ERROR_CODE_SUCCESS;
 }
 
 //
 // Retrieve all segments on the disk, replace all new... by malloc() inside
+// This initializes Sto->AllSegments
 //
 //
 ErrorCodeT RetrieveSegments(
@@ -224,8 +257,8 @@ void ReturnSegments(
 
         //delete[] AllSegments;
         free(Sto->AllSegments);
-        // we call this function to stop spdk
-        spdk_app_stop(0);
+        // we call this function to stop spdk (Jason: this will stop the main event loop, do it outside)
+        // spdk_app_stop(0);
     }
 }
 
@@ -430,7 +463,7 @@ IncrementProgressCallback(
 //
 ErrorCodeT Initialize(
     struct DPUStorage* Sto,
-    void *arg
+    void *arg // NOTE: this is currently an spdkContext, but depending on the callbacks, they need different arg than this
 ){
     //
     // Retrieve all segments on disk
