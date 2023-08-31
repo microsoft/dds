@@ -11,6 +11,15 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "spdk/stdinc.h"
+#include "spdk/thread.h"
+#include "spdk/bdev.h"
+#include "spdk/env.h"
+#include "spdk/event.h"
+#include "spdk/log.h"
+#include "spdk/string.h"
+#include "spdk/bdev_zone.h"
+
 #include "ControlPlaneHandlers.h"
 #include "DataPlaneHandlers.h"
 #include "DDSTypes.h"
@@ -2104,16 +2113,31 @@ ProcessBuffCqEventsReturn:
     return ret;
 }
 
+struct runFileBackEndArgs
+{
+    const char* ServerIpStr;
+    const int ServerPort;
+    const uint32_t MaxClients;
+    const uint32_t MaxBuffs;
+};
+
+
 //
 // The entry point for the back end
 //
+// Jason: this is the mainloop, so it needs to be supplied to SPDK's `spdk_app_start`, which will call it
+// `spdk_app_start` itself will block until spdk_app_stop() is called, or an error occured during start
+//
 //
 int RunFileBackEnd(
-    const char* ServerIpStr,
-    const int ServerPort,
-    const uint32_t MaxClients,
-    const uint32_t MaxBuffs
+    void *args
 ) {
+    struct runFileBackEndArgs *thisArgs = (struct runFileBackEndArgs *) args;
+    const char* ServerIpStr = thisArgs->ServerIpStr;
+    const int ServerPort = thisArgs->ServerPort;
+    const uint32_t MaxClients = thisArgs->MaxClients;
+    const uint32_t MaxBuffs = thisArgs->MaxBuffs;
+
     struct BackEndConfig config;
     struct rdma_cm_event *event;
     int ret = 0;
@@ -2230,9 +2254,55 @@ int RunFileBackEnd(
     DeallocConns(&config);
     TermDMA(&config.DMAConf);
 
+    spdk_app_stop(ret);
+    printf("spdk_app_stop returned with: %d\n", ret);
+
     return ret;
 }
 
-int main() {
-    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32);
+//
+// Usage function for printing parameters that are specific to this application, needed for SPDK app start
+//
+//
+static void
+dds_custom_args_usage(void)
+{
+	printf("if there is any custom cmdline params, add a description for it here\n");
+}
+
+//
+// This function is called to parse the parameters that are specific to this application
+//
+//
+static int
+dds_parse_arg(int ch, char *arg)
+{
+	printf("parse custom arg func called, currently doing nothing...\n");
+}
+
+int main(int argc, char **argv) {
+    int rc;
+    struct spdk_app_opts opts = {};
+    /* Set default values in opts structure. */
+	spdk_app_opts_init(&opts, sizeof(opts));
+	opts.name = "hello_bdev";
+    /*
+	 * Parse built-in SPDK command line parameters as well
+	 * as our custom one(s).
+	 */
+	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, dds_parse_arg,
+				      dds_custom_args_usage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
+		exit(rc);
+	}
+    /* int ret = RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32); */
+    
+    struct runFileBackEndArgs args = {
+        .ServerIpStr = DDS_BACKEND_ADDR,
+        .ServerPort = DDS_BACKEND_PORT,
+        .MaxClients = 32,
+        .MaxBuffs = 32
+    };
+    
+    rc = (&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
+    printf("spdk_app_start returned with: %d\n", rc);
 }
