@@ -1878,7 +1878,8 @@ ExecuteRequests(
             //
             *(FileIOSizeT)(buffResp + progressResp) = respSize;
 
-            BuffMsgB2FAckHeader *resp = buffResp + progressResp + sizeof(FileIOSizeT);
+            BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
             
             progressResp += respSize;
             totalRespSize += respSize;
@@ -1924,7 +1925,8 @@ ExecuteRequests(
             //
             *(FileIOSizeT)(buffResp + progressResp) = respSize;
 
-            BuffMsgB2FAckHeader *resp = buffResp + progressResp + sizeof(FileIOSizeT);
+            BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
 
             //
             // Extract read destination buffer from the response ring
