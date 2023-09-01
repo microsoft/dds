@@ -97,12 +97,12 @@ static int bdev_read(
 	} else if (rc == -EINVAL) {
 		SPDK_ERRLOG("offset and/or nbytes are not aligned or out of range\n");
 		return rc;
-	}
-	else if (rc < 0) {  // unknown error?
+	} else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
 		spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1);
+		return rc;
 	}
 	else
 		return 0;  // success
@@ -135,36 +135,44 @@ write_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 	//hello_read(hello_context);
 }
 
-static void bdev_write(
+static int bdev_write(
     void *arg,
     char* SrcBuffer,
     uint64_t offset,
     uint64_t nbytes,
+	spdk_bdev_io_completion_cb cb,
+	void *cb_arg,
     bool zeroCopy
 ){
-	struct hello_context_t *hello_context = arg;
+	spdkContextT *spdkContext = arg;
 	int rc = 0;
-    char* buffer = zeroCopy? SrcBuffer: hello_context->buff;
+    char* buffer = zeroCopy? SrcBuffer: spdkContext->buff;
 
 	SPDK_NOTICELOG("Writing to the bdev\n");
-	rc = spdk_bdev_write(hello_context->bdev_desc, hello_context->bdev_io_channel,
-			     buffer, offset, nbytes, write_complete,
-			     hello_context);
+	rc = spdk_bdev_write(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
+			     buffer, offset, nbytes, cb, cb_arg);
 
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
-		hello_context->bdev_io_wait.bdev = hello_context->bdev;
-		hello_context->bdev_io_wait.cb_fn = bdev_write;
-		hello_context->bdev_io_wait.cb_arg = hello_context;
-		spdk_bdev_queue_io_wait(hello_context->bdev, hello_context->bdev_io_channel,
-					&hello_context->bdev_io_wait);
-	} else if (rc) {
+		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
+		spdkContext->bdev_io_wait.cb_fn = bdev_write;
+		spdkContext->bdev_io_wait.cb_arg = spdkContext;
+		spdk_bdev_queue_io_wait(spdkContext->bdev, spdkContext->bdev_io_channel,
+					&spdkContext->bdev_io_wait);
+		return 0;  // eventually this IO should finish successfully
+	} else if (rc == -EINVAL) {
+		SPDK_ERRLOG("offset and/or nbytes are not aligned or out of range\n");
+		return rc;
+	} else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while writing to bdev: %d\n", spdk_strerror(-rc), rc);
-		spdk_put_io_channel(hello_context->bdev_io_channel);
-		spdk_bdev_close(hello_context->bdev_desc);
+		spdk_put_io_channel(spdkContext->bdev_io_channel);
+		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1);
+		return rc;
 	}
+	else
+		return 0;  // success
 }
 
 static void

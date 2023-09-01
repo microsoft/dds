@@ -78,11 +78,13 @@ static void write_complete(
 // Bdev write function
 //
 //
-static void bdev_write(
+static int bdev_write(
     void *arg,
     char* SrcBuffer,
     uint64_t offset,
     uint64_t nbytes,
+    spdk_bdev_io_completion_cb cb,
+	void *cb_arg,
     bool zeroCopy
 );
 
