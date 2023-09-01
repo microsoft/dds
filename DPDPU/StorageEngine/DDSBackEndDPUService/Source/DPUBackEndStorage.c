@@ -119,7 +119,7 @@ ErrorCodeT ReadFromDiskSyncCallback(
 }
 
 //
-// Write from disk synchronously
+// Write to disk synchronously
 //
 //
 ErrorCodeT WriteToDiskSync(
@@ -131,10 +131,42 @@ ErrorCodeT WriteToDiskSync(
     void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
+    SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
+    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, WriteToDiskSyncCallback, &completionStatus, 0);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
+    if (rc)
+    {
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
+    // otherwise it should be fine, wait for completion
+    printf("WriteToDiskSync entering busy waiting\n");
+    while (true)  // busy wait for IO completion
+    {
+        if (completionStatus == SyncRWCompletionSUCCESS)
+            return DDS_ERROR_CODE_SUCCESS;
+        else if (completionStatus == SyncRWCompletionFAILED)  // doc: use spdk_bdev_io_get_nvme_status() to obtain info
+            return DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE;
+    }
+
     return DDS_ERROR_CODE_SUCCESS;
+}
+
+ErrorCodeT WriteToDiskSyncCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool success,
+    void *cb_arg
+){
+    if (success)
+    {
+        *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
+        printf("ReadFromDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+    }
+    else
+    {
+        *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionFAILED;
+        printf("ReadFromDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+    }
 }
 
 //
@@ -152,10 +184,16 @@ ErrorCodeT ReadFromDiskAsync(
     void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0);
+    int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     //Callback(true, Context);
+
+    if (rc)
+    {
+        printf("ReadFromDiskAsync called bdev_read(), but failed with: %d\n", rc);
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
 
     return DDS_ERROR_CODE_SUCCESS; // TODO: since it's async, we don't know if the actual read will be successful
 }
@@ -170,15 +208,21 @@ ErrorCodeT WriteToDiskAsync(
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     DiskIOCallback Callback,
-    ContextT Context,
+    ContextT Context,  // this should be the callback arg
     struct DPUStorage* Sto,
-    void *arg
+    void *arg  // this should be the spdkContext
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 0);
+    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, false);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
-    // Callback(true, Context);
+    //Callback(true, Context);
+
+    if (rc)
+    {
+        printf("WriteToDiskAsync called bdev_write(), but failed with: %d\n", rc);
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
 
     return DDS_ERROR_CODE_SUCCESS;
 }
@@ -539,6 +583,7 @@ ErrorCodeT Initialize(
         //
         //
         size_t pagesLeft = pagesPerSegment - numPagesWritten;
+        printf("Initialize(), pagesLeft: %d\n", pagesLeft);  // this should be 0?
         Sto->TargetProgress = pagesLeft;
         Sto->CurrentProgress = 0;
         for (size_t q = 0; q != pagesLeft; q++) {
