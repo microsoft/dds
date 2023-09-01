@@ -545,7 +545,7 @@ SetUpForRequests(
     // Read data buffer and region
     //
     //
-    BuffConn->RequestDMAReadDataBuff = malloc(BACKEND_REQUEST_MAX_DMA_SIZE);
+    BuffConn->RequestDMAReadDataBuff = malloc(BACKEND_REQUEST_BUFFER_SIZE);
     if (!BuffConn->RequestDMAReadDataBuff) {
         fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
         ret = -1;
@@ -555,7 +555,7 @@ SetUpForRequests(
     BuffConn->RequestDMAReadDataMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->RequestDMAReadDataBuff,
-        BACKEND_REQUEST_MAX_DMA_SIZE,
+        BACKEND_REQUEST_BUFFER_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->RequestDMAReadDataMr) {
@@ -628,9 +628,6 @@ SetUpForRequests(
     BuffConn->RequestDMAWriteMetaWr.num_sge = 1;
     BuffConn->RequestDMAWriteMetaWr.wr_id = BUFF_WRITE_REQUEST_META_WR_ID;
 
-    BuffConn->RequestHead = 0;
-    BuffConn->RequestTail = 0;
-
     return 0;
 
 DeregisterBuffReadMetaMrForRequestsReturn:
@@ -667,9 +664,6 @@ DestroyForRequests(
     memset(&BuffConn->RequestDMAWriteMetaWr, 0, sizeof(BuffConn->RequestDMAWriteMetaWr));
     memset(&BuffConn->RequestDMAReadMetaWr, 0, sizeof(BuffConn->RequestDMAReadMetaWr));
     memset(&BuffConn->RequestDMAReadDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
-
-    BuffConn->RequestHead = 0;
-    BuffConn->RequestTail = 0;
 }
 
 //
@@ -686,7 +680,7 @@ SetUpForResponses(
     // Read data buffer and region
     //
     //
-    BuffConn->ResponseDMAWriteDataBuff = malloc(BACKEND_RESPONSE_MAX_DMA_SIZE);
+    BuffConn->ResponseDMAWriteDataBuff = malloc(BACKEND_RESPONSE_BUFFER_SIZE);
     if (!BuffConn->ResponseDMAWriteDataBuff) {
         fprintf(stderr, "%s [error]: OOM for DMA read data buffer\n", __func__);
         ret = -1;
@@ -696,7 +690,7 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteDataMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->ResponseDMAWriteDataBuff,
-        BACKEND_RESPONSE_MAX_DMA_SIZE,
+        BACKEND_RESPONSE_BUFFER_SIZE,
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ
     );
     if (!BuffConn->ResponseDMAWriteDataMr) {
@@ -769,9 +763,6 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteMetaWr.num_sge = 1;
     BuffConn->ResponseDMAWriteMetaWr.wr_id = BUFF_WRITE_RESPONSE_META_WR_ID;
 
-    BuffConn->ResponseHead = 0;
-    BuffConn->ResponseTail = 0;
-
     return 0;
 
 DeregisterBuffReadMetaMrForResponsesReturn:
@@ -808,9 +799,6 @@ DestroyForResponses(
     memset(&BuffConn->ResponseDMAWriteMetaWr, 0, sizeof(BuffConn->ResponseDMAWriteMetaWr));
     memset(&BuffConn->ResponseDMAReadMetaWr, 0, sizeof(BuffConn->ResponseDMAReadMetaWr));
     memset(&BuffConn->ResponseDMAWriteDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
-
-    BuffConn->ResponseHead = 0;
-    BuffConn->ResponseTail = 0;
 }
 
 //
@@ -1014,7 +1002,7 @@ ProcessCmEvents(
                         // Mark this connection unavailable
                         //
                         //
-                        ctrlConn->InUse = 1;
+                        ctrlConn->InUse = TRUE;
                         fprintf(stdout, "Control connection #%d is accepted\n", ctrlConn->CtrlId);
                     }
                     else {
@@ -1094,7 +1082,7 @@ ProcessCmEvents(
                         // Mark this connection unavailable
                         //
                         //
-                        buffConn->InUse = 1;
+                        buffConn->InUse = TRUE;
                         fprintf(stdout, "Buffer connection #%d is accepted\n", buffConn->BuffId);
                     }
                     else {
@@ -1156,7 +1144,7 @@ ProcessCmEvents(
                             struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
-                            ctrlConn->InUse = 0;
+                            ctrlConn->InUse = FALSE;
                         }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                         fprintf(stdout, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", connId);
@@ -1167,7 +1155,7 @@ ProcessCmEvents(
                             struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
                             DestroyBuffRegionsAndBuffers(buffConn);
                             DestroyBuffQPair(buffConn);
-                            buffConn->InUse = 0;
+                            buffConn->InUse = FALSE;
                         }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                     fprintf(stdout, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", connId);
@@ -1258,7 +1246,7 @@ CtrlMsgHandler(
             if (req->ClientId == CtrlConn->CtrlId) {
                 DestroyCtrlRegionsAndBuffers(CtrlConn);
                 DestroyCtrlQPair(CtrlConn);
-                CtrlConn->InUse = 0;
+                CtrlConn->InUse = FALSE;
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "%s [info]: Control Conn#%d is disconnected\n", __func__, req->ClientId);
 #endif
@@ -1831,67 +1819,161 @@ BuffMsgHandler(
 }
 
 //
-// Calculate available space on a ring
-//
-//
-static inline RingSizeT
-FreeRingCapacity(
-    RingSizeT Tail,
-    RingSizeT Head,
-    RingSizeT Capacity
-) {
-    if (Tail >= Head) {
-        return Capacity - Tail + Head;
-    }
-    else {
-        return Head - Tail;
-    }
-}
-
-//
-// Execute the requests on the request ring
+// Execute received requests
 //
 //
 static inline void
 ExecuteRequests(
     struct BuffConnConfig* BuffConn
 ) {
-    //
-    // Parse all file requests in the batch
-    //
-    //
+    char* buffReq;
+    char* buffResp;
     char* curReq;
+    BuffMsgF2BReqHeader* curReqObj;
     FileIOSizeT curReqSize;
     FileIOSizeT bytesParsed = 0;
     FileIOSizeT bytesTotal = BuffConn->RequestDMAReadDataSize;
 
-    curReq = BuffConn->RequestDMAReadDataBuff;
-    while (bytesParsed < bytesTotal) {
-        curReq = BuffConn->RequestDMAReadDataBuff + bytesParsed;
+    int tailReq = BuffConn->RequestRing.Head;
+    int headReq = tailReq >= bytesTotal ? tailReq - bytesTotal : BACKEND_REQUEST_BUFFER_SIZE + tailReq - bytesTotal;
+    int tailResp = BuffConn->ResponseRing.Tail;
+    int headResp = ((int*)BuffConn->ResponseDMAReadMetaBuff)[DDS_CACHE_LINE_SIZE_BY_INT];
+    int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
+    
+    SplittableBuffer dataBuff;
+    FileIOSizeT respSize = 0;
+    FileIOSizeT totalRespSize = 0;
+    int progressReq = headReq;
+    int progressResp = tailResp;
+
+    //
+    // Parse all file requests in the batch
+    //
+    //
+    buffReq = BuffConn->RequestDMAReadDataBuff;
+    buffResp = BuffConn->ResponseDMAWriteDataBuff;
+    while (bytesParsed != bytesTotal) {
+        curReq = buffReq + progressReq;
+
+        bytesParsed += *(FileIOSizeT*)(curReq);
+        progressReq += *(FileIOSizeT*)(curReq);
+        if (progressReq >= BACKEND_REQUEST_BUFFER_SIZE) {
+            progressReq %= BACKEND_REQUEST_BUFFER_SIZE;
+        }
+
         curReqSize = *(FileIOSizeT*)(curReq) - sizeof(FileIOSizeT);
-        curReq = curReq + sizeof(FileIOSizeT);
+        curReq += sizeof(FileIOSizeT);
+
         if (curReqSize > sizeof(BuffMsgF2BReqHeader)) {
             //
-            // A write request
+            // Process a write request
+            // Allocate a response first, no need to check alignment
             //
             //
-            if (FreeRingCapacity(
-                BuffConn->ResponseTail,
-                BuffConn->ResponseHead,
-                BACKEND_RESPONSE_MAX_DMA_SIZE
-            ) >= sizeof(BuffMsgB2FAckHeader)) {
-                
+            respSize = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
+
+            //
+            // Record the size of the this response on the response ring
+            //
+            //
+            *(FileIOSizeT)(buffResp + progressResp) = respSize;
+
+            BuffMsgB2FAckHeader *resp = buffResp + progressResp + sizeof(FileIOSizeT);
+            
+            progressResp += respSize;
+            totalRespSize += respSize;
+            if (progressResp >= BACKEND_RESPONSE_BUFFER_SIZE) {
+                progressResp %= BACKEND_RESPONSE_BUFFER_SIZE;
             }
-            WriteHandler((BuffMsgF2BReqHeader*)curReq, curReq + sizeof(BuffMsgF2BReqHeader));
+
+            //
+            // Extract write source buffer from the request ring
+            //
+            //
+            curReqObj = (BuffMsgF2BReqHeader*)curReq;
+            dataBuff.TotalSize = curReqObj->Bytes;
+            dataBuff.FirstAddr = buffReq + progressReq;
+            if (progressReq + dataBuff.TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
+                dataBuff.FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
+                dataBuff.SecondAddr = buffReq;
+                progressReq = dataBuff.TotalSize - dataBuff.FirstSize;
+            }
+            else {
+                dataBuff.FirstSize = curReqObj->Bytes;
+                dataBuff.SecondAddr = NULL;
+                progressReq += dataBuff.TotalSize;
+            }
+            WriteHandler(curReqObj, resp, dataBuff);
         }
         else {
             //
-            // A read request
+            // Process a read request
+            // Allocate a response first, need to check alignment
             //
             //
-            ReadHandler((BuffMsgF2BReqHeader*)curReq, );
+            RingSizeT alignment = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
+            curReqObj = (BuffMsgF2BReqHeader*)curReq;
+            respSize = alignment + curReqObj->Bytes;
+            if (respSize % alignment != 0) {
+                respSize += (alignment - (respSize % alignment));
+            }
+            
+            //
+            // Record the size of the this response on the response ring
+            //
+            //
+            *(FileIOSizeT)(buffResp + progressResp) = respSize;
+
+            BuffMsgB2FAckHeader *resp = buffResp + progressResp + sizeof(FileIOSizeT);
+
+            //
+            // Extract read destination buffer from the response ring
+            //
+            //
+            dataBuff.TotalSize = curReqObj->Bytes;
+            if (progressResp + respSize <= BACKEND_RESPONSE_BUFFER_SIZE) {
+                dataBuff.FirstAddr = buffResp + (progressResp + alignment);
+                dataBuff.FirstSize = dataBuff.TotalSize;
+                dataBuff.SecondAddr = NULL;
+            }
+            else {
+                if (progressResp + alignment < BACKEND_RESPONSE_BUFFER_SIZE) {
+                    dataBuff.FirstAddr = buffResp + (progressResp + alignment);
+                    dataBuff.FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
+                    dataBuff.SecondAddr = buffResp + (dataBuff.TotalSize - dataBuff.FirstSize);
+                }
+                else {
+                    dataBuff.FirstAddr = buffResp;
+                    dataBuff.FirstSize = dataBuff.TotalSize;
+                    dataBuff.SecondAddr = NULL;
+                }
+            }
+            
+            progressResp += respSize;
+            totalRespSize += respSize;
+            if (progressResp >= BACKEND_RESPONSE_BUFFER_SIZE) {
+                progressResp %= BACKEND_RESPONSE_BUFFER_SIZE;
+            }
+
+            WriteHandler(curReqObj, resp, dataBuff);
         }
     }
+
+    //
+    // Update response buffer tail
+    //
+    //
+    if (totalRespSize >= respRingCapacity) {
+        //
+        // If this happens, increase response buffer size
+        // TODO: a mechanism that holds the execution of requests
+        //       until responses are drained and enough space is available
+        //
+        //
+        fprintf(stderr, "%s [error]: Response buffer is corrupted!\n", __func__);
+        exit(-1);
+    }
+    BuffConn->ResponseRing.Tail = progressResp;
 }
 
 //
@@ -1975,10 +2057,11 @@ ProcessBuffCqEvents(
                             }
 
                             //
-                            // Post a DMA read
+                            // Post a DMA read, by making DPU buffer a mirror of the host buffer
                             //
                             //
                             buffConn->RequestDMAReadDataWr.wr.rdma.remote_addr = sourceBuffer1;
+                            buffConn->RequestDMAReadDataWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
                             buffConn->RequestDMAReadDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {
@@ -1990,7 +2073,7 @@ ProcessBuffCqEvents(
                                     ret = -1;
                                 }
 
-                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff + availBytes);
+                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff);
                                 buffConn->RequestDMAReadDataSplitWr.sg_list->length = progress;
                                 buffConn->RequestDMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
 

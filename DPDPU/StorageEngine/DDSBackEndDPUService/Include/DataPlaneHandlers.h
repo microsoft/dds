@@ -1,13 +1,24 @@
 #include "MsgType.h"
 
 //
+// Describe an object that might be split on the ring buffer
+//
+//
+typedef struct {
+    RingSizeT TotalSize;
+    RingSizeT FirstSize;
+    BufferT FirstAddr;
+    BufferT SecondAddr;
+} SplittableBuffer;
+
+//
 // Handler for a read request
 //
 //
 void ReadHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    BufferT DestBuffer
+    SplittableBuffer& DestBuffer
 );
 
 //
@@ -17,5 +28,5 @@ void ReadHandler(
 void WriteHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    BufferT SourceBuffer
+    SplittableBuffer& SourceBuffer
 );

@@ -192,12 +192,12 @@ typedef struct {
 #pragma warning (disable: 4804)
 #endif
 //
-// File requests and responses should be aligned with |FileIOSizeT|
-// This is also enforced once a request/response is inserted into the ring
+// Ring space is allocated at the |size of a request/response| + |header size|
+// The alignment is enforced once a request/response is inserted into the ring
 //
 //
-assert_static_msg_type(sizeof(BuffMsgF2BReqHeader) % sizeof(FileIOSizeT) == 0, 0);
-assert_static_msg_type(sizeof(BuffMsgB2FAckHeader) % sizeof(FileIOSizeT) == 0, 1);
+assert_static_msg_type(DDS_REQUEST_RING_BYTES % (sizeof(BuffMsgF2BReqHeader) + sizeof(FileIOSizeT)) == 0, 0);
+assert_static_msg_type(DDS_RESPONSE_RING_BYTES % (sizeof(BuffMsgB2FAckHeader) + sizeof(FileIOSizeT)) == 0, 1);
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #else

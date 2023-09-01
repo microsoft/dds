@@ -29,6 +29,7 @@ typedef uint16_t PollIdT;
 typedef uint32_t RingSizeT;
 typedef uint32_t RingSlotSizeT;
 typedef uint16_t RequestIdT;
+typedef uint8_t BoolT;
 
 //
 // Types of position in file
