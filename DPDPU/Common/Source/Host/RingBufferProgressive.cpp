@@ -224,9 +224,10 @@ InsertWriteFileRequest(
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + requestSize;
+    FileIOSizeT alignment = sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
 
-    if (requestBytes % sizeof(FileIOSizeT) != 0) {
-        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
+    if (requestBytes % alignment != 0) {
+        requestBytes += (alignment - (requestBytes % alignment));
     }
 
     if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
@@ -395,9 +396,10 @@ InsertWriteFileGatherRequest(
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + requestSize;
+    FileIOSizeT alignment = sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
 
-    if (requestBytes % sizeof(FileIOSizeT) != 0) {
-        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
+    if (requestBytes % alignment != 0) {
+        requestBytes += (alignment - (requestBytes % alignment));
     }
 
     if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
@@ -668,14 +670,10 @@ InsertReadRequest(
 
     //
     // Append request size to the beginning of the request
-    // Check alignment
+    // No need to check alignment
     //
     //
     FileIOSizeT requestBytes = sizeof(FileIOSizeT) + requestSize;
-
-    if (requestBytes % sizeof(FileIOSizeT) != 0) {
-        requestBytes += (sizeof(FileIOSizeT) - (requestBytes % sizeof(FileIOSizeT)));
-    }
 
     if (distance + requestBytes >= RING_BUFFER_REQUEST_MAXIMUM_TAIL_ADVANCEMENT) {
         return false;

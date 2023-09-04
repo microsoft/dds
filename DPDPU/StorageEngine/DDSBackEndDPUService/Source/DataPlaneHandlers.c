@@ -9,7 +9,7 @@
 void ReadHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    BufferT DestBuffer,
+    SplittableBuffer& DestBuffer,
     struct DPUStorage* Sto,
     void *arg
 ) {
@@ -35,7 +35,7 @@ void ReadHandler(
 void WriteHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    BufferT SourceBuffer,
+    SplittableBuffer& SourceBuffer,
     struct DPUStorage* Sto,
     void *arg
 ) {

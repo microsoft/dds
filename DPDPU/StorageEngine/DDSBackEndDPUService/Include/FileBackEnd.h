@@ -1,10 +1,10 @@
 #pragma once
 
-#include <inttypes.h>
-#include <stdlib.h>
-
-#include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
+#include <inttypes.h>
+#include <rdma/rdma_cma.h>
+#include <stdatomic.h>
+#include <stdlib.h>
 
 #include "MsgType.h"
 #include "Protocol.h"
@@ -138,13 +138,6 @@ struct BuffConnConfig {
     struct ibv_sge RequestDMAWriteMetaSgl;
     struct ibv_mr *RequestDMAWriteMetaMr;
     char* RequestDMAWriteMetaBuff;
-    
-    //
-    // Two pointers to bookkeep request execution
-    //
-    //
-    RingSizeT RequestHead;
-    RingSizeT RequestTail;
 
     //
     // Setup for data exchange for responses
@@ -166,13 +159,6 @@ struct BuffConnConfig {
     struct ibv_sge ResponseDMAWriteMetaSgl;
     struct ibv_mr *ResponseDMAWriteMetaMr;
     char* ResponseDMAWriteMetaBuff;
-
-    //
-    // Two pointers to bookkeep response usage
-    //
-    //
-    RingSizeT ResponseHead;
-    RingSizeT ResponseTail;
 
     //
     // Ring buffers
