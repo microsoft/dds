@@ -1414,6 +1414,7 @@ DDSFrontEnd::PollAdd(
     return DDS_ERROR_CODE_SUCCESS;
 }
 
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // Poll a completion event
 //
@@ -1484,5 +1485,51 @@ DDSFrontEnd::PollWait(
 
     return DDS_ERROR_CODE_SUCCESS;
 }
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Poll a completion event
+//
+//
+ErrorCodeT
+DDSFrontEnd::PollWait(
+    PollIdT PollId,
+    FileIOSizeT* BytesServiced,
+    ContextT* FileContext,
+    ContextT* IOContext,
+    size_t WaitTime,
+    bool* PollResult
+) {
+    std::chrono::time_point<std::chrono::system_clock> begin, cur;
+
+    PollT* poll = AllPolls[PollId];
+    RequestIdT reqId;
+    BufferT srcBuf;
+
+    ErrorCodeT result = BackEnd->GetResponse(
+        poll,
+        WaitTime,
+        BytesServiced,
+        &reqId,
+        &srcBuf
+    );
+
+    if (result == DDS_ERROR_CODE_SUCCESS) {
+        FileIOT* io = poll->OutstandingRequests[reqId];
+        *FileContext = AllFiles[io->FileId]->PollContext;
+        *IOContext = io->Context;
+        *PollResult = true;
+        io->IsAvailable.store(true);
+    }
+    else {
+        *PollResult = false;
+        *FileContext = nullptr;
+        *IOContext = nullptr;
+    }
+
+    return result;
+}
+#else
+#error "Unknown backend type"
+#endif
 
 }

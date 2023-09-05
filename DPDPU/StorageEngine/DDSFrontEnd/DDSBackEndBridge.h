@@ -229,6 +229,19 @@ public:
         FileIdT FileId,
         const char* NewFileName
     );
+
+    //
+    // Retrieve a response from the response ring
+    // 
+    //
+    ErrorCodeT
+    GetResponse(
+        PollT* Poll,
+        size_t WaitTime,
+        FileIOSizeT* BytesServiced,
+        RequestIdT* ReqId,
+        BufferT* SourceBuffer
+    );
 };
 
 }

@@ -4,6 +4,8 @@
 
 namespace DDS_FrontEnd {
 
+#if BACKEND_TYPE == BACKEND_TYPE_DPU
+
 DDSBackEndBridge::DDSBackEndBridge() {
     //
     // Record buffer capacity and back end address and port
@@ -821,5 +823,26 @@ DDSBackEndBridge::MoveFile(
     CtrlMsgB2FAckMoveFile* resp = (CtrlMsgB2FAckMoveFile*)(CtrlMsgBuf + sizeof(MsgHeader));
     return resp->Result;
 }
+
+//
+// Retrieve a response from the response ring
+// 
+//
+ErrorCodeT
+GetResponse(
+    PollT* Poll,
+    size_t WaitTime,
+    FileIOSizeT* BytesServiced,
+    RequestIdT* ReqId,
+    BufferT* SourceBuffer
+) {
+    //
+    // First, check if there is any incoming response
+    //
+    //
+
+}
+
+#endif
 
 }

@@ -320,6 +320,19 @@ DDSBackEndBridgeForLocalMemory::MoveFile(
     return BackEnd->MoveFile(FileId, NewFileName);
 }
 
+//
+// Retrieve a response
+// 
+//
+ErrorCodeT
+GetResponse(
+    PollT* Poll,
+    size_t WaitTime,
+    FileIOSizeT* BytesServiced,
+    RequestIdT* ReqId,
+    BufferT* SourceBuffer
+) { }
+
 #endif
 
 }
