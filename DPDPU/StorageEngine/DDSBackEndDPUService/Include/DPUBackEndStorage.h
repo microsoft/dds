@@ -84,6 +84,12 @@ ErrorCodeT ReadFromDiskSync(
     void *arg
 );
 
+ErrorCodeT ReadFromDiskSyncCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool success,
+    void *cb_arg
+);
+
 //
 // Write from disk synchronously
 //
@@ -95,6 +101,12 @@ ErrorCodeT WriteToDiskSync(
     FileIOSizeT Bytes,
     struct DPUStorage* Sto,
     void *arg
+);
+
+ErrorCodeT WriteToDiskSyncCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool success,
+    void *cb_arg
 );
 
 //

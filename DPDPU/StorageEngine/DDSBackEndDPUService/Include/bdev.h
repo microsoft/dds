@@ -1,13 +1,5 @@
 #pragma once
 
-#include "spdk/stdinc.h"
-#include "spdk/thread.h"
-#include "spdk/bdev.h"
-#include "spdk/env.h"
-#include "spdk/event.h"
-#include "spdk/log.h"
-#include "spdk/string.h"
-#include "spdk/bdev_zone.h"
 #include "DPUBackEnd.h"
 #include <stdint.h>
 //
@@ -25,7 +17,7 @@ struct hello_context_t {
 	struct spdk_bdev_io_wait_entry bdev_io_wait;
 };
 
-static char *G_BDEV_NAME = "Malloc0";
+// char *G_BDEV_NAME;
 
 typedef struct spdkContext {
 	struct spdk_bdev *bdev;
@@ -42,7 +34,7 @@ typedef struct spdkContext {
 // Dummy Callback function for read io completion.
 //
 //
-static void read_complete_dummy(
+void read_complete_dummy(
     struct spdk_bdev_io *bdev_io, 
     bool success, 
     void *cb_arg
@@ -54,7 +46,7 @@ static void read_complete_dummy(
 // when it is 0, it means we will use context->buff as buffer
 //
 //
-static int bdev_read(
+int bdev_read(
     void *arg,
     char* DstBuffer,
     uint64_t offset,
@@ -68,7 +60,7 @@ static int bdev_read(
 // Callback function for read io completion.
 //
 //
-static void write_complete(
+void write_complete(
     struct spdk_bdev_io *bdev_io, 
     bool success, 
     void *cb_arg
@@ -78,7 +70,7 @@ static void write_complete(
 // Bdev write function
 //
 //
-static int bdev_write(
+int bdev_write(
     void *arg,
     char* SrcBuffer,
     uint64_t offset,
@@ -94,8 +86,5 @@ static int bdev_write(
 //
 static struct hello_context_t* Init();
 
-static void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
-		    void *event_ctx)
-{
-	SPDK_NOTICELOG("Unsupported bdev event: type %d\n", type);
-}
+void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
+		    void *event_ctx);

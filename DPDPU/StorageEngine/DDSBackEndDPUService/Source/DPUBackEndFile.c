@@ -102,7 +102,7 @@ void SetNumAllocatedSegments(
     }
 }
 
-inline void AllocateSegment(
+void AllocateSegment(
     SegmentIdT NewSegment,
     struct DPUFile* File
 ){
@@ -110,7 +110,7 @@ inline void AllocateSegment(
     File->NumSegments++;
 }
 
-inline void DeallocateSegment(
+void DeallocateSegment(
     struct DPUFile* File
 ){
     File->NumSegments--;

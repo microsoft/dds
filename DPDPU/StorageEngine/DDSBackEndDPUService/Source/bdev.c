@@ -4,20 +4,6 @@
 static char *g_bdev_name = "Malloc0";
 
 /*
- * We'll use this struct to gather housekeeping hello_context to pass between
- * our events and callbacks.
- */
-struct hello_context_t {
-	struct spdk_bdev *bdev;
-	struct spdk_bdev_desc *bdev_desc;
-	struct spdk_io_channel *bdev_io_channel;
-	char *buff;
-	uint32_t buff_size;
-	char *bdev_name;
-	struct spdk_bdev_io_wait_entry bdev_io_wait;
-};
-
-/*
  * Usage function for printing parameters that are specific to this application
  */
 static void
@@ -45,8 +31,7 @@ hello_bdev_parse_arg(int ch, char *arg)
 /*
  * Callback function for read io completion.
  */
-static void
-read_complete_dummy(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
+void read_complete_dummy(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
 	spdkContextT *spdkContext = cb_arg;
 
@@ -64,7 +49,7 @@ read_complete_dummy(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 	spdk_app_stop(success ? 0 : -1);
 }
 
-static int bdev_read(
+int bdev_read(
     void *arg,
     char* DstBuffer,
     uint64_t offset,
@@ -111,8 +96,7 @@ static int bdev_read(
 /*
  * Callback function for write io completion.
  */
-static void
-write_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
+void write_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
 	struct hello_context_t *hello_context = cb_arg;
 
@@ -135,7 +119,7 @@ write_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 	//hello_read(hello_context);
 }
 
-static int bdev_write(
+int bdev_write(
     void *arg,
     char* SrcBuffer,
     uint64_t offset,
@@ -295,50 +279,8 @@ hello_start(void *arg1)
 	hello_write(hello_context);
 }
 
-static struct hello_context_t* Init(){
-
-}
-
-int
-main(int argc, char **argv)
+void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
+		    void *event_ctx)
 {
-	struct spdk_app_opts opts = {};
-	int rc = 0;
-	struct hello_context_t hello_context = {};
-
-	/* Set default values in opts structure. */
-	spdk_app_opts_init(&opts, sizeof(opts));
-	opts.name = "hello_bdev";
-
-	/*
-	 * Parse built-in SPDK command line parameters as well
-	 * as our custom one(s).
-	 */
-	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, hello_bdev_parse_arg,
-				      hello_bdev_usage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
-		exit(rc);
-	}
-	hello_context.bdev_name = g_bdev_name;
-
-	/*
-	 * spdk_app_start() will initialize the SPDK framework, call hello_start(),
-	 * and then block until spdk_app_stop() is called (or if an initialization
-	 * error occurs, spdk_app_start() will return with rc even without calling
-	 * hello_start().
-	 */
-	rc = spdk_app_start(&opts, hello_start, &hello_context);
-	if (rc) {
-		SPDK_ERRLOG("ERROR starting application\n");
-	}
-
-	/* At this point either spdk_app_stop() was called, or spdk_app_start()
-	 * failed because of internal error.
-	 */
-
-	/* When the app stops, free up memory that we allocated. */
-	spdk_dma_free(hello_context.buff);
-
-	/* Gracefully close out all of the SPDK subsystems. */
-	spdk_app_fini();
-	return rc;
+	SPDK_NOTICELOG("Unsupported bdev event: type %d\n", type);
 }

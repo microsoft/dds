@@ -85,14 +85,14 @@ ErrorCodeT DeleteFile(
     return result;
 }
 
-inline void Lock(
+void Lock(
     struct DPUDir* Dir
 ){
     pthread_mutex_lock(&Dir->ModificationMutex);
 }
 
 #pragma warning (disable:26110)
-inline void Unlock(
+void Unlock(
     struct DPUDir* Dir
 ){
     pthread_mutex_unlock(&Dir->ModificationMutex);

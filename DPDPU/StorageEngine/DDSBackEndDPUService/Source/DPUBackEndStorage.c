@@ -426,7 +426,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
 // Synchronize a directory to the disk
 //
 //
-inline ErrorCodeT SyncDirToDisk(
+ErrorCodeT SyncDirToDisk(
     struct DPUDir* Dir, 
     struct DPUStorage* Sto,
     void *arg
@@ -445,7 +445,7 @@ inline ErrorCodeT SyncDirToDisk(
 // Synchronize a file to the disk
 //
 //
-inline ErrorCodeT SyncFileToDisk(
+ErrorCodeT SyncFileToDisk(
     struct DPUFile* File,
     struct DPUStorage* Sto,
     void *arg
@@ -464,7 +464,7 @@ inline ErrorCodeT SyncFileToDisk(
 // Synchronize the first sector on the reserved segment
 //
 //
-inline ErrorCodeT SyncReservedInformationToDisk(
+ErrorCodeT SyncReservedInformationToDisk(
     struct DPUStorage* Sto,
     void *arg
 ){

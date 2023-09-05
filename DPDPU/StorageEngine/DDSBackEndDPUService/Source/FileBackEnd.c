@@ -2437,7 +2437,7 @@ CheckAndProcessIOCompletions(
 // `spdk_app_start` itself will block until spdk_app_stop() is called, or an error occured during start
 //
 //
-int RunFileBackEnd(
+void RunFileBackEnd(
     void *args
 ) {
     struct runFileBackEndArgs *thisArgs = (struct runFileBackEndArgs *) args;
@@ -2468,6 +2468,7 @@ int RunFileBackEnd(
     //
     //
     spdkContextT *spdkContext = malloc(sizeof(spdkContextT));
+    char* G_BDEV_NAME = "Malloc0";
     spdkContext->bdev_name = G_BDEV_NAME;
 
     SPDK_NOTICELOG("Successfully started the application\n");
@@ -2501,7 +2502,7 @@ int RunFileBackEnd(
     ErrorCodeT result = Initialize(Sto, spdkContext);
     if (result != DDS_ERROR_CODE_SUCCESS){
         fprintf(stderr, "InitStorage failed with %d\n", result);
-        return result;
+        return;
     }
 
     //
@@ -2511,7 +2512,7 @@ int RunFileBackEnd(
     ret = InitDMA(&config.DMAConf, config.ServerIp, config.ServerPort);
     if (ret) {
         fprintf(stderr, "InitDMA failed with %d\n", ret);
-        return ret;
+        return;
     }
 
     //
@@ -2522,7 +2523,7 @@ int RunFileBackEnd(
     if (ret) {
         fprintf(stderr, "AllocConns failed with %d\n", ret);
         TermDMA(&config.DMAConf);
-        return ret;
+        return;
     }
 
     //
@@ -2533,7 +2534,7 @@ int RunFileBackEnd(
     if (ret) {
         ret = errno;
         fprintf(stderr, "rdma_listen error %d\n", ret);
-        return ret;
+        return;
     }
 
     signal(SIGINT, SignalHandler);
@@ -2602,10 +2603,10 @@ int RunFileBackEnd(
     DeallocConns(&config);
     TermDMA(&config.DMAConf);
 
-    spdk_app_stop(ret);
+    spdk_app_fini();
     printf("spdk_app_stop returned with: %d\n", ret);
 
-    return ret;
+    return;
 }
 
 //
