@@ -92,6 +92,12 @@ struct ResponseRingBufferBackEnd{
     uint32_t WriteMetaSize;
     uint64_t DataBaseAddr;
     int Tail;
+
+    //
+    // Head points to reserved but incomplete responses
+    //
+    //
+    int AggressiveTail;
 };
 
 //

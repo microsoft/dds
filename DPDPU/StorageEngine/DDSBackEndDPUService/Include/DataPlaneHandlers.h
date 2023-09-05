@@ -18,9 +18,7 @@ typedef struct {
 void ReadHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer& DestBuffer,
-    struct DPUStorage* Sto,
-    void *arg
+    SplittableBuffer* DestBuffer
 );
 
 //
@@ -30,7 +28,5 @@ void ReadHandler(
 void WriteHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer& SourceBuffer,
-    struct DPUStorage* Sto,
-    void *arg
+    SplittableBuffer* SourceBuffer
 );

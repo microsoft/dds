@@ -9,9 +9,7 @@
 void ReadHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer& DestBuffer,
-    struct DPUStorage* Sto,
-    void *arg
+    SplittableBuffer* DestBuffer
 ) {
     printf("Executing a read request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
 
@@ -35,9 +33,7 @@ void ReadHandler(
 void WriteHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer& SourceBuffer,
-    struct DPUStorage* Sto,
-    void *arg
+    SplittableBuffer* SourceBuffer
 ) {
     printf("Executing a write request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
 
