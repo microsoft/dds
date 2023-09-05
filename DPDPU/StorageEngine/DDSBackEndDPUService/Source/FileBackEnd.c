@@ -1904,7 +1904,7 @@ ExecuteRequests(
                 dataBuff.SecondAddr = NULL;
                 progressReq += dataBuff.TotalSize;
             }
-            WriteHandler(curReqObj, resp, dataBuff);
+            WriteHandler(curReqObj, resp, &dataBuff);
         }
         else {
             //
@@ -1957,7 +1957,7 @@ ExecuteRequests(
                 progressResp %= BACKEND_RESPONSE_BUFFER_SIZE;
             }
 
-            ReadHandler(curReqObj, resp, dataBuff);
+            ReadHandler(curReqObj, resp, &dataBuff);
         }
     }
 
@@ -2143,7 +2143,7 @@ ProcessBuffCqEvents(
                         }
                     }
                         break;
-                    case BUFF_READ_RESPONSE_META_WR_ID {
+		    case BUFF_READ_RESPONSE_META_WR_ID: {
                         //
                         // Process a response meta read
                         //
@@ -2179,7 +2179,7 @@ ProcessBuffCqEvents(
                             // Not ready to write, poll again
                             //
                             //
-                            ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaMr, &badSendWr);
+                            ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                 ret = -1;
@@ -2191,9 +2191,7 @@ ProcessBuffCqEvents(
                             // Ready to write
                             //
                             //
-                            FileIOSizeT responseBytes = 0;
                             FileIOSizeT totalResponseBytes = 0;
-                            FileIOSizeT nextBytes = 0;
                             RingSizeT availBytes = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
