@@ -183,12 +183,14 @@ struct BackEndConfig {
 };
 
 //
-// The entry point for the back end
+// The entry point for the back end,
+// but SPDK requires all the parameters be in just one struct, like the following
 //
 //
-int RunFileBackEnd(
+/* int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
     const uint32_t MaxBuffs
-);
+); */
+int RunFileBackEnd(void *args);

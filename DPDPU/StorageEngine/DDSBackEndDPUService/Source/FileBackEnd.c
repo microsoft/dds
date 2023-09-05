@@ -2399,6 +2399,7 @@ int main(int argc, char **argv) {
 	 */
 	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, dds_parse_arg,
 				      dds_custom_args_usage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
+        printf("spdk_app_parse_args() failed with: %d\n", rc);
 		exit(rc);
 	}
     /* int ret = RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32); */
@@ -2410,6 +2411,6 @@ int main(int argc, char **argv) {
         .MaxBuffs = 32
     };
     
-    rc = (&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
+    rc = spdk_app_start(&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
     printf("spdk_app_start returned with: %d\n", rc);
 }
