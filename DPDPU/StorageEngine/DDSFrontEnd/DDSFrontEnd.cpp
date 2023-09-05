@@ -195,7 +195,7 @@ DDSFrontEnd::Initialize() {
             return DDS_ERROR_CODE_OOM;
         }
 
-        poll->OutstandingRequests[i]->RequestId = i;
+        poll->OutstandingRequests[i]->RequestId = (RequestIdT)i;
     }
     poll->NextRequestSlot = 0;
     AllPolls[DDS_POLL_DEFAULT] = poll;
@@ -654,12 +654,10 @@ DDSFrontEnd::ReadFile(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
-    pIO->IsRead = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->BytesDesired = BytesToRead;
-    pIO->BytesServiced = 0;
     pIO->AppBuffer = DestBuffer;
     pIO->AppBufferArray = nullptr;
     pIO->AppCallback = Callback;
@@ -790,12 +788,10 @@ DDSFrontEnd::ReadFileScatter(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
-    pIO->IsRead = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->BytesDesired = BytesToRead;
-    pIO->BytesServiced = 0;
     pIO->AppBuffer = nullptr;
     pIO->AppBufferArray = DestBufferArray;
     pIO->AppCallback = Callback;
@@ -927,12 +923,10 @@ DDSFrontEnd::WriteFile(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
-    pIO->IsRead = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->BytesDesired = BytesToWrite;
-    pIO->BytesServiced = 0;
     pIO->AppBuffer = nullptr;
     pIO->AppBufferArray = nullptr;
     pIO->AppCallback = Callback;
@@ -1070,12 +1064,10 @@ DDSFrontEnd::WriteFileGather(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
-    pIO->IsRead = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
     pIO->BytesDesired = BytesToWrite;
-    pIO->BytesServiced = 0;
     pIO->AppBuffer = nullptr;
     pIO->AppBufferArray = nullptr;
     pIO->AppCallback = Callback;
