@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "dpubackend.h": "c"
+        "dpubackend.h": "c",
+        "dataplanehandlers.h": "c"
     }
 }

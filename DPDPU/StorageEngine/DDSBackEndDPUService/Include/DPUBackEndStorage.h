@@ -303,7 +303,7 @@ ErrorCodeT WriteFile(
 //
 ErrorCodeT GetFileInformationById(
     FileIdT FileId,
-    FilePropertiesT* FileProperties,
+    DDSFilePropertiesT* FileProperties,
     struct DPUStorage* Sto
 );
 

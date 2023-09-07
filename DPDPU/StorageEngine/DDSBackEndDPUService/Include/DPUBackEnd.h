@@ -10,6 +10,7 @@
 #include "spdk/log.h"
 #include "spdk/string.h"
 #include "spdk/bdev_zone.h"
+// #include "../../../Common/Include/DDSTypes.h"
 
 #define DDS_MAX_DIRS 1000
 #define DDS_MAX_FILE_PATH 64
@@ -71,11 +72,11 @@ typedef unsigned int FileNumberT;
 // File Properties, same with FileProperties in DDSBackEnd.h
 //
 //
-typedef struct FileProperties {
+typedef struct DDSFileProperties {
     FileAttributesT FileAttributes;
     FileSizeT FileSize;
     char FileName[DDS_MAX_FILE_PATH];
-} FilePropertiesT;
+} DDSFilePropertiesT;
 
 //
 // DPU segment, same with Segement in DDSBackEnd.h
