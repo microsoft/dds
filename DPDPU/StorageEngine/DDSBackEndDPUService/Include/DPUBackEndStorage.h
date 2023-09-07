@@ -121,7 +121,8 @@ ErrorCodeT ReadFromDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    int position
 );
 
 //
@@ -136,7 +137,8 @@ ErrorCodeT WriteToDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    int position
 );
 
 //

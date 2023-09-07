@@ -56,15 +56,18 @@ int bdev_read(
     uint64_t nbytes,
 	spdk_bdev_io_completion_cb cb,
 	void *cb_arg,
-    bool zeroCopy
+    bool zeroCopy,
+	int position
 ){
 	spdkContextT *spdkContext = arg;
 	int rc = 0; 
-
-	// we'll need to actually allocate spdk buffer here if not zero copy
-	spdkContext->buff_size = nbytes;
-	spdkContext->buff = spdk_dma_zmalloc(nbytes, 0, NULL);  // TODO: will need to free it somewhere. Where?
-    char* buffer = zeroCopy ? DstBuffer: spdkContext->buff;
+	char* buffer;
+	if (zeroCopy){
+		buffer = DstBuffer;
+	}
+	else{
+		buffer = spdkContext->buff[position * ONE_MB];
+	}
 
 	SPDK_NOTICELOG("Reading io\n");
 	rc = spdk_bdev_read(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
@@ -126,11 +129,18 @@ int bdev_write(
     uint64_t nbytes,
 	spdk_bdev_io_completion_cb cb,
 	void *cb_arg,
-    bool zeroCopy
+    bool zeroCopy,
+	int position
 ){
 	spdkContextT *spdkContext = arg;
 	int rc = 0;
-    char* buffer = zeroCopy? SrcBuffer: spdkContext->buff;
+    char* buffer;
+	if (zeroCopy){
+		buffer = SrcBuffer;
+	}
+	else{
+		buffer = spdkContext->buff[position * ONE_MB];
+	}
 
 	SPDK_NOTICELOG("Writing to the bdev\n");
 	rc = spdk_bdev_write(spdkContext->bdev_desc, spdkContext->bdev_io_channel,

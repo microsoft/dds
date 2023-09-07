@@ -44,6 +44,9 @@ void read_complete_dummy(
 // Bdev read function, zeroCopy is used to provide different buffer
 // when it is 1, it means we will use DstBuffer in spdk_bdev_read()
 // when it is 0, it means we will use context->buff as buffer
+// position is used for async only and should belongs [0, 
+// DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT). Sync read should
+// set position = 0
 //
 //
 int bdev_read(
@@ -53,7 +56,8 @@ int bdev_read(
     uint64_t nbytes,
     spdk_bdev_io_completion_cb cb,
 	void *cb_arg,
-    bool zeroCopy
+    bool zeroCopy,
+    int position
 );
 
 //
@@ -68,6 +72,10 @@ void write_complete(
 
 //
 // Bdev write function
+// position is used for async only and should between belongs
+// [DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT and 
+// 2*DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT). Sync write should
+// set position = DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT
 //
 //
 int bdev_write(
@@ -77,7 +85,8 @@ int bdev_write(
     uint64_t nbytes,
     spdk_bdev_io_completion_cb cb,
 	void *cb_arg,
-    bool zeroCopy
+    bool zeroCopy,
+    int position
 );
 
 //

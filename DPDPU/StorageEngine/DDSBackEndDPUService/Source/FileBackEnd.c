@@ -2493,6 +2493,21 @@ void RunFileBackEnd(
 	}
 
     // TODO: maybe spdk malloc buffer here? See bdev.c sample
+
+    /* Allocate memory for the write buffer.
+	 * Initialize the write buffer with the string "Hello World!"
+	 */
+	spdkContext->buff_size = 2* ONE_GB;
+	uint32_t buf_align = spdk_bdev_get_buf_align(spdkContext->bdev);
+	spdkContext->buff = spdk_dma_zmalloc(spdkContext->buff_size, buf_align, NULL);
+	if (!spdkContext->buff) {
+		SPDK_ERRLOG("Failed to allocate buffer\n");
+		spdk_put_io_channel(spdkContext->bdev_io_channel);
+		spdk_bdev_close(spdkContext->bdev_desc);
+		spdk_app_stop(-1);
+		return;
+	}
+	
     
     //
     // Initialize Storage

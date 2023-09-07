@@ -83,7 +83,7 @@ ErrorCodeT ReadFromDiskSync(
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
     int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
-        ReadFromDiskSyncCallback, &completionStatus, false);
+        ReadFromDiskSyncCallback, &completionStatus, 0, 0);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     if (rc)
@@ -132,7 +132,8 @@ ErrorCodeT WriteToDiskSync(
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
-    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, WriteToDiskSyncCallback, &completionStatus, 0);
+    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+    WriteToDiskSyncCallback, &completionStatus, 0, DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     if (rc)
@@ -181,10 +182,11 @@ ErrorCodeT ReadFromDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    int position
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0);
+    int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0, position);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     //Callback(true, Context);
@@ -210,10 +212,12 @@ ErrorCodeT WriteToDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,  // this should be the callback arg
     struct DPUStorage* Sto,
-    void *arg  // this should be the spdkContext
+    void *arg,  // this should be the spdkContext
+    int position
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, false);
+    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+    Callback, Context, 0, position+ DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     //Callback(true, Context);
@@ -560,7 +564,8 @@ ErrorCodeT Initialize(
                     IncrementProgressCallback,
                     &Sto->CurrentProgress,
                     Sto,
-                    arg
+                    arg,
+                    q
                 );
 
                 if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -595,7 +600,8 @@ ErrorCodeT Initialize(
                 IncrementProgressCallback,
                 &Sto->CurrentProgress,
                 Sto,
-                arg
+                arg,
+                q
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1040,7 +1046,8 @@ ErrorCodeT ReadFile(
             Callback,
             Context,
             Sto,
-            arg
+            arg,
+            0
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
