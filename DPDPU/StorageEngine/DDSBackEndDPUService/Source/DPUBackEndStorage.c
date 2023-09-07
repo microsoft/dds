@@ -217,7 +217,7 @@ ErrorCodeT WriteToDiskAsync(
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
-    Callback, Context, 0, position+ DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT);
+    Callback, Context, 0, position);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     //Callback(true, Context);
@@ -565,7 +565,7 @@ ErrorCodeT Initialize(
                     &Sto->CurrentProgress,
                     Sto,
                     arg,
-                    q
+                    q * ONE_MB
                 );
 
                 if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -601,7 +601,7 @@ ErrorCodeT Initialize(
                 &Sto->CurrentProgress,
                 Sto,
                 arg,
-                q
+                q * DDS_BACKEND_PAGE_SIZE
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1047,7 +1047,7 @@ ErrorCodeT ReadFile(
             Context,
             Sto,
             arg,
-            0
+            curOffset - Offset
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1165,7 +1165,8 @@ ErrorCodeT WriteFile(
             Callback,
             Context,
             Sto,
-            arg
+            arg,
+            curOffset - Offset
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {

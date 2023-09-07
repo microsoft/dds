@@ -66,7 +66,7 @@ int bdev_read(
 		buffer = DstBuffer;
 	}
 	else{
-		buffer = spdkContext->buff[position * ONE_MB];
+		buffer = spdkContext->buff[position];
 	}
 
 	SPDK_NOTICELOG("Reading io\n");
@@ -139,7 +139,7 @@ int bdev_write(
 		buffer = SrcBuffer;
 	}
 	else{
-		buffer = spdkContext->buff[position * ONE_MB];
+		buffer = spdkContext->buff[position + ONE_GB];
 	}
 
 	SPDK_NOTICELOG("Writing to the bdev\n");
