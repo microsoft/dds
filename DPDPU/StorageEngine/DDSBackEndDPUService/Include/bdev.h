@@ -19,16 +19,16 @@ struct hello_context_t {
 
 // char *G_BDEV_NAME;
 
-typedef struct spdkContext {
+typedef struct SPDKContext {
 	struct spdk_bdev *bdev;
 	struct spdk_bdev_desc *bdev_desc;
-	struct spdk_io_channel *bdev_io_channel;
+	struct spdk_io_channel *bdev_io_channel;  // channel would be per thread unique, meaning this whole context should also be
 	char *buff;
 	uint32_t buff_size;
 	char *bdev_name;
 	struct spdk_bdev_io_wait_entry bdev_io_wait;
     void *cookie;  // just in case, a completion cookie that could be anything
-} spdkContextT;
+} SPDKContextT;
 
 //
 // Dummy Callback function for read io completion.

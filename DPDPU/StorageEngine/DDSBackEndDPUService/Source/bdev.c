@@ -1,39 +1,12 @@
 #include "../Include/bdev.h"
 
 
-static char *g_bdev_name = "Malloc0";
-
-/*
- * Usage function for printing parameters that are specific to this application
- */
-static void
-hello_bdev_usage(void)
-{
-	printf(" -b <bdev>                 name of the bdev to use\n");
-}
-
-/*
- * This function is called to parse the parameters that are specific to this application
- */
-static int
-hello_bdev_parse_arg(int ch, char *arg)
-{
-	switch (ch) {
-	case 'b':
-		g_bdev_name = arg;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
 /*
  * Callback function for read io completion.
  */
 void read_complete_dummy(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
-	spdkContextT *spdkContext = cb_arg;
+	SPDKContextT *spdkContext = cb_arg;
 
 	if (success) {
 		SPDK_NOTICELOG("Read string from bdev : %s\n", spdkContext->buff);
@@ -59,7 +32,7 @@ int bdev_read(
     bool zeroCopy,
 	int position
 ){
-	spdkContextT *spdkContext = arg;
+	SPDKContextT *spdkContext = arg;
 	int rc = 0; 
 	char* buffer;
 	if (zeroCopy){
@@ -132,7 +105,7 @@ int bdev_write(
     bool zeroCopy,
 	int position
 ){
-	spdkContextT *spdkContext = arg;
+	SPDKContextT *spdkContext = arg;
 	int rc = 0;
     char* buffer;
 	if (zeroCopy){
@@ -218,75 +191,6 @@ hello_reset_zone(void *arg)
 		spdk_bdev_close(hello_context->bdev_desc);
 		spdk_app_stop(-1);
 	}
-}
-
-/*
- * Our initial event that kicks off everything from main().
- */
-static void
-hello_start(void *arg1)
-{
-	struct hello_context_t *hello_context = arg1;
-	uint32_t buf_align;
-	int rc = 0;
-	hello_context->bdev = NULL;
-	hello_context->bdev_desc = NULL;
-
-	SPDK_NOTICELOG("Successfully started the application\n");
-
-	/*
-	 * There can be many bdevs configured, but this application will only use
-	 * the one input by the user at runtime.
-	 *
-	 * Open the bdev by calling spdk_bdev_open_ext() with its name.
-	 * The function will return a descriptor
-	 */
-	SPDK_NOTICELOG("Opening the bdev %s\n", hello_context->bdev_name);
-	rc = spdk_bdev_open_ext(hello_context->bdev_name, true, hello_bdev_event_cb, NULL,
-				&hello_context->bdev_desc);
-	if (rc) {
-		SPDK_ERRLOG("Could not open bdev: %s\n", hello_context->bdev_name);
-		spdk_app_stop(-1);
-		return;
-	}
-
-	/* A bdev pointer is valid while the bdev is opened. */
-	hello_context->bdev = spdk_bdev_desc_get_bdev(hello_context->bdev_desc);
-
-
-	SPDK_NOTICELOG("Opening io channel\n");
-	/* Open I/O channel */
-	hello_context->bdev_io_channel = spdk_bdev_get_io_channel(hello_context->bdev_desc);
-	if (hello_context->bdev_io_channel == NULL) {
-		SPDK_ERRLOG("Could not create bdev I/O channel!!\n");
-		spdk_bdev_close(hello_context->bdev_desc);
-		spdk_app_stop(-1);
-		return;
-	}
-
-	/* Allocate memory for the write buffer.
-	 * Initialize the write buffer with the string "Hello World!"
-	 */
-	hello_context->buff_size = spdk_bdev_get_block_size(hello_context->bdev) *
-				   spdk_bdev_get_write_unit_size(hello_context->bdev);
-	buf_align = spdk_bdev_get_buf_align(hello_context->bdev);
-	hello_context->buff = spdk_dma_zmalloc(hello_context->buff_size, buf_align, NULL);
-	if (!hello_context->buff) {
-		SPDK_ERRLOG("Failed to allocate buffer\n");
-		spdk_put_io_channel(hello_context->bdev_io_channel);
-		spdk_bdev_close(hello_context->bdev_desc);
-		spdk_app_stop(-1);
-		return;
-	}
-	snprintf(hello_context->buff, hello_context->buff_size, "%s", "Hello World!\n");
-
-	if (spdk_bdev_is_zoned(hello_context->bdev)) {
-		hello_reset_zone(hello_context);
-		/* If bdev is zoned, the callback, reset_zone_complete, will call hello_write() */
-		return;
-	}
-
-	hello_write(hello_context);
 }
 
 void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
