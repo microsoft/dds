@@ -24,6 +24,7 @@ typedef struct BackEndIOContext {
     atomic_bool IsAvailable;
     ErrorCodeT ErrorCode;
     bool IsRead;
+    void *Result;  // TODO: put the response result here? which is being mutated in the callback
 } BackEndIOContextT;
 
 //
@@ -58,6 +59,12 @@ typedef struct DPUStorage {
     atomic_size_t TargetProgress;
     atomic_size_t CurrentProgress;
 };
+
+//
+// DPU Storage var should be a global singleton
+//
+//
+extern struct DPUStorage *Sto;
 
 struct DPUStorage* BackEndStorage();
 
@@ -281,7 +288,7 @@ ErrorCodeT ReadFile(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext
 );
 
 //
@@ -296,7 +303,7 @@ ErrorCodeT WriteFile(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext
 );
 
 //

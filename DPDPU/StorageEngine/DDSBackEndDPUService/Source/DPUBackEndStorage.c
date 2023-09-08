@@ -110,11 +110,13 @@ ErrorCodeT ReadFromDiskSyncCallback(
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
         printf("ReadFromDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        spdk_bdev_free_io(bdev_io);
     }
     else
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionFAILED;
         printf("ReadFromDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        spdk_bdev_free_io(bdev_io);
     }
 }
 
@@ -161,12 +163,14 @@ ErrorCodeT WriteToDiskSyncCallback(
     if (success)
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
-        printf("ReadFromDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        SPDK_NOTICELOG("ReadFromDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        spdk_bdev_free_io(bdev_io);
     }
     else
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionFAILED;
-        printf("ReadFromDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        SPDK_NOTICELOG("ReadFromDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        spdk_bdev_free_io(bdev_io);
     }
 }
 
@@ -182,11 +186,11 @@ ErrorCodeT ReadFromDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg,
+    void *SPDKContext,
     int position
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0, position);
+    int rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0, position);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     //Callback(true, Context);
@@ -212,11 +216,11 @@ ErrorCodeT WriteToDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,  // this should be the callback arg
     struct DPUStorage* Sto,
-    void *arg,  // this should be the spdkContext
+    void *SPDKContext,
     int position
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+    int rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
     Callback, Context, 0, position);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
@@ -499,10 +503,12 @@ ErrorCodeT SyncReservedInformationToDisk(
 //
 void
 IncrementProgressCallback(
+    struct spdk_bdev_io *bdev_io,
     bool Success,
     ContextT Context) {
     atomic_size_t* progress = (atomic_size_t*)Context;
     (*progress) += 1;
+    spdk_bdev_free_io(bdev_io);
 }
 
 //
@@ -1003,7 +1009,7 @@ ErrorCodeT ReadFile(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext
 ){
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
     struct DPUFile* file = Sto->AllFiles[FileId];
@@ -1046,7 +1052,7 @@ ErrorCodeT ReadFile(
             Callback,
             Context,
             Sto,
-            arg,
+            SPDKContext,
             curOffset - Offset
         );
 
@@ -1075,7 +1081,7 @@ ErrorCodeT WriteFile(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext
 ){
     struct DPUFile* file = Sto->AllFiles[FileId];
     FileSizeT newSize = Offset + BytesToWrite;
@@ -1165,7 +1171,7 @@ ErrorCodeT WriteFile(
             Callback,
             Context,
             Sto,
-            arg,
+            SPDKContext,
             curOffset - Offset
         );
 
