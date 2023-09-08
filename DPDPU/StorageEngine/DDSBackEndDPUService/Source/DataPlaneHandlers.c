@@ -19,19 +19,19 @@ void ReadHandler(
     //
     if (Req->Bytes > DestBuffer->FirstSize){
         ErrorCodeT Tmp;
-        Tmp = ReadFile(Req->FileId, Req->Offset, DestBuffer->FirstAddr, DestBuffer->FirstSize,?,?, Sto, arg);
+        Tmp = ReadFile(Req->FileId, Req->Offset, DestBuffer->FirstAddr, DestBuffer->FirstSize,?,?, NULL, NULL);
         if (Tmp != DDS_ERROR_CODE_SUCCESS){
             Resp->Result = Tmp;
             Resp->BytesServiced = 0;
         }
         else{
             RingSizeT SecondSize = DestBuffer->TotalSize - DestBuffer->FirstSize;
-            Resp->Result = ReadFile(Req->FileId, Req->Offset+DestBuffer->FirstSize, DestBuffer->SecondAddr, SecondSize,?,?, Sto, arg);
+            Resp->Result = ReadFile(Req->FileId, Req->Offset+DestBuffer->FirstSize, DestBuffer->SecondAddr, SecondSize,?,?, NULL, NULL);
             Resp->BytesServiced = Req->Bytes;
         }
     }
     else{
-        Resp->Result = ReadFile(Req->FileId, Req->Offset, DestBuffer->FirstAddr, Req->Bytes,?,?, Sto, arg);
+        Resp->Result = ReadFile(Req->FileId, Req->Offset, DestBuffer->FirstAddr, Req->Bytes,?,?, NULL, NULL);
          Resp->BytesServiced = Req->Bytes;
     }
     // We need callback and context to pass to ReadFile()
@@ -60,19 +60,19 @@ void WriteHandler(
     //
     if (Req->Bytes > SourceBuffer->FirstSize){
         ErrorCodeT Tmp;
-        Tmp = WriteFile(Req->FileId, Req->Offset, SourceBuffer->FirstAddr, SourceBuffer->FirstSize,?,?, Sto, arg);
+        Tmp = WriteFile(Req->FileId, Req->Offset, SourceBuffer->FirstAddr, SourceBuffer->FirstSize,?,?, NULL, NULL);
         if (Tmp != DDS_ERROR_CODE_SUCCESS){
             Resp->Result = Tmp;
             Resp->BytesServiced = 0;
         }
         else{
             RingSizeT SecondSize = SourceBuffer->TotalSize - SourceBuffer->FirstSize;
-            Resp->Result = WriteFile(Req->FileId, Req->Offset+SourceBuffer->FirstSize, SourceBuffer->SecondAddr, SecondSize,?,?, Sto, arg);
+            Resp->Result = WriteFile(Req->FileId, Req->Offset+SourceBuffer->FirstSize, SourceBuffer->SecondAddr, SecondSize,?,?, NULL, NULL);
             Resp->BytesServiced = Req->Bytes;
         }
     }
     else{
-        Resp->Result = WriteFile(Req->FileId, Req->Offset, SourceBuffer->FirstAddr, Req->Bytes,?,?, Sto, arg);
+        Resp->Result = WriteFile(Req->FileId, Req->Offset, SourceBuffer->FirstAddr, Req->Bytes,?,?, NULL, NULL);
          Resp->BytesServiced = Req->Bytes;
     }
 

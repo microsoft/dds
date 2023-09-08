@@ -7,9 +7,7 @@
 //
 void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
-    CtrlMsgB2FAckCreateDirectory *Resp,
-    struct DPUStorage* Sto,
-    void *arg
+    CtrlMsgB2FAckCreateDirectory *Resp
 );
 
 //
@@ -18,9 +16,7 @@ void CreateDirectoryHandler(
 //
 void RemoveDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
-    CtrlMsgB2FAckRemoveDirectory *Resp,
-    struct DPUStorage* Sto,
-    void *arg
+    CtrlMsgB2FAckRemoveDirectory *Resp
 );
 
 //
@@ -29,20 +25,15 @@ void RemoveDirectoryHandler(
 //
 void CreateFileHandler(
     CtrlMsgF2BReqCreateFile *Req,
-    CtrlMsgB2FAckCreateFile *Resp,
-    struct DPUStorage* Sto,
-    void *arg
+    CtrlMsgB2FAckCreateFile *Resp
 );
-
 //
 // Handler for a DeleteFile request
 //
 //
 void DeleteFileHandler(
     CtrlMsgF2BReqDeleteFile *Req,
-    CtrlMsgB2FAckDeleteFile *Resp,
-    struct DPUStorage* Sto,
-    void *arg
+    CtrlMsgB2FAckDeleteFile *Resp
 );
 
 //
@@ -51,8 +42,7 @@ void DeleteFileHandler(
 //
 void ChangeFileSizeHandler(
     CtrlMsgF2BReqChangeFileSize *Req,
-    CtrlMsgB2FAckChangeFileSize *Resp,
-    struct DPUStorage* Sto
+    CtrlMsgB2FAckChangeFileSize *Resp
 );
 
 //
@@ -61,8 +51,7 @@ void ChangeFileSizeHandler(
 //
 void GetFileSizeHandler(
     CtrlMsgF2BReqGetFileSize *Req,
-    CtrlMsgB2FAckGetFileSize *Resp,
-    struct DPUStorage* Sto
+    CtrlMsgB2FAckGetFileSize *Resp
 );
 
 //
@@ -71,8 +60,7 @@ void GetFileSizeHandler(
 //
 void GetFileInformationByIdHandler(
     CtrlMsgF2BReqGetFileInfo *Req,
-    CtrlMsgB2FAckGetFileInfo *Resp,
-    struct DPUStorage* Sto
+    CtrlMsgB2FAckGetFileInfo *Resp
 );
 
 //
@@ -81,8 +69,7 @@ void GetFileInformationByIdHandler(
 //
 void GetFileAttributesHandler(
     CtrlMsgF2BReqGetFileAttr *Req,
-    CtrlMsgB2FAckGetFileAttr *Resp,
-    struct DPUStorage* Sto
+    CtrlMsgB2FAckGetFileAttr *Resp
 );
 
 //
@@ -91,8 +78,7 @@ void GetFileAttributesHandler(
 //
 void GetStorageFreeSpaceHandler(
     CtrlMsgF2BReqGetFreeSpace *Req,
-    CtrlMsgB2FAckGetFreeSpace *Resp,
-    struct DPUStorage* Sto
+    CtrlMsgB2FAckGetFreeSpace *Resp
 );
 
 //
@@ -101,7 +87,5 @@ void GetStorageFreeSpaceHandler(
 //
 void MoveFileHandler(
     CtrlMsgF2BReqMoveFile *Req,
-    CtrlMsgB2FAckMoveFile *Resp,
-    struct DPUStorage* Sto,
-    void *arg
+    CtrlMsgB2FAckMoveFile *Resp
 );
