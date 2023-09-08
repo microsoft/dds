@@ -35,8 +35,8 @@ void TestBackEnd(
     // Initialize SPDK stuff
     //
     //
-    spdkContextT *spdkContext = malloc(sizeof(spdkContextT));
-    char *BDEV_NAME = "TestMalloc0";
+    SPDKContextT *spdkContext = malloc(sizeof(SPDKContextT));
+    char *BDEV_NAME = "Malloc0";
     spdkContext->bdev_name = BDEV_NAME;
 
     SPDK_NOTICELOG("Successfully started the application\n");
@@ -62,7 +62,12 @@ void TestBackEnd(
 
     struct DPUStorage* Sto = BackEndStorage();
     printf("Sto->AvailableSegments: %d, Sto->TotalSegments: %d\n", Sto->AvailableSegments, Sto->TotalSegments);
-    spdk_app_fini();
+
+    // cleanup before spdk_app_stop(), otherwise it will error out
+    printf("cleaning up before app_stop...\n");
+    spdk_put_io_channel(spdkContext->bdev_io_channel);
+    spdk_bdev_close(spdkContext->bdev_desc);
+    spdk_app_stop(0);
 }
 
 int main(int argc, char **argv) {
@@ -91,4 +96,5 @@ int main(int argc, char **argv) {
     
     rc = spdk_app_start(&opts, TestBackEnd, &args);  // block until `spdk_app_stop` is called
     printf("spdk_app_start returned with: %d\n", rc);
+    spdk_app_fini();
 }
