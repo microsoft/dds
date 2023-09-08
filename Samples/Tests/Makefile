@@ -1,6 +1,6 @@
 CC=gcc
 
-SPDK_DIR=/home/jason/spdk
+SPDK_DIR=/spdk
 SPDK_HEADER_DIR=$(SPDK_DIR)/include
 SPDK_LIB_DIR=$(SPDK_DIR)/build/lib
 DPDK_LIB_DIR=$(SPDK_DIR)/dpdk/build/lib
