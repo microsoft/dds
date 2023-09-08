@@ -52,17 +52,17 @@ enum FilePointerPosition {
 //
 //
 typedef struct FileProperties {
-  FileAttributesT FileAttributes = 0;
-  time_t CreationTime = 0;
-  time_t LastAccessTime = 0;
-  time_t LastWriteTime = 0;
-  FileSizeT FileSize = 0;
-  FileAccessT Access = 0;
+  FileAttributesT FileAttributes;
+  time_t CreationTime;
+  time_t LastAccessTime;
+  time_t LastWriteTime;
+  FileSizeT FileSize ;
+  FileAccessT Access;
 #ifdef __GNUC__
-  _Atomic PositionInFileT Position = 0;
+  _Atomic PositionInFileT Position;
 #elif defined (_MSC_VER)
   Atomic<PositionInFileT> Position = 0;
 #endif
-  FileShareModeT ShareMode = 0;
+  FileShareModeT ShareMode;
   char FileName[DDS_MAX_FILE_PATH];
 } FilePropertiesT;
