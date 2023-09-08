@@ -26,6 +26,8 @@
 
 static volatile int ForceQuitFileBackEnd = 0;
 
+struct DPUStorage *Sto;
+
 //
 // Set a CM channel to be non-blocking
 //
@@ -2467,27 +2469,27 @@ void RunFileBackEnd(
     // Initialize SPDK stuff
     //
     //
-    spdkContextT *spdkContext = malloc(sizeof(spdkContextT));
+    SPDKContextT *SPDKContext = malloc(sizeof(SPDKContextT));
     char* G_BDEV_NAME = "Malloc0";
-    spdkContext->bdev_name = G_BDEV_NAME;
+    SPDKContext->bdev_name = G_BDEV_NAME;
 
     SPDK_NOTICELOG("Successfully started the application\n");
-    ret = spdk_bdev_open_ext(spdkContext->bdev_name, true, dds_bdev_event_cb, NULL,
-				spdkContext->bdev_desc);
+    ret = spdk_bdev_open_ext(SPDKContext->bdev_name, true, dds_bdev_event_cb, NULL,
+				SPDKContext->bdev_desc);
 	if (ret) {
-		SPDK_ERRLOG("Could not open bdev: %s\n", spdkContext->bdev_name);
+		SPDK_ERRLOG("Could not open bdev: %s\n", SPDKContext->bdev_name);
 		spdk_app_stop(-1);
 		return;
 	}
 
     /* A bdev pointer is valid while the bdev is opened. */
-	spdkContext->bdev = spdk_bdev_desc_get_bdev(spdkContext->bdev_desc);
+	SPDKContext->bdev = spdk_bdev_desc_get_bdev(SPDKContext->bdev_desc);
     SPDK_NOTICELOG("Opening io channel\n");
 	/* Open I/O channel */
-	spdkContext->bdev_io_channel = spdk_bdev_get_io_channel(spdkContext->bdev_desc);
-	if (spdkContext->bdev_io_channel == NULL) {
+	SPDKContext->bdev_io_channel = spdk_bdev_get_io_channel(SPDKContext->bdev_desc);
+	if (SPDKContext->bdev_io_channel == NULL) {
 		SPDK_ERRLOG("Could not create bdev I/O channel!!\n");
-		spdk_bdev_close(spdkContext->bdev_desc);
+		spdk_bdev_close(SPDKContext->bdev_desc);
 		spdk_app_stop(-1);
 		return;
 	}
@@ -2497,24 +2499,24 @@ void RunFileBackEnd(
     /* Allocate memory for the write buffer.
 	 * Initialize the write buffer with the string "Hello World!"
 	 */
-	spdkContext->buff_size = 2* ONE_GB;
-	uint32_t buf_align = spdk_bdev_get_buf_align(spdkContext->bdev);
-	spdkContext->buff = spdk_dma_zmalloc(spdkContext->buff_size, buf_align, NULL);
-	if (!spdkContext->buff) {
+	SPDKContext->buff_size = 2* ONE_GB;
+	uint32_t buf_align = spdk_bdev_get_buf_align(SPDKContext->bdev);
+	SPDKContext->buff = spdk_dma_zmalloc(SPDKContext->buff_size, buf_align, NULL);
+	if (!SPDKContext->buff) {
 		SPDK_ERRLOG("Failed to allocate buffer\n");
-		spdk_put_io_channel(spdkContext->bdev_io_channel);
-		spdk_bdev_close(spdkContext->bdev_desc);
+		spdk_put_io_channel(SPDKContext->bdev_io_channel);
+		spdk_bdev_close(SPDKContext->bdev_desc);
 		spdk_app_stop(-1);
 		return;
 	}
 	
     
     //
-    // Initialize Storage
+    // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
     //
     //
-    struct DPUStorage* Sto = BackEndStorage();
-    ErrorCodeT result = Initialize(Sto, spdkContext);
+    /* struct DPUStorage* Sto = BackEndStorage(); */
+    ErrorCodeT result = Initialize(Sto, SPDKContext);
     if (result != DDS_ERROR_CODE_SUCCESS){
         fprintf(stderr, "InitStorage failed with %d\n", result);
         return;
@@ -2618,7 +2620,7 @@ void RunFileBackEnd(
     DeallocConns(&config);
     TermDMA(&config.DMAConf);
 
-    spdk_app_fini();
+    spdk_app_stop(ret);
     printf("spdk_app_stop returned with: %d\n", ret);
 
     return;
@@ -2670,4 +2672,5 @@ int main(int argc, char **argv) {
     
     rc = spdk_app_start(&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
     printf("spdk_app_start returned with: %d\n", rc);
+    spdk_app_fini();
 }
