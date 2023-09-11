@@ -85,7 +85,7 @@ ErrorCodeT ReadFromDiskSync(
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
     int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
-        ReadFromDiskSyncCallback, &completionStatus, 0, 0);
+        ReadFromDiskSyncCallback, &completionStatus, true, 0);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     if (rc)
@@ -108,6 +108,7 @@ ErrorCodeT ReadFromDiskSyncCallback(
     bool success,
     void *cb_arg
 ){
+    SPDK_NOTICELOG("cb_args original value: %d\n", *((int *) cb_arg));
     if (success)
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
@@ -137,7 +138,7 @@ ErrorCodeT WriteToDiskSync(
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
     int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
-    WriteToDiskSyncCallback, &completionStatus, 0, DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT);
+    WriteToDiskSyncCallback, &completionStatus, true, DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     if (rc)
@@ -162,16 +163,17 @@ ErrorCodeT WriteToDiskSyncCallback(
     bool success,
     void *cb_arg
 ){
+    SPDK_NOTICELOG("cb_args original value: %d\n", *((int *) cb_arg));
     if (success)
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
-        SPDK_NOTICELOG("ReadFromDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        SPDK_NOTICELOG("WriteToDiskSyncCallback called, success status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
         spdk_bdev_free_io(bdev_io);
     }
     else
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionFAILED;
-        SPDK_NOTICELOG("ReadFromDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
+        SPDK_NOTICELOG("WriteToDiskSyncCallback called, failed status: %d\n", *((SyncRWCompletionStatus *) cb_arg));
         spdk_bdev_free_io(bdev_io);
     }
 }
@@ -192,7 +194,7 @@ ErrorCodeT ReadFromDiskAsync(
     int position
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, 0, position);
+    int rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, true, position);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     //Callback(true, Context);
@@ -223,7 +225,7 @@ ErrorCodeT WriteToDiskAsync(
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
-    Callback, Context, 0, position);
+    Callback, Context, true, position);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     //Callback(true, Context);

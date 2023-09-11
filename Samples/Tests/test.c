@@ -61,7 +61,20 @@ void TestBackEnd(
 	}
 
     struct DPUStorage* Sto = BackEndStorage();
+    ErrorCodeT result = Initialize(Sto, spdkContext);
+    if (result != DDS_ERROR_CODE_SUCCESS){
+        fprintf(stderr, "InitStorage failed with %d\n", result);
+        return;
+    }
     printf("Sto->AvailableSegments: %d, Sto->TotalSegments: %d\n", Sto->AvailableSegments, Sto->TotalSegments);
+
+    char SrcBuf[DDS_BACKEND_PAGE_SIZE] = DDS_BACKEND_INITIALIZATION_MARK;
+    char DstBuf[DDS_BACKEND_PAGE_SIZE];
+    printf("starting WriteToDiskSync\n");
+    ErrorCodeT rc = WriteToDiskSync(SrcBuf, 0, 8, DDS_BACKEND_PAGE_SIZE, Sto, spdkContext);
+    printf("WriteToDiskSync: %d\n", rc);
+    rc = ReadFromDiskSync(DstBuf, 0, 8, DDS_BACKEND_PAGE_SIZE, Sto, spdkContext);
+    printf("read: %d, result string: %s\n", rc, DstBuf);
 
     // cleanup before spdk_app_stop(), otherwise it will error out
     printf("cleaning up before app_stop...\n");
