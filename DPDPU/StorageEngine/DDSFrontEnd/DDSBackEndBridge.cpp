@@ -829,7 +829,7 @@ DDSBackEndBridge::MoveFile(
 // 
 //
 ErrorCodeT
-GetResponse(
+DDSBackEndBridge::GetResponse(
     PollT* Poll,
     size_t WaitTime,
     FileIOSizeT* BytesServiced,
@@ -868,7 +868,7 @@ GetResponse(
                 //
                 //
                 for (; segIndex != numWholePagesInFirst; segIndex++) {
-                    memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                    memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * (size_t)DDS_PAGE_SIZE, DDS_PAGE_SIZE);
                 }
 
                 //
@@ -877,7 +877,7 @@ GetResponse(
                 //
                 FileIOSizeT residual = dataBuff.FirstSize % DDS_PAGE_SIZE;
                 if (residual) {
-                    memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, residual);
+                    memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * (size_t)DDS_PAGE_SIZE, residual);
                 }
 
                 if (dataBuff.SecondAddr) {
@@ -900,7 +900,7 @@ GetResponse(
                         int numWholePagesInSecond = secondSize / DDS_PAGE_SIZE;
                         int j = 0;
                         for (; j != numWholePagesInSecond; segIndex++, j++) {
-                            memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondLeftResidual + j * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                            memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondLeftResidual + j * (size_t)DDS_PAGE_SIZE, DDS_PAGE_SIZE);
                         }
 
                         //
@@ -909,7 +909,7 @@ GetResponse(
                         //
                         FileIOSizeT secondRightResidual = secondSize % DDS_PAGE_SIZE;
                         if (secondRightResidual) {
-                            memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondRightResidual + numWholePagesInSecond * DDS_PAGE_SIZE, secondRightResidual);
+                            memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondRightResidual + numWholePagesInSecond * (size_t)DDS_PAGE_SIZE, secondRightResidual);
                         }
                     }
                     else {
@@ -973,7 +973,7 @@ GetResponse(
                     //
                     //
                     for (; segIndex != numWholePagesInFirst; segIndex++) {
-                        memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                        memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * (size_t)DDS_PAGE_SIZE, DDS_PAGE_SIZE);
                     }
 
                     //
@@ -982,7 +982,7 @@ GetResponse(
                     //
                     FileIOSizeT residual = dataBuff.FirstSize % DDS_PAGE_SIZE;
                     if (residual) {
-                        memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, residual);
+                        memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * (size_t)DDS_PAGE_SIZE, residual);
                     }
 
                     if (dataBuff.SecondAddr) {
@@ -1005,7 +1005,7 @@ GetResponse(
                             int numWholePagesInSecond = secondSize / DDS_PAGE_SIZE;
                             int j = 0;
                             for (; j != numWholePagesInSecond; segIndex++, j++) {
-                                memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondLeftResidual + j * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                                memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondLeftResidual + j * (size_t)DDS_PAGE_SIZE, DDS_PAGE_SIZE);
                             }
 
                             //
@@ -1014,7 +1014,7 @@ GetResponse(
                             //
                             FileIOSizeT secondRightResidual = secondSize % DDS_PAGE_SIZE;
                             if (secondRightResidual) {
-                                memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondRightResidual + numWholePagesInSecond * DDS_PAGE_SIZE, secondRightResidual);
+                                memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondRightResidual + numWholePagesInSecond * (size_t)DDS_PAGE_SIZE, secondRightResidual);
                             }
                         }
                         else {

@@ -640,7 +640,8 @@ DDSFrontEnd::ReadFile(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -651,6 +652,26 @@ DDSFrontEnd::ReadFile(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
@@ -775,7 +796,8 @@ DDSFrontEnd::ReadFileScatter(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -786,6 +808,27 @@ DDSFrontEnd::ReadFileScatter(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
+
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
@@ -911,7 +954,8 @@ DDSFrontEnd::WriteFile(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -922,6 +966,26 @@ DDSFrontEnd::WriteFile(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
@@ -1053,7 +1117,8 @@ DDSFrontEnd::WriteFileGather(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -1064,6 +1129,26 @@ DDSFrontEnd::WriteFileGather(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
@@ -1515,17 +1600,31 @@ DDSFrontEnd::PollWait(
         &reqId
     );
 
-    if (result == DDS_ERROR_CODE_SUCCESS) {
+    if (result == DDS_ERROR_CODE_NO_COMPLETION) {
+        *PollResult = false;
+        *FileContext = nullptr;
+        *IOContext = nullptr;
+    }
+    else {
         FileIOT* io = poll->OutstandingRequests[reqId];
         *FileContext = AllFiles[io->FileId]->PollContext;
         *IOContext = io->Context;
         *PollResult = true;
+
+        //
+        // If the application provides a callback, we should handle it here
+        // because this poll might be invoked by a read/write call
+        //
+        //
+        if (io->AppCallback) {
+            io->AppCallback(result, *BytesServiced, io->Context);
+        }
+
+        //
+        // Mark this slot as available
+        //
+        //
         io->IsAvailable.store(true);
-    }
-    else {
-        *PollResult = false;
-        *FileContext = nullptr;
-        *IOContext = nullptr;
     }
 
     return result;
