@@ -8,6 +8,8 @@
 #include "../Include/DPUBackEndStorage.h"
 #include "../Include/bdev.h"
 
+struct DPUStorage* GlobalSto;
+void *GlobalArg;
 //
 // Constructor
 // 
@@ -519,6 +521,8 @@ ErrorCodeT Initialize(
     struct DPUStorage* Sto,
     void *arg // NOTE: this is currently an spdkContext, but depending on the callbacks, they need different arg than this
 ){
+    GlobalSto = Sto;
+    GlobalArg = arg;
     //
     // Retrieve all segments on disk
     //
@@ -696,6 +700,12 @@ ErrorCodeT CreateDirectory(
     struct DPUStorage* Sto,
     void *arg
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
+    if (!arg){
+        arg = GlobalArg;
+    }
     struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
         return DDS_ERROR_CODE_OUT_OF_MEMORY;
@@ -730,6 +740,12 @@ ErrorCodeT RemoveDirectory(
     struct DPUStorage* Sto,
     void *arg
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
+    if (!arg){
+        arg = GlobalArg;
+    }
     if (!Sto->AllDirs[DirId]) {
         return DDS_ERROR_CODE_SUCCESS;
     }
@@ -769,6 +785,12 @@ ErrorCodeT CreateFile(
     struct DPUStorage* Sto,
     void *arg
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
+    if (!arg){
+        arg = GlobalArg;
+    }
     struct DPUDir* dir = Sto->AllDirs[DirId];
     if (!dir) {
         return DDS_ERROR_CODE_DIR_NOT_FOUND;
@@ -832,6 +854,12 @@ ErrorCodeT DeleteFileOnSto(
     struct DPUStorage* Sto,
     void *arg
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
+    if (!arg){
+        arg = GlobalArg;
+    }
     struct DPUFile* file = Sto->AllFiles[FileId];
     struct DPUDir* dir = Sto->AllDirs[DirId];
 
@@ -890,6 +918,9 @@ ErrorCodeT ChangeFileSize(
     FileSizeT NewSize,
     struct DPUStorage* Sto
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
     struct DPUFile* file = Sto->AllFiles[FileId];
 
     if (!file) {
@@ -986,6 +1017,9 @@ ErrorCodeT GetFileSize(
     FileSizeT* FileSize,
     struct DPUStorage* Sto
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
     struct DPUFile* file = Sto->AllFiles[FileId];
 
     if (!file) {
@@ -1195,6 +1229,9 @@ ErrorCodeT GetFileInformationById(
     DDSFilePropertiesT* FileProperties,
     struct DPUStorage* Sto
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
     struct DPUFile* file = Sto->AllFiles[FileId];
     if (file) {
         return DDS_ERROR_CODE_FILE_NOT_FOUND;
@@ -1217,6 +1254,9 @@ GetFileAttributes(
     FileAttributesT* FileAttributes,
     struct DPUStorage* Sto
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
     struct DPUFile* file = Sto->AllFiles[FileId];
     if (file) {
         return DDS_ERROR_CODE_FILE_NOT_FOUND;
@@ -1235,6 +1275,9 @@ ErrorCodeT GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace,
     struct DPUStorage* Sto
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
     //SegmentAllocationMutex.lock();
     pthread_mutex_lock(&Sto->SegmentAllocationMutex);
 
@@ -1259,6 +1302,12 @@ ErrorCodeT MoveFile(
     struct DPUStorage* Sto,
     void *arg
 ){
+    if (!Sto){
+        Sto = GlobalSto;
+    }
+    if (!arg){
+        arg = GlobalArg;
+    }
     struct DPUFile* file = Sto->AllFiles[FileId];
     struct DPUDir* oldDir = Sto->AllDirs[OldDirId];
     struct DPUDir* newDir = Sto->AllDirs[NewDirId];

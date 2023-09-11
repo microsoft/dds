@@ -21,9 +21,6 @@ void ReadHandler(
     // TODO: Execute the read asynchronously
     //
     //
-    // TODO: What about this Context (BackEndIOContextT)? Where do we get it? Do we create it here?
-    ContextT Context;//// TODO
-    SPDKContextT *SPDKContext;//// TODO
     if (Req->Bytes > DestBuffer->FirstSize){
         ErrorCodeT Tmp;
         Tmp = ReadFile(Req->FileId, Req->Offset, DestBuffer->FirstAddr, DestBuffer->FirstSize,
@@ -93,12 +90,12 @@ void WriteHandler(
         }
         else{
             RingSizeT SecondSize = SourceBuffer->TotalSize - SourceBuffer->FirstSize;
-            Resp->Result = WriteFile(Req->FileId, Req->Offset+SourceBuffer->FirstSize, SourceBuffer->SecondAddr, SecondSize,?,?, Sto, arg);
+            Resp->Result = WriteFile(Req->FileId, Req->Offset+SourceBuffer->FirstSize, SourceBuffer->SecondAddr, SecondSize,?,?, NULL, NULL);
             Resp->BytesServiced = Req->Bytes;
         }
     }
     else{
-        Resp->Result = WriteFile(Req->FileId, Req->Offset, SourceBuffer->FirstAddr, Req->Bytes,?,?, Sto, arg);
+        Resp->Result = WriteFile(Req->FileId, Req->Offset, SourceBuffer->FirstAddr, Req->Bytes,?,?, NULL, NULL);
          Resp->BytesServiced = Req->Bytes;
     }
 
