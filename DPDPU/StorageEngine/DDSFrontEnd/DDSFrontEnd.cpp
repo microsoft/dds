@@ -654,6 +654,7 @@ DDSFrontEnd::ReadFile(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -788,6 +789,7 @@ DDSFrontEnd::ReadFileScatter(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -923,6 +925,7 @@ DDSFrontEnd::WriteFile(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -1064,6 +1067,7 @@ DDSFrontEnd::WriteFileGather(
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -1503,14 +1507,12 @@ DDSFrontEnd::PollWait(
 
     PollT* poll = AllPolls[PollId];
     RequestIdT reqId;
-    BufferT srcBuf;
 
     ErrorCodeT result = BackEnd->GetResponse(
         poll,
         WaitTime,
         BytesServiced,
-        &reqId,
-        &srcBuf
+        &reqId
     );
 
     if (result == DDS_ERROR_CODE_SUCCESS) {

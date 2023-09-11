@@ -833,14 +833,208 @@ GetResponse(
     PollT* Poll,
     size_t WaitTime,
     FileIOSizeT* BytesServiced,
-    RequestIdT* ReqId,
-    BufferT* SourceBuffer
+    RequestIdT* ReqId
 ) {
+    BuffMsgB2FAckHeader* response;
+    FileIOSizeT responseSize;
+    SplittableBufferT dataBuff;
+
     //
     // First, check if there is any incoming response
     //
     //
+    if (FetchResponse(Poll->ResponseRing, &response, &responseSize, &dataBuff)) {
+        FileIOT* io = Poll->OutstandingRequests[response->RequestId];
+        *ReqId = response->RequestId;
+        *BytesServiced = response->BytesServiced;
+        
+        if (io->IsRead) {
+            if (io->AppBuffer) {
+                memcpy(io->AppBuffer, dataBuff.FirstAddr, dataBuff.FirstSize);
+                if (dataBuff.SecondAddr) {
+                    memcpy(io->AppBuffer + dataBuff.FirstSize, dataBuff.SecondAddr, dataBuff.TotalSize - dataBuff.FirstSize);
+                }
+            }
+            else {
+                //
+                // A scattered read
+                //
+                //
+                int numWholePagesInFirst = dataBuff.FirstSize / DDS_PAGE_SIZE;
+                int segIndex = 0;
 
+                //
+                // Handle whole pages
+                //
+                //
+                for (; segIndex != numWholePagesInFirst; segIndex++) {
+                    memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                }
+
+                //
+                // Handle the residual
+                //
+                //
+                FileIOSizeT residual = dataBuff.FirstSize % DDS_PAGE_SIZE;
+                if (residual) {
+                    memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, residual);
+                }
+
+                if (dataBuff.SecondAddr) {
+                    FileIOSizeT secondSize = dataBuff.TotalSize - dataBuff.FirstSize;
+                    FileIOSizeT secondLeftResidual = DDS_PAGE_SIZE - residual;
+
+                    if (secondSize > secondLeftResidual) {
+                        //
+                        // Handle the left residual
+                        //
+                        //
+                        memcpy(io->AppBufferArray[segIndex] + residual, dataBuff.SecondAddr, secondLeftResidual);
+                        segIndex++;
+
+                        //
+                        // Handle whole pages
+                        //
+                        //
+                        secondSize -= secondLeftResidual;
+                        int numWholePagesInSecond = secondSize / DDS_PAGE_SIZE;
+                        int j = 0;
+                        for (; j != numWholePagesInSecond; segIndex++, j++) {
+                            memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondLeftResidual + j * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                        }
+
+                        //
+                        // Handle the right residual
+                        //
+                        //
+                        FileIOSizeT secondRightResidual = secondSize % DDS_PAGE_SIZE;
+                        if (secondRightResidual) {
+                            memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondRightResidual + numWholePagesInSecond * DDS_PAGE_SIZE, secondRightResidual);
+                        }
+                    }
+                    else {
+                        memcpy(io->AppBufferArray[segIndex] + residual, dataBuff.SecondAddr, secondSize);
+                    }
+                }
+            }
+        }
+
+        IncrementProgress(Poll->ResponseRing, responseSize);
+
+        //
+        // There must be a completion
+        //
+        //
+        Poll->MsgBuffer->WaitForACompletion(true);
+
+        return response->Result;
+    }
+
+    //
+    // There is no response
+    // Check wait time
+    // From this point this function is not thread-safe
+    //
+    //
+    if (WaitTime == INFINITE) {
+        //
+        // Wait on the completion queue
+        //
+        //
+        
+        Poll->MsgBuffer->WaitForACompletion(true);
+
+        //
+        // Now, there should be a response
+        //
+        //
+        if (FetchResponse(Poll->ResponseRing, &response, &responseSize, &dataBuff)) {
+            FileIOT* io = Poll->OutstandingRequests[response->RequestId];
+            *ReqId = response->RequestId;
+            *BytesServiced = response->BytesServiced;
+            
+            if (io->IsRead) {
+                if (io->AppBuffer) {
+                    memcpy(io->AppBuffer, dataBuff.FirstAddr, dataBuff.FirstSize);
+                    if (dataBuff.SecondAddr) {
+                        memcpy(io->AppBuffer + dataBuff.FirstSize, dataBuff.SecondAddr, dataBuff.TotalSize - dataBuff.FirstSize);
+                    }
+                }
+                else {
+                    //
+                    // A scattered read
+                    //
+                    //
+                    int numWholePagesInFirst = dataBuff.FirstSize / DDS_PAGE_SIZE;
+                    int segIndex = 0;
+
+                    //
+                    // Handle whole pages
+                    //
+                    //
+                    for (; segIndex != numWholePagesInFirst; segIndex++) {
+                        memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                    }
+
+                    //
+                    // Handle the residual
+                    //
+                    //
+                    FileIOSizeT residual = dataBuff.FirstSize % DDS_PAGE_SIZE;
+                    if (residual) {
+                        memcpy(io->AppBufferArray[segIndex], dataBuff.FirstAddr + segIndex * DDS_PAGE_SIZE, residual);
+                    }
+
+                    if (dataBuff.SecondAddr) {
+                        FileIOSizeT secondSize = dataBuff.TotalSize - dataBuff.FirstSize;
+                        FileIOSizeT secondLeftResidual = DDS_PAGE_SIZE - residual;
+
+                        if (secondSize > secondLeftResidual) {
+                            //
+                            // Handle the left residual
+                            //
+                            //
+                            memcpy(io->AppBufferArray[segIndex] + residual, dataBuff.SecondAddr, secondLeftResidual);
+                            segIndex++;
+
+                            //
+                            // Handle whole pages
+                            //
+                            //
+                            secondSize -= secondLeftResidual;
+                            int numWholePagesInSecond = secondSize / DDS_PAGE_SIZE;
+                            int j = 0;
+                            for (; j != numWholePagesInSecond; segIndex++, j++) {
+                                memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondLeftResidual + j * DDS_PAGE_SIZE, DDS_PAGE_SIZE);
+                            }
+
+                            //
+                            // Handle the right residual
+                            //
+                            //
+                            FileIOSizeT secondRightResidual = secondSize % DDS_PAGE_SIZE;
+                            if (secondRightResidual) {
+                                memcpy(io->AppBufferArray[segIndex], dataBuff.SecondAddr + secondRightResidual + numWholePagesInSecond * DDS_PAGE_SIZE, secondRightResidual);
+                            }
+                        }
+                        else {
+                            memcpy(io->AppBufferArray[segIndex] + residual, dataBuff.SecondAddr, secondSize);
+                        }
+                    }
+                }
+            }
+
+            IncrementProgress(Poll->ResponseRing, responseSize);
+            return response->Result;
+        }
+    }
+
+    //
+    // TODO: implement waiting for specific time
+    //
+    //
+
+    return DDS_ERROR_CODE_NO_COMPLETION;
 }
 
 #endif

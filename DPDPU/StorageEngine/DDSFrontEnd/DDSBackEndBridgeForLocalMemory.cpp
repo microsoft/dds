@@ -329,8 +329,7 @@ GetResponse(
     PollT* Poll,
     size_t WaitTime,
     FileIOSizeT* BytesServiced,
-    RequestIdT* ReqId,
-    BufferT* SourceBuffer
+    RequestIdT* ReqId
 ) { }
 
 #endif

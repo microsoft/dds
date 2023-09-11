@@ -20,8 +20,8 @@ using Atomic = std::atomic<T>;
 //
 //
 typedef struct FileIOT {
-#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
     bool IsRead = false;
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
     Atomic<bool> IsComplete = true;
     Atomic<bool> IsReadyForPoll = false;
 #elif BACKEND_TYPE == BACKEND_TYPE_DPU
