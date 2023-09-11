@@ -7,6 +7,7 @@
 
 #include "../Include/DPUBackEndStorage.h"
 #include "../Include/bdev.h"
+#include "../Include/Zmalloc.h"
 
 struct DPUStorage* GlobalSto;
 void *GlobalArg;

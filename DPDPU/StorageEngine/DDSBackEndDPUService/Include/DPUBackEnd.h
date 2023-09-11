@@ -1,6 +1,8 @@
 #pragma once
 #include <time.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "spdk/stdinc.h"
 #include "spdk/thread.h"
@@ -51,6 +53,7 @@
 #define DDS_BACKEND_INITIALIZATION_MARK_LENGTH 19
 #define DDS_BACKEND_MAX_SEGMENTS_PER_FILE 1000
 #define DDS_BACKEND_SEGMENT_INVALID -1
+#define DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE 32 * ONE_MB
 //
 // Types used in DPU
 //

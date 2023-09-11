@@ -24,10 +24,11 @@ typedef struct SPDKContext {
 	struct spdk_bdev_desc *bdev_desc;
 	struct spdk_io_channel *bdev_io_channel;  // channel would be per thread unique, meaning this whole context should also be
 	char *buff;
-	uint32_t buff_size;
+	unsigned long long buff_size;
 	char *bdev_name;
 	struct spdk_bdev_io_wait_entry bdev_io_wait;
     void *cookie;  // just in case, a completion cookie that could be anything
+    int *SPDKSpace; // an int array to record the status of each block memory inside buff. 0 = free, 1 = in use
 } SPDKContextT;
 
 //
