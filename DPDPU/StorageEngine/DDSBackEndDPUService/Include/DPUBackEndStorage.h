@@ -91,7 +91,7 @@ ErrorCodeT ReadFromDiskSync(
     void *arg
 );
 
-ErrorCodeT ReadFromDiskSyncCallback(
+void ReadFromDiskSyncCallback(
     struct spdk_bdev_io *bdev_io,
     bool success,
     void *cb_arg

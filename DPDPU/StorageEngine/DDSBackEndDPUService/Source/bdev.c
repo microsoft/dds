@@ -42,10 +42,11 @@ int bdev_read(
 		buffer = spdkContext->buff[position];
 	}
 
-	SPDK_NOTICELOG("Reading io\n");
+	SPDK_NOTICELOG("bdev_read run on thread: %d\n", spdk_thread_get_id(spdk_get_thread()));
+	SPDK_NOTICELOG("Reading io, cb_arg@%p: %hu\n", cb_arg, *((unsigned short *) cb_arg));
 	rc = spdk_bdev_read(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 			    buffer, offset, nbytes, cb, cb_arg);
-
+	SPDK_NOTICELOG("spdk_bdev_read returned: %d\n", rc);
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */

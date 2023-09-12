@@ -84,9 +84,12 @@ ErrorCodeT ReadFromDiskSync(
     void *arg
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
+    SyncRWCompletionStatus *completionStatus = malloc(sizeof(*completionStatus));
+    *completionStatus = SyncRWCompletion_NOT_COMPLETED;
+    SPDK_NOTICELOG("calling bdev_read() with cb_arg ptr: %p, value: %d\n", completionStatus, *completionStatus);
     int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
-        ReadFromDiskSyncCallback, &completionStatus, true, 0);
+        ReadFromDiskSyncCallback, completionStatus, true, 0);
+    SPDK_NOTICELOG("bdev_read() returned %d\n", rc);
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     if (rc)
@@ -97,19 +100,20 @@ ErrorCodeT ReadFromDiskSync(
     printf("ReadFromDiskSync entering busy waiting\n");
     while (true)  // busy wait for IO completion
     {
-        if (completionStatus == SyncRWCompletionSUCCESS)
+        if (*completionStatus == SyncRWCompletionSUCCESS)
             return DDS_ERROR_CODE_SUCCESS;
-        else if (completionStatus == SyncRWCompletionFAILED)  // doc: use spdk_bdev_io_get_nvme_status() to obtain info
+        else if (*completionStatus == SyncRWCompletionFAILED)  // doc: use spdk_bdev_io_get_nvme_status() to obtain info
             return DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE;
     }
 }
 
-ErrorCodeT ReadFromDiskSyncCallback(
+void ReadFromDiskSyncCallback(
     struct spdk_bdev_io *bdev_io,
     bool success,
     void *cb_arg
 ){
-    SPDK_NOTICELOG("cb_args original value: %d\n", *((int *) cb_arg));
+    SPDK_NOTICELOG("ReadFromDiskSyncCallback run on thread: %d\n", spdk_thread_get_id(spdk_get_thread()));
+    SPDK_NOTICELOG("cb_args original value: %d\n", *((SyncRWCompletionStatus *) cb_arg));
     if (success)
     {
         *((SyncRWCompletionStatus *) cb_arg) = SyncRWCompletionSUCCESS;
