@@ -640,7 +640,8 @@ DDSFrontEnd::ReadFile(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -651,9 +652,30 @@ DDSFrontEnd::ReadFile(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -774,7 +796,8 @@ DDSFrontEnd::ReadFileScatter(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -785,9 +808,31 @@ DDSFrontEnd::ReadFileScatter(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
+
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = true;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -909,7 +954,8 @@ DDSFrontEnd::WriteFile(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -920,9 +966,30 @@ DDSFrontEnd::WriteFile(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -1050,7 +1117,8 @@ DDSFrontEnd::WriteFileGather(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
-    PollT* poll = AllPolls[AllFiles[FileId]->PollId];
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
     mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
@@ -1061,9 +1129,30 @@ DDSFrontEnd::WriteFileGather(
         false,
         std::memory_order_relaxed
     ) == false) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
+    pIO->IsRead = false;
     pIO->FileReference = AllFiles[FileId];
     pIO->FileId = FileId;
     pIO->Offset = AllFiles[FileId]->GetPointer();
@@ -1414,6 +1503,7 @@ DDSFrontEnd::PollAdd(
     return DDS_ERROR_CODE_SUCCESS;
 }
 
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // Poll a completion event
 //
@@ -1484,5 +1574,63 @@ DDSFrontEnd::PollWait(
 
     return DDS_ERROR_CODE_SUCCESS;
 }
+#elif BACKEND_TYPE == BACKEND_TYPE_DPU
+//
+// Poll a completion event
+//
+//
+ErrorCodeT
+DDSFrontEnd::PollWait(
+    PollIdT PollId,
+    FileIOSizeT* BytesServiced,
+    ContextT* FileContext,
+    ContextT* IOContext,
+    size_t WaitTime,
+    bool* PollResult
+) {
+    std::chrono::time_point<std::chrono::system_clock> begin, cur;
+
+    PollT* poll = AllPolls[PollId];
+    RequestIdT reqId;
+
+    ErrorCodeT result = BackEnd->GetResponse(
+        poll,
+        WaitTime,
+        BytesServiced,
+        &reqId
+    );
+
+    if (result == DDS_ERROR_CODE_NO_COMPLETION) {
+        *PollResult = false;
+        *FileContext = nullptr;
+        *IOContext = nullptr;
+    }
+    else {
+        FileIOT* io = poll->OutstandingRequests[reqId];
+        *FileContext = AllFiles[io->FileId]->PollContext;
+        *IOContext = io->Context;
+        *PollResult = true;
+
+        //
+        // If the application provides a callback, we should handle it here
+        // because this poll might be invoked by a read/write call
+        //
+        //
+        if (io->AppCallback) {
+            io->AppCallback(result, *BytesServiced, io->Context);
+        }
+
+        //
+        // Mark this slot as available
+        //
+        //
+        io->IsAvailable.store(true);
+    }
+
+    return result;
+}
+#else
+#error "Unknown backend type"
+#endif
 
 }

@@ -66,3 +66,14 @@ typedef struct FileProperties {
   FileShareModeT ShareMode;
   char FileName[DDS_MAX_FILE_PATH];
 } FilePropertiesT;
+
+//
+// Describe an object that might be split on the ring buffer
+//
+//
+typedef struct {
+    RingSizeT TotalSize;
+    RingSizeT FirstSize;
+    BufferT FirstAddr;
+    BufferT SecondAddr;
+} SplittableBufferT;

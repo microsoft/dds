@@ -949,7 +949,7 @@ DeallocateResponseBufferProgressive(
 }
 
 //
-// Fetch a response into the request buffer
+// Fetch a response from the response buffer
 //
 //
 bool
@@ -1031,14 +1031,103 @@ FetchFromResponseBufferProgressive(
         progress = RingBuffer->Progress[0];
     }
 
-    head = RingBuffer->Head[0];
-    progress = RingBuffer->Progress[0];
-
     return true;
 }
 
 //
-// Insert responses into the request buffer
+// Fetch a response from the response buffer
+//
+//
+bool
+FetchResponse(
+    ResponseRingBufferProgressive* RingBuffer,
+    BuffMsgB2FAckHeader** Response,
+    FileIOSizeT* ResponseSize,
+    SplittableBufferT* DataBuffer
+) {
+    //
+    // Check if there is a response at the head
+    //
+    //
+    int tail = RingBuffer->Tail[0];
+    int head = RingBuffer->Head[0];
+
+    if (tail == head) {
+        return false;
+    }
+
+    FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
+
+    if (responseSize == 0) {
+        return false;
+    }
+
+    //
+    // Grab the current head
+    //
+    //
+    while(RingBuffer->Head[0].compare_exchange_weak(head, (head + responseSize) % DDS_RESPONSE_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+        responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
+
+        if (tail == head) {
+            return false;
+        }
+
+        if (responseSize == 0) {
+            return false;
+        }
+    }
+
+    //
+    // Now, it's safe to return the response
+    //
+    //
+    *ResponseSize = responseSize;
+    *Response = (BuffMsgB2FAckHeader*)(&RingBuffer->Buffer[head + sizeof(FileIOSizeT)]);
+
+    FileIOSizeT offset = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
+    
+    if (responseSize > offset) {
+        int dataOffset = (head + offset) % DDS_RESPONSE_RING_BYTES;
+        
+        DataBuffer->TotalSize = responseSize - offset;
+        DataBuffer->FirstAddr = &RingBuffer->Buffer[dataOffset];
+
+        if (dataOffset + DataBuffer->TotalSize > DDS_RESPONSE_RING_BYTES) {
+            DataBuffer->FirstSize = DDS_RESPONSE_RING_BYTES - dataOffset;
+            DataBuffer->SecondAddr = &RingBuffer->Buffer[0];
+        }
+        else {
+            DataBuffer->FirstSize = DataBuffer->TotalSize;
+            DataBuffer->SecondAddr = NULL;
+        }
+    }
+    else {
+        DataBuffer->TotalSize = 0;
+    }
+    
+    return true;
+}
+
+//
+// Increment the progress
+//
+//
+void
+IncrementProgress(
+    ResponseRingBufferProgressive* RingBuffer,
+    FileIOSizeT ResponseSize
+) {
+    int progress = RingBuffer->Progress[0];
+    while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + ResponseSize) % DDS_RESPONSE_RING_BYTES) == false) {
+        progress = RingBuffer->Progress[0];
+    }
+}
+
+//
+// Insert responses into the response buffer
 //
 //
 bool

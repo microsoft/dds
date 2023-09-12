@@ -212,6 +212,18 @@ public:
         FileIdT FileId,
         const char* NewFileName
     );
+
+    //
+    // Retrieve a response
+    // 
+    //
+    ErrorCodeT
+    GetResponse(
+        PollT* Poll,
+        size_t WaitTime,
+        FileIOSizeT* BytesServiced,
+        RequestIdT* ReqId
+    );
 };
 
 }

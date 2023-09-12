@@ -182,6 +182,28 @@ FetchFromResponseBufferProgressive(
 );
 
 //
+// Fetch a response from the response buffer
+//
+//
+bool
+FetchResponse(
+    ResponseRingBufferProgressive* RingBuffer,
+    BuffMsgB2FAckHeader** Response,
+    FileIOSizeT* ResponseSize,
+    SplittableBufferT* DataBuffer
+);
+
+//
+// Increment the progress
+//
+//
+void
+IncrementProgress(
+    ResponseRingBufferProgressive* RingBuffer,
+    FileIOSizeT ResponseSize
+);
+
+//
 // Insert a response into the response buffer
 //
 //

@@ -2,24 +2,13 @@
 #include <stdbool.h>
 
 //
-// Describe an object that might be split on the ring buffer
-//
-//
-typedef struct {
-    RingSizeT TotalSize;
-    RingSizeT FirstSize;
-    BufferT FirstAddr;
-    BufferT SecondAddr;
-} SplittableBuffer;
-
-//
 // Handler for a read request
 //
 //
 void ReadHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer* DestBuffer
+    SplittableBufferT* DestBuffer
 );
 
 //
@@ -39,7 +28,7 @@ void ReadHandlerCallback(
 void WriteHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer* SourceBuffer
+    SplittableBufferT* SourceBuffer
 );
 
 //

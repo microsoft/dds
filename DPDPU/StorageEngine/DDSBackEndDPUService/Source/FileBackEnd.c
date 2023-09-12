@@ -746,7 +746,7 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteDataSgl.addr = (uint64_t)BuffConn->ResponseDMAWriteDataBuff;
     BuffConn->ResponseDMAWriteDataSgl.length = BACKEND_RESPONSE_MAX_DMA_SIZE;
     BuffConn->ResponseDMAWriteDataSgl.lkey = BuffConn->ResponseDMAWriteDataMr->lkey;
-    BuffConn->ResponseDMAWriteDataWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->ResponseDMAWriteDataWr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
     BuffConn->ResponseDMAWriteDataWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->ResponseDMAWriteDataWr.sg_list = &BuffConn->ResponseDMAWriteDataSgl;
     BuffConn->ResponseDMAWriteDataWr.num_sge = 1;
@@ -1847,7 +1847,7 @@ ExecuteRequests(
     int headResp = BuffConn->ResponseRing.Tail;
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
-    SplittableBuffer dataBuff;
+    SplittableBufferT dataBuff;
     FileIOSizeT respSize = 0;
     FileIOSizeT totalRespSize = 0;
     int progressReq = headReq;
@@ -2150,7 +2150,7 @@ ProcessBuffCqEvents(
                         }
                     }
                         break;
-		    case BUFF_READ_RESPONSE_META_WR_ID: {
+                    case BUFF_READ_RESPONSE_META_WR_ID: {
                         //
                         // Process a response meta read
                         //

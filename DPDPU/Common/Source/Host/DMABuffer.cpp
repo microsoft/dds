@@ -37,7 +37,8 @@ DMABuffer::DMABuffer(
 // Not thread-safe
 //
 //
-bool DMABuffer::Allocate(
+bool
+DMABuffer::Allocate(
 	struct sockaddr_in* LocalSock,
 	struct sockaddr_in* BackEndSock,
 	const size_t QueueDepth,
@@ -136,11 +137,26 @@ bool DMABuffer::Allocate(
 }
 
 //
+// Wait for a completion event
+// Not thread-safe
+//
+//
+void
+DMABuffer::WaitForACompletion(
+	bool Blocking
+) {
+	RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
+	RDMC_WaitForCompletionAndCheckContext(CompQ, &Ov, MSG_CTXT, Blocking);
+}
+
+
+//
 // Release the allocated buffer;
 // Not thread-safe
 //
 //
-void DMABuffer::Release() {
+void
+DMABuffer::Release() {
 	//
 	// Send the exit message to the back end
 	//
