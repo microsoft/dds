@@ -20,6 +20,7 @@
 #include "DPUBackEndFile.h"
 #include "DPUBackEndStorage.h"
 #include "bdev.h"
+#include "Zmalloc.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -2499,16 +2500,7 @@ void RunFileBackEnd(
     /* Allocate memory for the write buffer.
 	 * Initialize the write buffer with the string "Hello World!"
 	 */
-	SPDKContext->buff_size = 2* ONE_GB;
-	uint32_t buf_align = spdk_bdev_get_buf_align(SPDKContext->bdev);
-	SPDKContext->buff = spdk_dma_zmalloc(SPDKContext->buff_size, buf_align, NULL);
-	if (!SPDKContext->buff) {
-		SPDK_ERRLOG("Failed to allocate buffer\n");
-		spdk_put_io_channel(SPDKContext->bdev_io_channel);
-		spdk_bdev_close(SPDKContext->bdev_desc);
-		spdk_app_stop(-1);
-		return;
-	}
+	AllocateSpace(SPDKContext);
 	
     
     //

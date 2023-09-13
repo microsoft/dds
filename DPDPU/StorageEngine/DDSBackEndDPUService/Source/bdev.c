@@ -28,24 +28,15 @@ int bdev_read(
     uint64_t offset,
     uint64_t nbytes,
 	spdk_bdev_io_completion_cb cb,
-	void *cb_arg,
-    bool zeroCopy,
-	int position
+	void *cb_arg
 ){
 	SPDKContextT *spdkContext = arg;
 	int rc = 0; 
-	char* buffer;
-	if (zeroCopy){
-		buffer = DstBuffer;
-	}
-	else{
-		buffer = spdkContext->buff[position];
-	}
 
 	SPDK_NOTICELOG("bdev_read run on thread: %d\n", spdk_thread_get_id(spdk_get_thread()));
 	SPDK_NOTICELOG("Reading io, cb_arg@%p: %hu\n", cb_arg, *((unsigned short *) cb_arg));
 	rc = spdk_bdev_read(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
-			    buffer, offset, nbytes, cb, cb_arg);
+			    DstBuffer, offset, nbytes, cb, cb_arg);
 	SPDK_NOTICELOG("spdk_bdev_read returned: %d\n", rc);
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
@@ -102,23 +93,14 @@ int bdev_write(
     uint64_t offset,
     uint64_t nbytes,
 	spdk_bdev_io_completion_cb cb,
-	void *cb_arg,
-    bool zeroCopy,
-	int position
+	void *cb_arg
 ){
 	SPDKContextT *spdkContext = arg;
 	int rc = 0;
-    char* buffer;
-	if (zeroCopy){
-		buffer = SrcBuffer;
-	}
-	else{
-		buffer = spdkContext->buff[position + ONE_GB];
-	}
 
 	SPDK_NOTICELOG("Writing to the bdev\n");
 	rc = spdk_bdev_write(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
-			     buffer, offset, nbytes, cb, cb_arg);
+			     SrcBuffer, offset, nbytes, cb, cb_arg);
 
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
@@ -166,7 +148,7 @@ reset_zone_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 		return;
 	}
 
-	hello_write(hello_context);
+	//hello_write(hello_context);
 }
 
 static void

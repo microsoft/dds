@@ -28,7 +28,7 @@ typedef struct SPDKContext {
 	char *bdev_name;
 	struct spdk_bdev_io_wait_entry bdev_io_wait;
     void *cookie;  // just in case, a completion cookie that could be anything
-    int *SPDKSpace; // an int array to record the status of each block memory inside buff. 0 = free, 1 = in use
+    bool *SPDKSpace; // a bool array to record the status of each block memory inside buff. true = free, false = in use
 } SPDKContextT;
 
 //
@@ -55,9 +55,7 @@ int bdev_read(
     uint64_t offset,
     uint64_t nbytes,
     spdk_bdev_io_completion_cb cb,
-	void *cb_arg,
-    bool zeroCopy,
-    int position
+	void *cb_arg
 );
 
 //
@@ -84,9 +82,7 @@ int bdev_write(
     uint64_t offset,
     uint64_t nbytes,
     spdk_bdev_io_completion_cb cb,
-	void *cb_arg,
-    bool zeroCopy,
-    int position
+	void *cb_arg
 );
 
 //
@@ -97,3 +93,5 @@ static struct hello_context_t* Init();
 
 void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
 		    void *event_ctx);
+
+static void hello_reset_zone(void *arg);

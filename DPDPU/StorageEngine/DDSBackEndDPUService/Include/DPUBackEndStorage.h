@@ -9,6 +9,8 @@
 
 #include "DPUBackEndDir.h"
 #include "DPUBackEndFile.h"
+#include "bdev.h"
+#include "Zmalloc.h"
 
 //
 // Context for each I/O operation in the back end, same with BackEndIOContext
@@ -88,7 +90,8 @@ ErrorCodeT ReadFromDiskSync(
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    bool ZeroCopy
 );
 
 void ReadFromDiskSyncCallback(
@@ -107,7 +110,8 @@ ErrorCodeT WriteToDiskSync(
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    bool ZeroCopy
 );
 
 ErrorCodeT WriteToDiskSyncCallback(
@@ -129,7 +133,7 @@ ErrorCodeT ReadFromDiskAsync(
     ContextT Context,
     struct DPUStorage* Sto,
     void *arg,
-    int position
+    bool ZeroCopy //true for using zero copy, false otherwise
 );
 
 //
@@ -145,7 +149,7 @@ ErrorCodeT WriteToDiskAsync(
     ContextT Context,
     struct DPUStorage* Sto,
     void *arg,
-    int position
+    bool ZeroCopy //true for using zero copy, false otherwise
 );
 
 //

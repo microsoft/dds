@@ -6,8 +6,7 @@
 #include <sched.h>
 
 #include "../Include/DPUBackEndStorage.h"
-#include "../Include/bdev.h"
-#include "../Include/Zmalloc.h"
+
 
 struct DPUStorage* GlobalSto;
 void *GlobalArg;
@@ -81,15 +80,33 @@ ErrorCodeT ReadFromDiskSync(
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    bool ZeroCopy
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     SyncRWCompletionStatus *completionStatus = malloc(sizeof(*completionStatus));
     *completionStatus = SyncRWCompletion_NOT_COMPLETED;
     SPDK_NOTICELOG("calling bdev_read() with cb_arg ptr: %p, value: %d\n", completionStatus, *completionStatus);
-    int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
-        ReadFromDiskSyncCallback, completionStatus, true, 0);
+    int rc;
+    if (ZeroCopy){
+        rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
+        ReadFromDiskSyncCallback, completionStatus);
+    }
+    else{
+        int position = FindFreeSpace(arg);
+        if(position == -1){
+            return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
+        }
+        else{
+            SPDKContextT *SPDKContext = arg;
+            rc = bdev_read(arg, SPDKContext->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+            seg->DiskAddress + SegmentOffset, Bytes, ReadFromDiskSyncCallback, completionStatus);
+        }
+    }
+    // int rc = bdev_read(arg, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes,
+    //     ReadFromDiskSyncCallback, completionStatus, true, 0);
     SPDK_NOTICELOG("bdev_read() returned %d\n", rc);
+
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     if (rc)
@@ -138,12 +155,29 @@ ErrorCodeT WriteToDiskSync(
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    bool ZeroCopy
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     SyncRWCompletionStatus completionStatus = SyncRWCompletion_NOT_COMPLETED;
-    int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
-    WriteToDiskSyncCallback, &completionStatus, true, DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT);
+    int rc;
+    if (ZeroCopy){
+        int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+        WriteToDiskSyncCallback, &completionStatus);
+    }
+    else{
+        int position = FindFreeSpace(arg);
+        if(position == -1){
+            return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
+        }
+        else{
+            SPDKContextT *SPDKContext = arg;
+            rc = bdev_write(arg, SPDKContext->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+            seg->DiskAddress + SegmentOffset, Bytes, WriteToDiskSyncCallback, &completionStatus);
+        }
+    }
+    // int rc = bdev_write(arg, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+    // WriteToDiskSyncCallback, &completionStatus);
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     if (rc)
@@ -196,10 +230,26 @@ ErrorCodeT ReadFromDiskAsync(
     ContextT Context,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    int position
+    bool ZeroCopy
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, Callback, Context, true, position);
+    int rc;
+    if (ZeroCopy){
+        rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+        Callback, Context);
+    }
+    else{
+        int position = FindFreeSpace(SPDKContext);
+        if(position == -1){
+            return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
+        }
+        else{
+            SPDKContextT *arg = SPDKContext;
+            rc = bdev_read(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+            seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
+        }
+    }
+    
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     //Callback(true, Context);
@@ -226,11 +276,25 @@ ErrorCodeT WriteToDiskAsync(
     ContextT Context,  // this should be the callback arg
     struct DPUStorage* Sto,
     void *SPDKContext,
-    int position
+    bool ZeroCopy
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
-    int rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
-    Callback, Context, true, position);
+    int rc;
+    if (ZeroCopy){
+        rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+        Callback, Context);
+    }
+    else{
+        int position = FindFreeSpace(SPDKContext);
+        if(position == -1){
+            return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
+        }
+        else{
+            SPDKContextT *arg = SPDKContext;
+            rc = bdev_write(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+            seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
+        }
+    }
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
     //Callback(true, Context);
@@ -348,7 +412,8 @@ ErrorCodeT LoadDirectoriesAndFiles(
         0,
         DDS_BACKEND_SECTOR_SIZE,
         Sto,
-        arg
+        arg,
+        true
     );
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -371,7 +436,8 @@ ErrorCodeT LoadDirectoriesAndFiles(
             nextAddress,
             sizeof(DPUDirPropertiesT),
             Sto,
-            arg
+            arg,
+            true
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -410,7 +476,8 @@ ErrorCodeT LoadDirectoriesAndFiles(
             nextAddress,
             sizeof(DPUFilePropertiesT),
             Sto,
-            arg
+            arg,
+            true
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -454,7 +521,8 @@ ErrorCodeT SyncDirToDisk(
         GetDirAddressOnSegment(Dir),
         sizeof(DPUDirPropertiesT),
         Sto,
-        arg
+        arg,
+        true
     );
 }
 
@@ -473,7 +541,8 @@ ErrorCodeT SyncFileToDisk(
         GetFileAddressOnSegment(File),
         sizeof(DPUFilePropertiesT),
         Sto,
-        arg
+        arg,
+        true
     );
 }
 
@@ -501,7 +570,8 @@ ErrorCodeT SyncReservedInformationToDisk(
         0,
         DDS_BACKEND_SECTOR_SIZE,
         Sto,
-        arg
+        arg,
+        true
     );
 }
 
@@ -549,7 +619,7 @@ ErrorCodeT Initialize(
     char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE];
     memset(tmpSectorBuf, 0, DDS_BACKEND_SECTOR_SIZE);
 
-    result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg);
+    result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg, true);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         return result;
@@ -582,7 +652,7 @@ ErrorCodeT Initialize(
                     &Sto->CurrentProgress,
                     Sto,
                     arg,
-                    q * ONE_MB
+                    true
                 );
 
                 if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -618,7 +688,7 @@ ErrorCodeT Initialize(
                 &Sto->CurrentProgress,
                 Sto,
                 arg,
-                q * DDS_BACKEND_PAGE_SIZE
+                true
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1094,7 +1164,7 @@ ErrorCodeT ReadFile(
             Context,
             Sto,
             SPDKContext,
-            curOffset - Offset
+            true
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1213,7 +1283,7 @@ ErrorCodeT WriteFile(
             Context,
             Sto,
             SPDKContext,
-            curOffset - Offset
+            true
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {

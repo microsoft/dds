@@ -3,11 +3,6 @@
 
 void AllocateSpace(void *arg);
 
-void AllocateSingleSpace(
-    void *arg, 
-    int Position
-);
-
 void FreeSingleSpace(
     void *arg, 
     int Position

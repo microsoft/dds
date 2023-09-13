@@ -12,19 +12,17 @@ void AllocateSpace(void *arg){
 		spdk_app_stop(-1);
 		return;
 	}
-    SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(int));
+    SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(bool));
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
-        SPDKContext->SPDKSpace[i] = 0;
+        SPDKContext->SPDKSpace[i] = true;
     }
+    if(spdk_bdev_is_zoned(SPDKContext->bdev)){
+        hello_reset_zone(arg);
+        return;
+    }
+
 }
 
-void AllocateSingleSpace(
-    void *arg, 
-    int Position
-){
-    SPDKContextT *SPDKContext = arg;
-    SPDKContext->SPDKSpace[Position] = 1;
-}
 
 void FreeSingleSpace(
     void *arg, 
@@ -32,7 +30,7 @@ void FreeSingleSpace(
 ){
     SPDKContextT *SPDKContext = arg;
     memset(SPDKContext->buff[Position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 0, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
-    SPDKContext->SPDKSpace[Position] = 0;
+    SPDKContext->SPDKSpace[Position] = true;
 
 }
 
@@ -45,7 +43,8 @@ void FreeAllSpace(void *arg){
 int FindFreeSpace(void *arg){
     SPDKContextT *SPDKContext = arg;
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
-        if(SPDKContext->SPDKSpace[i] == 0){
+        if(SPDKContext->SPDKSpace[i]){
+            SPDKContext->SPDKSpace[i] = false;
             return i;
         }
     }
