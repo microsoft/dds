@@ -393,9 +393,19 @@ int main()
         cout << "Write posted" << endl;
     }
 
+    ContextT ioCtxt, fileCtxt;
+    FileIOSizeT bytesWritten;
+    bool pollResult = false;
+
+    cout << "Calling PollWait..." << endl;
+    store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, INFINITE, &pollResult);
+    cout << "PollWait finished " << pollResult << " (" << bytesServiced << " bytes serviced)" << endl;
+
+    /*
     while (ioCount != 1) {
         yield();
     }
+    */
 
     cout << "Data has been written" << endl;
 
