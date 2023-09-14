@@ -394,7 +394,6 @@ int main()
     }
 
     ContextT ioCtxt, fileCtxt;
-    FileIOSizeT bytesWritten;
     bool pollResult = false;
 
     cout << "Calling PollWait..." << endl;
@@ -429,16 +428,21 @@ int main()
         DummyCallback,
         &ioCount
     );
-    if (result != DDS_ERROR_CODE_SUCCESS) {
+    if (result != DDS_ERROR_CODE_SUCCESS && result != DDS_ERROR_CODE_IO_PENDING) {
         cout << "Failed to read file " << result << endl;
     }
     else {
         cout << "Read posted" << endl;
     }
 
+    cout << "Calling PollWait..." << endl;
+    store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, INFINITE, &pollResult);
+    cout << "PollWait finished " << pollResult << " (" << bytesServiced << " bytes serviced)" << endl;
+    /*
     while (ioCount != 2) {
         yield();
     }
+    */
 
     cout << "Data has been read: " << readBuffer << endl;
 

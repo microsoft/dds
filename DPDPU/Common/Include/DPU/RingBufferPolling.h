@@ -93,22 +93,22 @@ struct ResponseRingBufferBackEnd{
     uint64_t DataBaseAddr;
 
     //
-    // Pointer to the beginning of the first buffered response
+    // Pointer to the next byte of the last allocated response
     //
     //
-    int TailOfBuffering;
+    int TailA;
 
     //
     // Pointer to the next byte of the last completed response
     //
     //
-    int TailOfCompletion;
+    int TailB;
 
     //
-    // Pointer to the next byte of the last reserved but perhaps incomplete responses
+    // Pointer to the next byte of the last synchronized response
     //
     //
-    int TailOfAllocation;
+    int TailC;
 };
 
 //

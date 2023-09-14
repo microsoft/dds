@@ -130,6 +130,14 @@ DMABuffer::Allocate(
 	}
 
 	//
+	// Post receives to allow backend to write responses
+	//
+	//
+	for (int i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+		RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
+	}
+
+	//
 	// This buffer is RDMA-accessible from DPU now
 	//
 	//
@@ -145,8 +153,8 @@ void
 DMABuffer::WaitForACompletion(
 	bool Blocking
 ) {
-	RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
 	RDMC_WaitForCompletionAndCheckContext(CompQ, &Ov, MSG_CTXT, Blocking);
+	RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
 }
 
 
