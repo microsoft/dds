@@ -62,6 +62,7 @@
 #define RING_BUFFER_RESPONSE_META_DATA_SIZE 128
 
 #define DDS_MAX_OUTSTANDING_IO 256
+#define DDS_MAX_COMPLETION_BUFFERING 16
 
 //
 // Check a few parameters at the compile time

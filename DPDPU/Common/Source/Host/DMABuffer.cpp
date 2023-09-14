@@ -133,7 +133,7 @@ DMABuffer::Allocate(
 	// Post receives to allow backend to write responses
 	//
 	//
-	for (int i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
+	for (int i = 0; i != DDS_MAX_COMPLETION_BUFFERING; i++) {
 		RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
 	}
 
