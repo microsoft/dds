@@ -95,14 +95,14 @@ void BenchmarkIO(
     }
 
     cout << "Benchmarking reads..." << endl;
-    char* readBuffer = new char[PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING];
-    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING);
+    char* readBuffer = new char[PAGE_SIZE * DDS_MAX_OUTSTANDING_IO];
+    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_MAX_OUTSTANDING_IO);
     completedIOs = 0;
     profiler.Start();
     for (size_t i = 0; i != totalIOs; i++) {
         result = Store.ReadFile(
             FileId,
-            &readBuffer[(i % DDS_FRONTEND_MAX_OUTSTANDING) * PAGE_SIZE],
+            &readBuffer[(i % DDS_MAX_OUTSTANDING_IO) * PAGE_SIZE],
             PAGE_SIZE,
             &bytesServiced,
             DummyCallback,
@@ -240,8 +240,8 @@ BenchmarkIOWithPolling(
     }
 
     cout << "Benchmarking reads..." << endl;
-    char* readBuffer = new char[PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING];
-    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING);
+    char* readBuffer = new char[PAGE_SIZE * DDS_MAX_OUTSTANDING_IO];
+    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_MAX_OUTSTANDING_IO);
     
     pollWorker = new thread(
         [&Store, FileId, totalIOs]
@@ -252,7 +252,7 @@ BenchmarkIOWithPolling(
     for (size_t i = 0; i != totalIOs; i++) {
         result = Store.ReadFile(
             FileId,
-            &readBuffer[(i % DDS_FRONTEND_MAX_OUTSTANDING) * PAGE_SIZE],
+            &readBuffer[(i % DDS_MAX_OUTSTANDING_IO) * PAGE_SIZE],
             PAGE_SIZE,
             &bytesServiced,
             NULL,

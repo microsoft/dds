@@ -61,6 +61,8 @@
 #define RING_BUFFER_REQUEST_META_DATA_SIZE 128
 #define RING_BUFFER_RESPONSE_META_DATA_SIZE 128
 
+#define DDS_MAX_OUTSTANDING_IO 256
+
 //
 // Check a few parameters at the compile time
 //
@@ -87,5 +89,5 @@ assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
 #pragma warning(pop)
 #endif
 
-#define DDS_BACKEND_ADDR "172.16.1.3"
+#define DDS_BACKEND_ADDR "172.16.3.72"
 #define DDS_BACKEND_PORT 4242
