@@ -86,5 +86,5 @@ assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
 #pragma warning(pop)
 #endif
 
-#define DDS_BACKEND_ADDR "172.16.1.4"
+#define DDS_BACKEND_ADDR "172.16.1.69"
 #define DDS_BACKEND_PORT 4242

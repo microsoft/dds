@@ -664,6 +664,8 @@ DestroyForRequests(
     memset(&BuffConn->RequestDMAWriteMetaWr, 0, sizeof(BuffConn->RequestDMAWriteMetaWr));
     memset(&BuffConn->RequestDMAReadMetaWr, 0, sizeof(BuffConn->RequestDMAReadMetaWr));
     memset(&BuffConn->RequestDMAReadDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+    
+    BuffConn->RequestRing.Head = 0;
 }
 
 //
@@ -799,6 +801,9 @@ DestroyForResponses(
     memset(&BuffConn->ResponseDMAWriteMetaWr, 0, sizeof(BuffConn->ResponseDMAWriteMetaWr));
     memset(&BuffConn->ResponseDMAReadMetaWr, 0, sizeof(BuffConn->ResponseDMAReadMetaWr));
     memset(&BuffConn->ResponseDMAWriteDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+
+    BuffConn->ResponseRing.Tail = 0;
+    BuffConn->ResponseRing.AggressiveTail = 0;
 }
 
 //
@@ -938,7 +943,7 @@ ProcessCmEvents(
                     struct CtrlConnConfig *ctrlConn = NULL;
 
                     for (int index = 0; index < Config->MaxClients; index++) {
-                        if (!Config->CtrlConns[index].InUse) {
+                        if (Config->CtrlConns[index].State == CONN_STATE_AVAILABLE) {
                             ctrlConn = &Config->CtrlConns[index];
                             break;
                         }
@@ -1002,7 +1007,7 @@ ProcessCmEvents(
                         // Mark this connection unavailable
                         //
                         //
-                        ctrlConn->InUse = TRUE;
+                        ctrlConn->State = CONN_STATE_OCCUPIED;
                         fprintf(stdout, "Control connection #%d is accepted\n", ctrlConn->CtrlId);
                     }
                     else {
@@ -1018,7 +1023,7 @@ ProcessCmEvents(
                     int index;
 
                     for (index = 0; index < Config->MaxClients; index++) {
-                        if (!Config->BuffConns[index].InUse) {
+                        if (Config->BuffConns[index].State == CONN_STATE_AVAILABLE) {
                             buffConn = &Config->BuffConns[index];
                             break;
                         }
@@ -1082,7 +1087,7 @@ ProcessCmEvents(
                         // Mark this connection unavailable
                         //
                         //
-                        buffConn->InUse = TRUE;
+                        buffConn->State = CONN_STATE_OCCUPIED;
                         fprintf(stdout, "Buffer connection #%d is accepted\n", buffConn->BuffId);
                     }
                     else {
@@ -1103,19 +1108,28 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
-            uint8_t privData;
-            int connId = FindConnId(Config, Event->id, &privData);
-            if (privData) {
+            uint8_t isCtrl;
+            int connId = FindConnId(Config, Event->id, &isCtrl);
+	    if (connId >= 0) {
+            if (isCtrl) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
+		struct CtrlConnConfig* ctrlConn = &Config->CtrlConns[connId];
+		ctrlConn->State = CONN_STATE_CONNECTED;
 #endif
             }
             else
             {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
+		struct BuffConnConfig* buffConn = &Config->BuffConns[connId];
+		buffConn->State = CONN_STATE_CONNECTED;
             }
 #endif
+	    }
+            else {
+                fprintf(stderr, "CM: RDMA_CM_EVENT_ESTABLISHED with unrecognized connection\n");
+            }
 
             rdma_ack_cm_event(Event);
             break;
@@ -1136,26 +1150,26 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-            uint8_t privData;
-            int connId = FindConnId(Config, Event->id, &privData);
+            uint8_t isCtrl;
+            int connId = FindConnId(Config, Event->id, &isCtrl);
             if (connId >= 0) {
-                if (privData) {
-                        if (Config->CtrlConns[connId].InUse) {
+                if (isCtrl) {
+                        if (Config->CtrlConns[connId].State != CONN_STATE_AVAILABLE) {
                             struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
-                            ctrlConn->InUse = FALSE;
+                            ctrlConn->State = CONN_STATE_AVAILABLE;
                         }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                         fprintf(stdout, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", connId);
 #endif
                 }
                 else {
-                        if (Config->BuffConns[connId].InUse) {
+                        if (Config->BuffConns[connId].State != CONN_STATE_AVAILABLE) {
                             struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
                             DestroyBuffRegionsAndBuffers(buffConn);
                             DestroyBuffQPair(buffConn);
-                            buffConn->InUse = FALSE;
+                            buffConn->State = CONN_STATE_AVAILABLE;
                         }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                     fprintf(stdout, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", connId);
@@ -1163,7 +1177,7 @@ ProcessCmEvents(
                 }
             }
             else {
-                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized control connection\n");
+                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized connection\n");
             }
                 
             rdma_ack_cm_event(Event);
@@ -1246,7 +1260,7 @@ CtrlMsgHandler(
             if (req->ClientId == CtrlConn->CtrlId) {
                 DestroyCtrlRegionsAndBuffers(CtrlConn);
                 DestroyCtrlQPair(CtrlConn);
-                CtrlConn->InUse = FALSE;
+                CtrlConn->State = CONN_STATE_AVAILABLE;
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "%s [info]: Control Conn#%d is disconnected\n", __func__, req->ClientId);
 #endif
@@ -1669,7 +1683,7 @@ ProcessCtrlCqEvents(
 
     for (int i = 0; i != Config->MaxClients; i++) {
         ctrlConn = &Config->CtrlConns[i];
-        if (!ctrlConn->InUse) {
+        if (ctrlConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
 
@@ -1799,7 +1813,7 @@ BuffMsgHandler(
             if (req->BufferId == BuffConn->BuffId && req->ClientId == BuffConn->CtrlId) {
                 DestroyBuffRegionsAndBuffers(BuffConn);
                 DestroyBuffQPair(BuffConn);
-                BuffConn->InUse = 0;
+                BuffConn->State = CONN_STATE_AVAILABLE;
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "%s [info]: Buffer Conn#%d (Client#%d) is disconnected\n", __func__, req->BufferId, req->ClientId);
 #endif
@@ -1993,7 +2007,7 @@ ProcessBuffCqEvents(
 
     for (int i = 0; i != Config->MaxBuffs; i++) {
         buffConn = &Config->BuffConns[i];
-        if (!buffConn->InUse) {
+        if (buffConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
 
@@ -2359,7 +2373,7 @@ CheckAndProcessIOCompletions(
 
     for (int i = 0; i != Config->MaxBuffs; i++) {
         buffConn = &Config->BuffConns[i];
-        if (!buffConn->InUse) {
+        if (buffConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
 
@@ -2374,6 +2388,7 @@ CheckAndProcessIOCompletions(
         FileIOSizeT curRespSize;
 
         while (head != tail) {
+		printf("CheckAndProcessIOCompletions: head = %d, tail = %d\n", head, tail);
             curResp = buffResp + head;
             curRespSize = *(FileIOSizeT*)curResp;
             curResp += sizeof(FileIOSizeT);
