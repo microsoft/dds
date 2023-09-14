@@ -876,7 +876,7 @@ DDSFrontEnd::ReadFileScatter(
 ErrorCodeT
 DDSFrontEnd::WriteFile(
     FileIdT FileId,
-    BufferT DestBuffer,
+    BufferT SourceBuffer,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
     ReadWriteCallback Callback,

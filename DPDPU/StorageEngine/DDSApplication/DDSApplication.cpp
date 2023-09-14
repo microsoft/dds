@@ -386,7 +386,7 @@ int main()
         DummyCallback,
         &ioCount
     );
-    if (result != DDS_ERROR_CODE_SUCCESS) {
+    if (result != DDS_ERROR_CODE_SUCCESS && result != DDS_ERROR_CODE_IO_PENDING) {
         cout << "Failed to write file" << endl;
     }
     else {
@@ -432,6 +432,7 @@ int main()
 
     cout << "Data has been read: " << readBuffer << endl;
 
+    /*
     cout << "Benchmarking callback-based I/O" << endl;
     BenchmarkIO(
         store,
@@ -439,12 +440,14 @@ int main()
         maxFileSize
     );
 
+    
     cout << "Benchmarking polling-based I/O" << endl;
     BenchmarkIOWithPolling(
         store,
         fileId,
         maxFileSize
     );
+    */
 
     return 0;
 }

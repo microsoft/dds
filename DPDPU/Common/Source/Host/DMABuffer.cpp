@@ -122,7 +122,7 @@ DMABuffer::Allocate(
 
 	if (((MsgHeader*)MsgBuf)->MsgId == BUFF_MSG_B2F_RESPOND_ID) {
 		BufferId = ((BuffMsgB2FRespondId*)(MsgBuf + sizeof(MsgHeader)))->BufferId;
-		printf("DMABuffer: connected to the back end with assigned buffer Id (%d)\n", BufferId);
+		printf("DMABuffer: connected to the back end with assigned buffer id (%d)\n", BufferId);
 	}
 	else {
 		printf("DMABuffer: wrong message from the back end\n");
