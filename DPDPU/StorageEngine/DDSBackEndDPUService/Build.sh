@@ -1,1 +1,1 @@
-rm -r build; meson build; ninja -C build
+rm -r build; meson setup build; ninja -C build

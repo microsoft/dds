@@ -221,9 +221,11 @@ InitializeResponseRingBufferBackEnd(
     RingBuffer->RemoteAddr = RemoteAddr;
     RingBuffer->AccessToken = AccessToken;
     RingBuffer->Capacity = Capacity;
-    RingBuffer->Tail = 0;
+    RingBuffer->TailOfBuffering = 0;
+    RingBuffer->TailOfCompletion = 0;
+    RingBuffer->TailOfAllocation = 0;
 
-    //
+
     // Align the buffer by cache line size
     //
     //

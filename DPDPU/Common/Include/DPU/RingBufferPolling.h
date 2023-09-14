@@ -91,13 +91,24 @@ struct ResponseRingBufferBackEnd{
     uint64_t WriteMetaAddr;
     uint32_t WriteMetaSize;
     uint64_t DataBaseAddr;
-    int Tail;
 
     //
-    // Head points to reserved but incomplete responses
+    // Pointer to the beginning of the first buffered response
     //
     //
-    int AggressiveTail;
+    int TailOfBuffering;
+
+    //
+    // Pointer to the next byte of the last completed response
+    //
+    //
+    int TailOfCompletion;
+
+    //
+    // Pointer to the next byte of the last reserved but perhaps incomplete responses
+    //
+    //
+    int TailOfAllocation;
 };
 
 //
