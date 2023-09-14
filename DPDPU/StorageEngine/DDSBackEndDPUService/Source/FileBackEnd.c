@@ -1110,23 +1110,23 @@ ProcessCmEvents(
         {
             uint8_t isCtrl;
             int connId = FindConnId(Config, Event->id, &isCtrl);
-	    if (connId >= 0) {
-            if (isCtrl) {
+            if (connId >= 0) {
+                if (isCtrl) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
-		struct CtrlConnConfig* ctrlConn = &Config->CtrlConns[connId];
-		ctrlConn->State = CONN_STATE_CONNECTED;
+                    fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
+                    struct CtrlConnConfig* ctrlConn = &Config->CtrlConns[connId];
+                    ctrlConn->State = CONN_STATE_CONNECTED;
+#endif
+                }
+                else
+                {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                    fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
+                    struct BuffConnConfig* buffConn = &Config->BuffConns[connId];
+                    buffConn->State = CONN_STATE_CONNECTED;
+                }
 #endif
             }
-            else
-            {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
-		struct BuffConnConfig* buffConn = &Config->BuffConns[connId];
-		buffConn->State = CONN_STATE_CONNECTED;
-            }
-#endif
-	    }
             else {
                 fprintf(stderr, "CM: RDMA_CM_EVENT_ESTABLISHED with unrecognized connection\n");
             }
@@ -2388,11 +2388,16 @@ CheckAndProcessIOCompletions(
         FileIOSizeT curRespSize;
 
         while (head != tail) {
-		printf("CheckAndProcessIOCompletions: head = %d, tail = %d\n", head, tail);
             curResp = buffResp + head;
             curRespSize = *(FileIOSizeT*)curResp;
             curResp += sizeof(FileIOSizeT);
             if (((BuffMsgB2FAckHeader*)curResp)->Result == DDS_ERROR_CODE_IO_PENDING) {
+                //
+                // TODO: testing
+                //
+                //
+                ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
+
                 break;
             }
 
