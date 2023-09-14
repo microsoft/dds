@@ -4,6 +4,7 @@
 
 namespace DDS_FrontEnd {
 
+#if BACKEND_TYPE == BACKEND_TYPE_LOCAL_MEMORY
 //
 // A callback for back end
 //
@@ -318,5 +319,19 @@ DDSBackEndBridgeForLocalMemory::MoveFile(
 ) {
     return BackEnd->MoveFile(FileId, NewFileName);
 }
+
+//
+// Retrieve a response
+// 
+//
+ErrorCodeT
+GetResponse(
+    PollT* Poll,
+    size_t WaitTime,
+    FileIOSizeT* BytesServiced,
+    RequestIdT* ReqId
+) { }
+
+#endif
 
 }

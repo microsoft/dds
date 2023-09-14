@@ -206,7 +206,7 @@ BenchmarkIOWithPolling(
             NULL
         );
 
-        while (result == DDS_ERROR_CODE_REQUIRE_POLLING) {
+        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS) {
             result = Store.WriteFile(
                 FileId,
                 writeBuffer,

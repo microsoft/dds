@@ -229,3 +229,79 @@ NodeT<unsigned long>*
 LinkedList<unsigned long>::End() {
     return Tail;
 }
+
+//
+// unsigned short instantiation
+//
+//
+
+LinkedList<unsigned short>::LinkedList() {
+    Head = nullptr;
+    Tail = nullptr;
+}
+
+LinkedList<unsigned short>::~LinkedList() {
+    DeleteAll();
+}
+
+void
+LinkedList<unsigned short>::Insert(unsigned short NodeValue) {
+    NodeT<unsigned short>* newNode = new NodeT<unsigned short>();
+    newNode->Value = NodeValue;
+    newNode->Next = nullptr;
+
+    if (Tail) {
+        Tail->Next = newNode;
+        Tail = newNode;
+    }
+    else {
+        Head = Tail = newNode;
+    }
+}
+
+void
+LinkedList<unsigned short>::Delete(unsigned short NodeValue) {
+    NodeT<unsigned short>* cur = Head;
+    NodeT<unsigned short>* prev = nullptr;
+    while (cur != nullptr) {
+        if (cur->Value == NodeValue) {
+            if (prev) {
+                prev->Next = cur->Next;
+            }
+            if (cur == Head) {
+                Head = cur->Next;
+            }
+            break;
+        }
+        prev = cur;
+        cur = cur->Next;
+    }
+
+    if (cur) {
+        delete cur;
+    }
+}
+
+template <>
+void
+LinkedList<unsigned short>::DeleteAll() {
+    if (Head) {
+        while (Head->Next) {
+            NodeT<unsigned short>* next = Head->Next;
+            Head->Next = next->Next;
+            delete next;
+        }
+        delete Head;
+    }
+    Head = Tail = nullptr;
+}
+
+NodeT<unsigned short>*
+LinkedList<unsigned short>::Begin() {
+    return Head;
+}
+
+NodeT<unsigned short>*
+LinkedList<unsigned short>::End() {
+    return Tail;
+}

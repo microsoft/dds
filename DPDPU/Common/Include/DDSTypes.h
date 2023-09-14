@@ -1,10 +1,19 @@
 #pragma once
 
+#ifdef __GNUC__
 #include <stdatomic.h>
+#elif defined (_MSC_VER)
+#include <atomic>
+#endif
 #include <stdint.h>
 #include <time.h>
 
 #include "Protocol.h"
+
+#if defined (_MSC_VER)
+template <class C>
+using Atomic=std::atomic<C>;
+#endif
 
 //
 // Types used in DDS
@@ -43,13 +52,28 @@ enum FilePointerPosition {
 //
 //
 typedef struct FileProperties {
-  FileAttributesT FileAttributes;
-  time_t CreationTime;
-  time_t LastAccessTime;
-  time_t LastWriteTime;
-  FileSizeT FileSize;
-  FileAccessT Access;
-  _Atomic PositionInFileT Position;
-  FileShareModeT ShareMode;
+  FileAttributesT FileAttributes = 0;
+  time_t CreationTime = 0;
+  time_t LastAccessTime = 0;
+  time_t LastWriteTime = 0;
+  FileSizeT FileSize = 0;
+  FileAccessT Access = 0;
+#ifdef __GNUC__
+  _Atomic PositionInFileT Position = 0;
+#elif defined (_MSC_VER)
+  Atomic<PositionInFileT> Position = 0;
+#endif
+  FileShareModeT ShareMode = 0;
   char FileName[DDS_MAX_FILE_PATH];
 } FilePropertiesT;
+
+//
+// Describe an object that might be split on the ring buffer
+//
+//
+typedef struct {
+    RingSizeT TotalSize;
+    RingSizeT FirstSize;
+    BufferT FirstAddr;
+    BufferT SecondAddr;
+} SplittableBufferT;

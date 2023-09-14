@@ -47,7 +47,8 @@ public:
     // Not thread-safe
     //
     //
-    bool Allocate(
+    bool
+    Allocate(
         struct sockaddr_in* LocalSock,
         struct sockaddr_in* BackEndSock,
         const size_t QueueDepth,
@@ -56,9 +57,20 @@ public:
     );
 
     //
+    // Wait for a completion event
+    // Not thread-safe
+    //
+    //
+    void
+    WaitForACompletion(
+        bool Blocking
+    );
+
+    //
     // Release the allocated buffer;
     // Not thread-safe
     //
     //
-    void Release();
+    void
+    Release();
 };

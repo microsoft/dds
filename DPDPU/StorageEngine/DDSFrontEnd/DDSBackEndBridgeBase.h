@@ -198,6 +198,18 @@ public:
         FileIdT FileId,
         const char* NewFileName
     ) = 0;
+
+    //
+    // Retrieve a response
+    // 
+    //
+    virtual ErrorCodeT
+    GetResponse(
+        PollT* Poll,
+        size_t WaitTime,
+        FileIOSizeT* BytesServiced,
+        RequestIdT* ReqId
+    ) = 0;
 };
 
 }

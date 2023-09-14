@@ -9,7 +9,7 @@
 void ReadHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer* DestBuffer
+    SplittableBufferT* DestBuffer
 ) {
     printf("Executing a read request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
 
@@ -26,7 +26,7 @@ void ReadHandler(
 void WriteHandler(
     BuffMsgF2BReqHeader* Req,
     BuffMsgB2FAckHeader* Resp,
-    SplittableBuffer* SourceBuffer
+    SplittableBufferT* SourceBuffer
 ) {
     printf("Executing a write request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
 
