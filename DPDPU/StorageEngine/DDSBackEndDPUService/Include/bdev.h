@@ -32,6 +32,12 @@ typedef struct SPDKContext {
 } SPDKContextT;
 
 //
+// Init this during RunFileBackEnd
+// TODO: this is single thread context, will need to use per thread context later
+//
+extern SPDKContextT *SPDKContext;
+
+//
 // Dummy Callback function for read io completion.
 //
 //
@@ -89,9 +95,9 @@ int bdev_write(
 // This function is used to initialize BDEV
 //
 //
-static struct hello_context_t* Init();
+struct hello_context_t* Init();
 
 void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
 		    void *event_ctx);
 
-static void hello_reset_zone(void *arg);
+void bdev_reset_zone(void *arg);

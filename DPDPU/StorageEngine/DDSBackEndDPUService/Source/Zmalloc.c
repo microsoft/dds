@@ -17,7 +17,7 @@ void AllocateSpace(void *arg){
         SPDKContext->SPDKSpace[i] = true;
     }
     if(spdk_bdev_is_zoned(SPDKContext->bdev)){
-        hello_reset_zone(arg);
+        bdev_reset_zone(arg);
         return;
     }
 

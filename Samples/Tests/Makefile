@@ -46,7 +46,8 @@ SRCS = test.c \
 	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndStorage.c \
 	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndFile.c \
 	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndDir.c \
-	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/bdev.c
+	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/bdev.c \
+	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/Zmalloc.c
 
 OBJ = $(SRCS:%.c=$(BUILD_DIR)/%.o)
 $(info OBJ: $(OBJ))

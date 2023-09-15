@@ -75,7 +75,7 @@ void TestBackEnd(
 
     SPDK_NOTICELOG("DOING IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
     void *tmpbuf = malloc(4096);
-    int rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io1_callback_func, &(myctx->cookie), true, 0);
+    int rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io1_callback_func, &(myctx->cookie));
     SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
 
     SPDK_NOTICELOG("STARTING BUSY WAIT\n");

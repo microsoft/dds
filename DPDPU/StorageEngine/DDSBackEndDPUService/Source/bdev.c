@@ -132,7 +132,7 @@ hello_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
 	SPDK_NOTICELOG("Unsupported bdev event: type %d\n", type);
 }
 
-static void
+void
 reset_zone_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
 	struct hello_context_t *hello_context = cb_arg;
@@ -151,8 +151,8 @@ reset_zone_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 	//hello_write(hello_context);
 }
 
-static void
-hello_reset_zone(void *arg)
+void
+bdev_reset_zone(void *arg)
 {
 	struct hello_context_t *hello_context = arg;
 	int rc = 0;
@@ -164,7 +164,7 @@ hello_reset_zone(void *arg)
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		hello_context->bdev_io_wait.bdev = hello_context->bdev;
-		hello_context->bdev_io_wait.cb_fn = hello_reset_zone;
+		hello_context->bdev_io_wait.cb_fn = bdev_reset_zone;
 		hello_context->bdev_io_wait.cb_arg = hello_context;
 		spdk_bdev_queue_io_wait(hello_context->bdev, hello_context->bdev_io_channel,
 					&hello_context->bdev_io_wait);
