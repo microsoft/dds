@@ -30,13 +30,6 @@ void io1_callback_func(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
     SPDK_NOTICELOG("IO 1 Callback finished, set status %p to %d\n", status, *status);
 }
 
-void io2_callback_func(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg) {
-    SPDK_NOTICELOG("IO 2 Callback running...\n");
-    SyncRWCompletionStatus *status = cb_arg;
-    *status = success ? 3 : 4;
-    SPDK_NOTICELOG("IO 2 Callback finished, set status %p to %d\n", status, *status);
-}
-
 
 void TestBackEnd(
     void *args
@@ -77,30 +70,34 @@ void TestBackEnd(
 
     SyncRWCompletionStatus *cb_arg = &(myctx->cookie);
     printf("cb_arg ptr: %p, value: %hu\n", cb_arg, *cb_arg);
+    
+    SPDK_NOTICELOG("DOING WORK A...\n");
+
+    SPDK_NOTICELOG("DOING IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
+    void *tmpbuf = malloc(4096);
+    int rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io1_callback_func, &(myctx->cookie));
+    SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
+
+    SPDK_NOTICELOG("STARTING BUSY WAIT\n");
 
     while (1) {
-        SPDK_NOTICELOG("DOING WORK A...\n");
-
-        SPDK_NOTICELOG("DOING IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-        void *tmpbuf = malloc(4096);
-        int rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io1_callback_func, &(myctx->cookie));
-        SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
-        SPDK_NOTICELOG("FINISHED IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-
-        SPDK_NOTICELOG("DOING WORK B...\n");
-
-        SPDK_NOTICELOG("DOING IO 2..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-        rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io2_callback_func, &(myctx->cookie));
-        SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
-        SPDK_NOTICELOG("FINISHED IO 2..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-
-        SPDK_NOTICELOG("DOING WORK C...\n");
+        if (myctx->cookie == 1) {
+            SPDK_NOTICELOG("IO SUCCESS\n");
+            break;
+        }
+        if (myctx->cookie == 2) {
+            SPDK_NOTICELOG("IO FAILED\n");
+            break;
+        }
     }
-    
 
+    SPDK_NOTICELOG("FINISHED IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
 
-    
+    SPDK_NOTICELOG("DOING WORK B...\n");
 
+    SPDK_NOTICELOG("DOING IO 2..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
+
+    SPDK_NOTICELOG("DOING WORK C...\n");
 
     SPDK_NOTICELOG("ALL WORK DONE, STOPPING...\n");
     spdk_bdev_close(spdkContext->bdev_desc);
