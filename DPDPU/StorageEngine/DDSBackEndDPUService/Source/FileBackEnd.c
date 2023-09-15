@@ -1856,6 +1856,8 @@ ExecuteRequests(
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
     SplittableBufferT dataBuff;
+    int progressReqForParsing;
+    FileIOSizeT reqSize;
     FileIOSizeT respSize = 0;
     FileIOSizeT totalRespSize = 0;
     int progressReq = headReq;
@@ -1869,11 +1871,17 @@ ExecuteRequests(
     buffResp = BuffConn->ResponseDMAWriteDataBuff;
     while (bytesParsed != bytesTotal) {
         curReq = buffReq + progressReq;
-
-        bytesParsed += *(FileIOSizeT*)(curReq);
-        progressReq += *(FileIOSizeT*)(curReq);
+	reqSize = *(FileIOSizeT*)(curReq);
+	
+	progressReqForParsing = progressReq;
+        bytesParsed += reqSize;
+        progressReq += reqSize;
         if (progressReq >= BACKEND_REQUEST_BUFFER_SIZE) {
             progressReq %= BACKEND_REQUEST_BUFFER_SIZE;
+        }
+	progressReqForParsing += sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
+        if (progressReqForParsing >= BACKEND_REQUEST_BUFFER_SIZE) {
+            progressReqForParsing %= BACKEND_REQUEST_BUFFER_SIZE;
         }
 
         curReqSize = *(FileIOSizeT*)(curReq) - sizeof(FileIOSizeT);
@@ -1909,16 +1917,14 @@ ExecuteRequests(
             //
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
             dataBuff.TotalSize = curReqObj->Bytes;
-            dataBuff.FirstAddr = buffReq + progressReq;
+            dataBuff.FirstAddr = buffReq + progressReqForParsing;
             if (progressReq + dataBuff.TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
                 dataBuff.FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
                 dataBuff.SecondAddr = buffReq;
-                progressReq = dataBuff.TotalSize - dataBuff.FirstSize;
             }
             else {
                 dataBuff.FirstSize = curReqObj->Bytes;
                 dataBuff.SecondAddr = NULL;
-                progressReq += dataBuff.TotalSize;
             }
             WriteHandler(curReqObj, resp, &dataBuff);
         }
@@ -1935,6 +1941,7 @@ ExecuteRequests(
             if (respSize % alignment != 0) {
                 respSize += (alignment - (respSize % alignment));
             }
+	    printf("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
             
             //
             // Record the size of the this response on the response ring
@@ -2062,18 +2069,23 @@ ProcessBuffCqEvents(
                             RingSizeT availBytes = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
+                            uint64_t destBuffer1 = 0;
+                            uint64_t destBuffer2 = 0;
                             int head = buffConn->RequestRing.Head;
 
                             if (progress > head) {
                                 availBytes = progress - head;
                                 buffConn->RequestDMAReadDataSize = availBytes;
                                 sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                                destBuffer1 = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
                             }
                             else {
                                 availBytes = DDS_REQUEST_RING_BYTES - head;
                                 buffConn->RequestDMAReadDataSize = availBytes + progress;
                                 sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
                                 sourceBuffer2 = buffConn->RequestRing.DataBaseAddr;
+                                destBuffer1 = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
+                                destBuffer2 = (uint64_t)(buffConn->RequestDMAReadDataBuff);
                             }
 
                             //
@@ -2081,7 +2093,7 @@ ProcessBuffCqEvents(
                             //
                             //
                             buffConn->RequestDMAReadDataWr.wr.rdma.remote_addr = sourceBuffer1;
-                            buffConn->RequestDMAReadDataWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
+                            buffConn->RequestDMAReadDataWr.sg_list->addr = destBuffer1;
                             buffConn->RequestDMAReadDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {
@@ -2093,7 +2105,7 @@ ProcessBuffCqEvents(
                                     ret = -1;
                                 }
 
-                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff);
+                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = destBuffer2;
                                 buffConn->RequestDMAReadDataSplitWr.sg_list->length = progress;
                                 buffConn->RequestDMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
 
@@ -2172,7 +2184,7 @@ ProcessBuffCqEvents(
                         int tailStart = buffConn->ResponseRing.TailC;
                         int tailEnd = buffConn->ResponseRing.TailB;
                         
-                        printf("head = %d, tail = %d\n", head, tailStart);
+                        printf("head = %d, progress = %d, tail = %d\n", head, progress, tailStart);
 
                         if (tailStart == tailEnd) {
                             //
@@ -2226,6 +2238,10 @@ ProcessBuffCqEvents(
                             RingSizeT availBytes = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
+			    uint64_t destBuffer1 = 0;
+			    uint64_t destBuffer2 = 0;
+
+			    printf("Total response bytes = %d\n", totalResponseBytes);
 
                             if (tailStart + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
                                 //
@@ -2233,7 +2249,8 @@ ProcessBuffCqEvents(
                                 //
                                 //
                                 availBytes = totalResponseBytes;
-                                sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tailStart);
+                                sourceBuffer1 = (uint64_t)(buffConn->ResponseDMAWriteDataBuff + tailStart);
+                                destBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tailStart);
                             }
                             else {
                                 //
@@ -2241,15 +2258,18 @@ ProcessBuffCqEvents(
                                 //
                                 //
                                 availBytes = DDS_RESPONSE_RING_BYTES - tailStart;
-                                sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tailStart);
-                                sourceBuffer2 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr);
+                                sourceBuffer1 = (uint64_t)(buffConn->ResponseDMAWriteDataBuff + tailStart);
+                                sourceBuffer2 = (uint64_t)(buffConn->ResponseDMAWriteDataBuff);
+                                destBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tailStart);
+                                destBuffer2 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr);
                             }
 
                             //
                             // Post DMA writes
                             //
                             //
-                            buffConn->ResponseDMAWriteDataWr.wr.rdma.remote_addr = sourceBuffer1;
+                            buffConn->ResponseDMAWriteDataWr.wr.rdma.remote_addr = destBuffer1;
+			    buffConn->ResponseDMAWriteDataWr.sg_list->addr = sourceBuffer1;
                             buffConn->ResponseDMAWriteDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {
@@ -2261,9 +2281,9 @@ ProcessBuffCqEvents(
                                     ret = -1;
                                 }
 
-                                buffConn->ResponseDMAWriteDataSplitWr.sg_list->addr = (uint64_t)(buffConn->ResponseDMAWriteDataBuff + availBytes);
+                                buffConn->ResponseDMAWriteDataSplitWr.sg_list->addr = sourceBuffer2;
                                 buffConn->ResponseDMAWriteDataSplitWr.sg_list->length = totalResponseBytes - availBytes;
-                                buffConn->ResponseDMAWriteDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
+                                buffConn->ResponseDMAWriteDataSplitWr.wr.rdma.remote_addr = destBuffer2;
 
                                 ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAWriteDataSplitWr, &badSendWr);
                                 if (ret) {
