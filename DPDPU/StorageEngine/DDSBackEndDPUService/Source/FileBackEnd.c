@@ -741,7 +741,11 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteDataSgl.addr = (uint64_t)BuffConn->ResponseDMAWriteDataBuff;
     BuffConn->ResponseDMAWriteDataSgl.length = BACKEND_RESPONSE_MAX_DMA_SIZE;
     BuffConn->ResponseDMAWriteDataSgl.lkey = BuffConn->ResponseDMAWriteDataMr->lkey;
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT 
     BuffConn->ResponseDMAWriteDataWr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+#else
+    BuffConn->ResponseDMAWriteDataWr.opcode = IBV_WR_RDMA_WRITE;
+#endif
     BuffConn->ResponseDMAWriteDataWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->ResponseDMAWriteDataWr.sg_list = &BuffConn->ResponseDMAWriteDataSgl;
     BuffConn->ResponseDMAWriteDataWr.num_sge = 1;
@@ -1871,15 +1875,15 @@ ExecuteRequests(
     buffResp = BuffConn->ResponseDMAWriteDataBuff;
     while (bytesParsed != bytesTotal) {
         curReq = buffReq + progressReq;
-	reqSize = *(FileIOSizeT*)(curReq);
-	
-	progressReqForParsing = progressReq;
+        reqSize = *(FileIOSizeT*)(curReq);
+        
+        progressReqForParsing = progressReq;
         bytesParsed += reqSize;
         progressReq += reqSize;
         if (progressReq >= BACKEND_REQUEST_BUFFER_SIZE) {
             progressReq %= BACKEND_REQUEST_BUFFER_SIZE;
         }
-	progressReqForParsing += sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
+        progressReqForParsing += sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
         if (progressReqForParsing >= BACKEND_REQUEST_BUFFER_SIZE) {
             progressReqForParsing %= BACKEND_REQUEST_BUFFER_SIZE;
         }
@@ -1941,7 +1945,7 @@ ExecuteRequests(
             if (respSize % alignment != 0) {
                 respSize += (alignment - (respSize % alignment));
             }
-	    printf("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
+            printf("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
             
             //
             // Record the size of the this response on the response ring
@@ -2238,10 +2242,10 @@ ProcessBuffCqEvents(
                             RingSizeT availBytes = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
-			    uint64_t destBuffer1 = 0;
-			    uint64_t destBuffer2 = 0;
+                            uint64_t destBuffer1 = 0;
+                            uint64_t destBuffer2 = 0;
 
-			    printf("Total response bytes = %d\n", totalResponseBytes);
+                            printf("Total response bytes = %d\n", totalResponseBytes);
 
                             if (tailStart + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
                                 //
@@ -2269,7 +2273,7 @@ ProcessBuffCqEvents(
                             //
                             //
                             buffConn->ResponseDMAWriteDataWr.wr.rdma.remote_addr = destBuffer1;
-			    buffConn->ResponseDMAWriteDataWr.sg_list->addr = sourceBuffer1;
+                            buffConn->ResponseDMAWriteDataWr.sg_list->addr = sourceBuffer1;
                             buffConn->ResponseDMAWriteDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {

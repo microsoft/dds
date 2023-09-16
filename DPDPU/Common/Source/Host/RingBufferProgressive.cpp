@@ -1042,7 +1042,6 @@ bool
 FetchResponse(
     ResponseRingBufferProgressive* RingBuffer,
     BuffMsgB2FAckHeader** Response,
-    FileIOSizeT* ResponseSize,
     SplittableBufferT* DataBuffer
 ) {
     //
@@ -1086,7 +1085,6 @@ FetchResponse(
     // Now, it's safe to return the response
     //
     //
-    *ResponseSize = responseSize;
     *Response = (BuffMsgB2FAckHeader*)(&RingBuffer->Buffer[head + sizeof(FileIOSizeT)]);
 
     FileIOSizeT offset = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
@@ -1112,6 +1110,73 @@ FetchResponse(
     
     return true;
 }
+
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+//
+// Fetch a batch of responses from the response buffer
+//
+//
+bool
+FetchResponseBatch(
+    ResponseRingBufferProgressive* RingBuffer,
+    SplittableBufferT* Responses
+) {
+    //
+    // Check if there is a response at the head
+    //
+    //
+    int tail = RingBuffer->Tail[0];
+    int head = RingBuffer->Head[0];
+
+    if (tail == head) {
+        return false;
+    }
+
+    FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
+
+    if (responseSize == 0) {
+        return false;
+    }
+
+    printf("head = %d, responseSize = %d\n", head, responseSize);
+
+    //
+    // Grab the current head
+    //
+    //
+    while(RingBuffer->Head[0].compare_exchange_weak(head, (head + responseSize) % DDS_RESPONSE_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+        responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
+
+        if (tail == head) {
+            return false;
+        }
+
+        if (responseSize == 0) {
+            return false;
+        }
+    }
+
+    //
+    // Now, it's safe to return the response
+    //
+    //
+    Responses->TotalSize = responseSize - sizeof(FileIOSizeT);
+    Responses->FirstAddr = &RingBuffer->Buffer[head + sizeof(FileIOSizeT)];
+
+    if (head + responseSize > DDS_RESPONSE_RING_BYTES) {
+        Responses->FirstSize = DDS_RESPONSE_RING_BYTES - head - sizeof(FileIOSizeT);
+        Responses->SecondAddr = &RingBuffer->Buffer[0];
+    }
+    else {
+        Responses->FirstSize = Responses->TotalSize;
+        Responses->SecondAddr = NULL;
+    }
+    
+    return true;
+}
+#endif
 
 //
 // Increment the progress
