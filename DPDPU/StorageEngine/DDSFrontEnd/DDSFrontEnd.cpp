@@ -1627,7 +1627,7 @@ DDSFrontEnd::PollWait(
         io->IsAvailable.store(true);
     }
 
-    return result;
+    return DDS_ERROR_CODE_SUCCESS;
 }
 #else
 #error "Unknown backend type"

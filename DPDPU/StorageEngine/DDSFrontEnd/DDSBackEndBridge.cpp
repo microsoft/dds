@@ -42,7 +42,6 @@ DDSBackEndBridge::DDSBackEndBridge() {
     ClientId = -1;
 
 #ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
-    BatchSize = 0;
     ProcessedBytes = 0;
     NextResponse = NULL;
 #endif
@@ -930,8 +929,8 @@ DDSBackEndBridge::GetResponseFromCachedBatch(
     BuffMsgB2FAckHeader* resp = (BuffMsgB2FAckHeader*)(NextResponse + sizeof(FileIOSizeT));
     
     FileIOT* io = Poll->OutstandingRequests[resp->RequestId];
-    *ReqId = response->RequestId;
-    *BytesServiced = response->BytesServiced;
+    *ReqId = resp->RequestId;
+    *BytesServiced = resp->BytesServiced;
 
     SplittableBufferT dataBuff;
     dataBuff.TotalSize = respSize - sizeof(FileIOSizeT) - sizeof(BuffMsgB2FAckHeader);
@@ -942,7 +941,7 @@ DDSBackEndBridge::GetResponseFromCachedBatch(
         dataBuff.SecondAddr = NULL;
     }
     else {
-        dataBuff.FirstAddr = BatchRef.FirstAddr + (BatchRef.FirstSize + delta);
+        dataBuff.FirstAddr = BatchRef.FirstAddr + ((size_t)BatchRef.FirstSize + delta);
         
         if (dataBuff.TotalSize + delta > 0) {
             dataBuff.FirstSize = 0 - delta;

@@ -151,7 +151,7 @@ PollThread(
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
-            cout << "Failed to poll an operation" << endl;
+            cout << "Failed to poll an operation [" << result << "]" << endl;
             return;
         }
 
@@ -259,7 +259,7 @@ BenchmarkIOWithPolling(
             NULL
         );
 
-        while (result == DDS_ERROR_CODE_REQUIRE_POLLING) {
+        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS) {
             result = Store.ReadFile(
                 FileId,
                 writeBuffer,
