@@ -19,6 +19,13 @@
 #define TRUE 1
 #define FALSE 0
 
+#undef DEBUG_FILE_BACKEND
+#ifdef DEBUG_FILE_BACKEND
+#define DebugPrint(Fmt, ...) fprintf(stderr, Fmt, __VA_ARGS__)
+#else
+static inline void DebugPrint(const char* Fmt, ...) { }
+#endif
+
 static volatile int ForceQuitFileBackEnd = 0;
 
 //
@@ -1912,7 +1919,7 @@ ExecuteRequests(
             // Allocate a response first, no need to check alignment
             //
             //
-                printf("%s: get a write request\n", __func__);
+            DebugPrint("%s: get a write request\n", __func__);
             respSize = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
 
             //
@@ -1953,14 +1960,14 @@ ExecuteRequests(
             // Allocate a response first, need to check alignment
             //
             //
-                printf("%s: get a read request\n", __func__);
+            DebugPrint("%s: get a read request\n", __func__);
             RingSizeT alignment = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
             respSize = alignment + curReqObj->Bytes;
             if (respSize % alignment != 0) {
                 respSize += (alignment - (respSize % alignment));
             }
-            printf("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
+            DebugPrint("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
             
             //
             // Record the size of the this response on the response ring
@@ -2018,7 +2025,7 @@ ExecuteRequests(
         fprintf(stderr, "%s [error]: Response buffer is corrupted!\n", __func__);
         exit(-1);
     }
-    printf("%s: AggressiveTail %d -> %d\n", __func__, BuffConn->ResponseRing.TailA, progressResp);
+    DebugPrint("%s: AggressiveTail %d -> %d\n", __func__, BuffConn->ResponseRing.TailA, progressResp);
     BuffConn->ResponseRing.TailA = progressResp;
 
 #ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
@@ -2225,7 +2232,7 @@ ProcessBuffCqEvents(
                         int tailStart = buffConn->ResponseRing.TailC;
                         int tailEnd = buffConn->ResponseRing.TailB;
                         
-                        printf("head = %d, progress = %d, tail = %d\n", head, progress, tailStart);
+                        DebugPrint("head = %d, progress = %d, tail = %d\n", head, progress, tailStart);
 
                         if (tailStart == tailEnd) {
                             //
@@ -2282,7 +2289,7 @@ ProcessBuffCqEvents(
                             uint64_t destBuffer1 = 0;
                             uint64_t destBuffer2 = 0;
 
-                            printf("Total response bytes = %d\n", totalResponseBytes);
+                            DebugPrint("Total response bytes = %d\n", totalResponseBytes);
 
                             if (tailStart + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
                                 //
@@ -2342,7 +2349,7 @@ ProcessBuffCqEvents(
                                 }
                             }
 
-                            printf("%s: buffConn->ResponseRing.TailC %d -> %d\n", __func__, buffConn->ResponseRing.TailC, (tailStart + totalResponseBytes) % DDS_RESPONSE_RING_BYTES);
+                            DebugPrint("%s: buffConn->ResponseRing.TailC %d -> %d\n", __func__, buffConn->ResponseRing.TailC, (tailStart + totalResponseBytes) % DDS_RESPONSE_RING_BYTES);
                             buffConn->ResponseRing.TailC = (tailStart + totalResponseBytes) % DDS_RESPONSE_RING_BYTES;
                             
                             //
@@ -2518,7 +2525,6 @@ CheckAndProcessIOCompletions(
                 // Poll the distance from the host
                 //
                 //
-                printf("%s: Polling response ring meta\n", __func__);
                 ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
                 if (ret) {
                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);

@@ -1,6 +1,12 @@
-#include <stdio.h>
-
 #include "DataPlaneHandlers.h"
+
+#undef DEBUG_DATAPLANE_HANDLERS
+#ifdef DEBUG_DATAPLANE_HANDLERS
+#include <stdio.h>
+#define DebugPrint(Fmt, ...) fprintf(stderr, Fmt, __VA_ARGS__)
+#else
+static inline void DebugPrint(const char* Fmt, ...) { }
+#endif
 
 //
 // Handler for a read request
@@ -11,7 +17,7 @@ void ReadHandler(
     BuffMsgB2FAckHeader* Resp,
     SplittableBufferT* DestBuffer
 ) {
-    printf("Executing a read request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
+    DebugPrint("Executing a read request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
 
     //
     // TODO: Execute the read asynchronously
@@ -28,7 +34,7 @@ void WriteHandler(
     BuffMsgB2FAckHeader* Resp,
     SplittableBufferT* SourceBuffer
 ) {
-    printf("Executing a write request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
+    DebugPrint("Executing a write request: %u@%lu#%u\n", Req->FileId, Req->Offset, Req->Bytes);
 
     //
     // TODO: Execute the write asynchronously
