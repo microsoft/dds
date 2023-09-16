@@ -218,7 +218,7 @@ BenchmarkIOWithPolling(
         }
 
         if (result != DDS_ERROR_CODE_IO_PENDING) {
-            cout << "Failed to write file: " << FileId << endl;
+            cout << "Failed to write file: " << FileId << " [" << result << "]" << endl;
         }
     }
 
@@ -335,7 +335,7 @@ int main()
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
     // const FileSizeT maxFileSize = 1073741824ULL;
-    const FileSizeT maxFileSize = 81920ULL;
+    const FileSizeT maxFileSize = 8192000ULL;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;

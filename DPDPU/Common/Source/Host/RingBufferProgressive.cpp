@@ -5,6 +5,13 @@
 #include "MsgType.h"
 #include "RingBufferProgressive.h"
 
+#undef DEBUG_RING_BUFFER
+#ifdef DEBUG_RING_BUFFER
+#define DebugPrint(Fmt, ...) fprintf(stderr, Fmt, __VA_ARGS__)
+#else
+static inline void DebugPrint(const char* Fmt, ...) { }
+#endif
+
 namespace DDS_FrontEnd {
 
 //
@@ -1061,7 +1068,7 @@ FetchResponse(
         return false;
     }
 
-    printf("head = %d, responseSize = %d\n", head, responseSize);
+    DebugPrint("head = %d, responseSize = %d\n", head, responseSize);
 
     //
     // Grab the current head
@@ -1138,7 +1145,7 @@ FetchResponseBatch(
         return false;
     }
 
-    printf("head = %d, responseSize = %d\n", head, responseSize);
+    DebugPrint("head = %d, responseSize = %d\n", head, responseSize);
 
     //
     // Grab the current head
@@ -1196,11 +1203,12 @@ IncrementProgress(
     FileIOSizeT ResponseSize
 ) {
     int progress = RingBuffer->Progress[0];
+
     while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + ResponseSize) % DDS_RESPONSE_RING_BYTES) == false) {
         progress = RingBuffer->Progress[0];
     }
 
-    printf("Response progress is incremented by %d\n", ResponseSize);
+    DebugPrint("Response progress is incremented by %d\n", ResponseSize);
 }
 
 //
