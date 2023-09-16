@@ -826,6 +826,8 @@ DDSBackEndBridge::MoveFile(
 
 //
 // Retrieve a response from the response ring
+// Thread-safe for DDS_NOTIFICATION_METHOD_TIMER
+// Not thread-safe for DDS_NOTIFICATION_METHOD_INTERRUPT
 // 
 //
 ErrorCodeT
@@ -921,19 +923,21 @@ DDSBackEndBridge::GetResponse(
 
         IncrementProgress(Poll->ResponseRing, responseSize);
 
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT
         //
         // There must be a completion
         //
         //
-        Poll->MsgBuffer->WaitForACompletion(true);
+        Poll->MsgBuffer->WaitForACompletion(false);
+#endif
 
         return response->Result;
     }
 
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT
     //
     // There is no response
     // Check wait time
-    // From this point this function is not thread-safe
     //
     //
     if (WaitTime == INFINITE) {
@@ -1028,6 +1032,10 @@ DDSBackEndBridge::GetResponse(
             return response->Result;
         }
     }
+    else if (WaitTime > 0) {
+        return DDS_ERROR_CODE_NOT_IMPLEMENTED;
+    }
+#endif
 
     //
     // TODO: implement waiting for specific time

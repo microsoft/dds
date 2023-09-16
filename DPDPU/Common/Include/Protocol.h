@@ -64,6 +64,10 @@
 #define DDS_MAX_OUTSTANDING_IO 256
 #define DDS_MAX_COMPLETION_BUFFERING 16
 
+#define DDS_NOTIFICATION_METHOD_INTERRUPT 0
+#define DDS_NOTIFICATION_METHOD_TIMER 1
+#define DDS_NOTIFICATION_METHOD DDS_NOTIFICATION_METHOD_INTERRUPT
+
 //
 // Check a few parameters at the compile time
 //
@@ -90,5 +94,5 @@ assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
 #pragma warning(pop)
 #endif
 
-#define DDS_BACKEND_ADDR "172.16.3.72"
+#define DDS_BACKEND_ADDR "172.16.1.12"
 #define DDS_BACKEND_PORT 4242

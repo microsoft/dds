@@ -1062,6 +1062,8 @@ FetchResponse(
         return false;
     }
 
+    printf("head = %d, responseSize = %d\n", head, responseSize);
+
     //
     // Grab the current head
     //
@@ -1124,6 +1126,8 @@ IncrementProgress(
     while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + ResponseSize) % DDS_RESPONSE_RING_BYTES) == false) {
         progress = RingBuffer->Progress[0];
     }
+
+    printf("Response progress is incremented by %d\n", ResponseSize);
 }
 
 //

@@ -129,6 +129,7 @@ DMABuffer::Allocate(
 		return false;
 	}
 
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT
 	//
 	// Post receives to allow backend to write responses
 	//
@@ -136,6 +137,7 @@ DMABuffer::Allocate(
 	for (int i = 0; i != DDS_MAX_COMPLETION_BUFFERING; i++) {
 		RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
 	}
+#endif
 
 	//
 	// This buffer is RDMA-accessible from DPU now

@@ -334,7 +334,8 @@ int main()
     const char* storeName = "DDS-Store0";
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
-    const FileSizeT maxFileSize = 1073741824ULL;
+    // const FileSizeT maxFileSize = 1073741824ULL;
+    const FileSizeT maxFileSize = 81920ULL;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;
@@ -397,7 +398,9 @@ int main()
     bool pollResult = false;
 
     cout << "Calling PollWait..." << endl;
-    store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, INFINITE, &pollResult);
+    while (!pollResult) {
+        store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, 0, &pollResult);
+    }
     cout << "PollWait finished " << pollResult << " (" << bytesServiced << " bytes serviced)" << endl;
 
     /*
@@ -436,7 +439,10 @@ int main()
     }
 
     cout << "Calling PollWait..." << endl;
-    store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, INFINITE, &pollResult);
+    pollResult = false;
+    while (!pollResult) {
+        store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, 0, &pollResult);
+    }
     cout << "PollWait finished " << pollResult << " (" << bytesServiced << " bytes serviced)" << endl;
     /*
     while (ioCount != 2) {
@@ -453,7 +459,7 @@ int main()
         fileId,
         maxFileSize
     );
-
+    */
     
     cout << "Benchmarking polling-based I/O" << endl;
     BenchmarkIOWithPolling(
@@ -461,7 +467,7 @@ int main()
         fileId,
         maxFileSize
     );
-    */
+    
 
     return 0;
 }
