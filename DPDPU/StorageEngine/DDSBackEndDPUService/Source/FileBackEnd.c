@@ -1867,6 +1867,10 @@ ExecuteRequests(
     int progressReq = headReq;
     int progressResp = tailResp;
 
+
+    buffReq = BuffConn->RequestDMAReadDataBuff;
+    buffResp = BuffConn->ResponseDMAWriteDataBuff;
+
 #ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
     //
     // We only need |FileIOSizeT| bytes but use |FileIOSizeT| + |BuffMsgB2FAckHeader| for alignment
@@ -1884,8 +1888,6 @@ ExecuteRequests(
     // Parse all file requests in the batch
     //
     //
-    buffReq = BuffConn->RequestDMAReadDataBuff;
-    buffResp = BuffConn->ResponseDMAWriteDataBuff;
     while (bytesParsed != bytesTotal) {
         curReq = buffReq + progressReq;
         reqSize = *(FileIOSizeT*)(curReq);
