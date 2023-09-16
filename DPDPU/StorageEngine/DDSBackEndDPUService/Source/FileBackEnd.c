@@ -1867,6 +1867,19 @@ ExecuteRequests(
     int progressReq = headReq;
     int progressResp = tailResp;
 
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    //
+    // We only need |FileIOSizeT| bytes but use |FileIOSizeT| + |BuffMsgB2FAckHeader| for alignment
+    //
+    //
+    BufferT batchMeta = buffResp + progressResp;
+    progressResp += (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+    totalRespSize += (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+    if (progressResp >= BACKEND_RESPONSE_BUFFER_SIZE) {
+        progressResp %= BACKEND_RESPONSE_BUFFER_SIZE;
+    }
+#endif
+
     //
     // Parse all file requests in the batch
     //
@@ -2005,6 +2018,28 @@ ExecuteRequests(
     }
     printf("%s: AggressiveTail %d -> %d\n", __func__, BuffConn->ResponseRing.TailA, progressResp);
     BuffConn->ResponseRing.TailA = progressResp;
+
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    *((FileIOSizeT*)batchMeta) = totalRespSize;
+#endif
+}
+
+//
+// Compute the distance between two pointers on a ring buffer
+//
+//
+static inline int
+DistanceBetweenPointers(
+    int Tail,
+    int Head,
+    size_t Capacity
+) {
+    if (Tail >= Head) {
+        return Tail - Head;
+    }
+    else {
+        return Capacity - Head + Tail;
+    }
 }
 
 //
@@ -2198,7 +2233,7 @@ ProcessBuffCqEvents(
                             break;
                         }
 
-                        FileIOSizeT totalResponseBytes = tailEnd > tailStart ? (tailEnd - tailStart) : (BACKEND_RESPONSE_BUFFER_SIZE - tailStart + tailEnd);
+                        const FileIOSizeT totalResponseBytes = DistanceBetweenPointers(tailEnd, tailStart, BACKEND_RESPONSE_BUFFER_SIZE);
 
                         
                         RingSizeT distance = 0;
@@ -2422,11 +2457,83 @@ CheckAndProcessIOCompletions(
         // Check the error code of each response, sequentially
         //
         //
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+        int head1 = buffConn->ResponseRing.TailB;
+        int head2 = buffConn->ResponseRing.TailC;
+        int tail = buffConn->ResponseRing.TailA;
+        char* buffResp = buffConn->ResponseDMAWriteDataBuff;
+        char* curResp;
+        FileIOSizeT curRespSize;
+        const FileIOSizeT totalRespSize = *(FileIOSizeT*)(buffResp + head2);
+
+        if (tail == head1) {
+            continue;
+        }
+
+        if (head1 == head2) {
+            head1 += (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+            if (head1 >= BACKEND_RESPONSE_BUFFER_SIZE) {
+                head1 %= BACKEND_RESPONSE_BUFFER_SIZE;
+            }
+        }
+
+        while (DistanceBetweenPointers(head1, head2, BACKEND_RESPONSE_BUFFER_SIZE) != totalRespSize) {
+            curResp = buffResp + head1;
+            curRespSize = *(FileIOSizeT*)curResp;
+            curResp += sizeof(FileIOSizeT);
+            if (((BuffMsgB2FAckHeader*)curResp)->Result == DDS_ERROR_CODE_IO_PENDING) {
+                //
+                // TODO: testing
+                //
+                //
+                ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
+                ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
+
+                // break;
+            }
+
+            head1 += curRespSize;
+            if (head1 >= BACKEND_RESPONSE_BUFFER_SIZE) {
+                head1 %= BACKEND_RESPONSE_BUFFER_SIZE;
+            }
+        }
+
+        if (head1 != buffConn->ResponseRing.TailB) {
+            //
+            // Update TailB immediately
+            //
+            //
+            buffConn->ResponseRing.TailB = head1;
+
+            if (DistanceBetweenPointers(head1, head2, BACKEND_RESPONSE_BUFFER_SIZE) == totalRespSize) {
+                //
+                // Send the response back to the host
+                //
+                //
+                struct ibv_send_wr *badSendWr = NULL;
+                
+                //
+                // Poll the distance from the host
+                //
+                //
+                printf("%s: Polling response ring meta\n", __func__);
+                ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
+                if (ret) {
+                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                    ret = -1;
+                }
+            }
+        }
+#else
         int head = buffConn->ResponseRing.TailB;
         int tail = buffConn->ResponseRing.TailA;
         char* buffResp = buffConn->ResponseDMAWriteDataBuff;
         char* curResp;
         FileIOSizeT curRespSize;
+
+        if (head == tail) {
+            continue;
+        }
 
         while (head != tail) {
                 // printf("%s: tail = %d, head = %d\n", __func__, tail, head);
@@ -2463,7 +2570,7 @@ CheckAndProcessIOCompletions(
             struct ibv_send_wr *badSendWr = NULL;
 
             //
-            // Update the completion tail immediately
+            // Update TailB immediately
             //
             //
             buffConn->ResponseRing.TailB = head;
@@ -2479,6 +2586,7 @@ CheckAndProcessIOCompletions(
                 ret = -1;
             }
         }
+#endif
     }
 
     return ret;

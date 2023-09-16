@@ -959,9 +959,10 @@ DDSBackEndBridge::GetResponseFromCachedBatch(
     if (BatchRef.TotalSize - ProcessedBytes < (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader))) {
         //
         // Advance the response ring progress and reset the batch cache
+        // Additional |BuffMsgB2FAckHeader| bytes in meta data because of alignment
         //
         //
-        IncrementProgress(Poll->ResponseRing, BatchRef.TotalSize + sizeof(FileIOSizeT));
+        IncrementProgress(Poll->ResponseRing, BatchRef.TotalSize + sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
 
         NextResponse = NULL;
         ProcessedBytes = 0;

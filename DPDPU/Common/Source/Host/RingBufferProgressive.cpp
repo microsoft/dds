@@ -1162,16 +1162,24 @@ FetchResponseBatch(
     // Now, it's safe to return the response
     //
     //
-    Responses->TotalSize = responseSize - sizeof(FileIOSizeT);
-    Responses->FirstAddr = &RingBuffer->Buffer[head + sizeof(FileIOSizeT)];
-
-    if (head + responseSize > DDS_RESPONSE_RING_BYTES) {
-        Responses->FirstSize = DDS_RESPONSE_RING_BYTES - head - sizeof(FileIOSizeT);
-        Responses->SecondAddr = &RingBuffer->Buffer[0];
+    FileIOSizeT batchMetaSize = (FileIOSizeT)(sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+    Responses->TotalSize = responseSize - batchMetaSize;
+    int spillOver = head + batchMetaSize - DDS_RESPONSE_RING_BYTES;
+    if (spillOver >= 0) {
+        Responses->FirstAddr = &RingBuffer->Buffer[spillOver];
+        Responses->FirstSize = Responses->TotalSize;
     }
     else {
-        Responses->FirstSize = Responses->TotalSize;
-        Responses->SecondAddr = NULL;
+        Responses->FirstAddr = &RingBuffer->Buffer[head + batchMetaSize];
+
+        if (head + responseSize > DDS_RESPONSE_RING_BYTES) {
+            Responses->FirstSize = 0 - spillOver;
+            Responses->SecondAddr = &RingBuffer->Buffer[0];
+        }
+        else {
+            Responses->FirstSize = Responses->TotalSize;
+            Responses->SecondAddr = NULL;
+        }
     }
     
     return true;
