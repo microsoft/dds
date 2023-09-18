@@ -840,21 +840,41 @@ DDSBackEndBridge::MoveFile(
 static inline void
 CompleteIO (
     FileIOT* IO,
+    BuffMsgB2FAckHeader* Resp,
     SplittableBufferT* DataBuff
 ) {
     if (IO->IsRead) {
         if (IO->AppBuffer) {
-            memcpy(IO->AppBuffer, DataBuff->FirstAddr, DataBuff->FirstSize);
-            if (DataBuff->SecondAddr) {
-                memcpy(IO->AppBuffer + DataBuff->FirstSize, DataBuff->SecondAddr, DataBuff->TotalSize - DataBuff->FirstSize);
+            //
+            // Due to alignment, DataBuff.TotalSize might be larger than the actual data
+            // Hence, use Resp->BytesServiced as the bytes to copy
+            //
+            //
+            FileIOSizeT bytesToCopy = Resp->BytesServiced;
+            int delta = (int)bytesToCopy - (int)DataBuff->FirstSize;
+            if (delta > 0) {
+                memcpy(IO->AppBuffer, DataBuff->FirstAddr, DataBuff->FirstSize);
+                memcpy(IO->AppBuffer + DataBuff->FirstSize, DataBuff->SecondAddr, delta);
+            }
+            else {
+                memcpy(IO->AppBuffer, DataBuff->FirstAddr, bytesToCopy);
             }
         }
         else {
             //
             // A scattered read
+            // Due to alignment, DataBuff.TotalSize might be larger than the actual data
+            // Hence, use Resp->BytesServiced as the bytes to copy
             //
             //
-            int numWholePagesInFirst = DataBuff->FirstSize / DDS_PAGE_SIZE;
+            FileIOSizeT bytesToCopy = Resp->BytesServiced;
+            FileIOSizeT firstSize = DataBuff->FirstSize;
+            if (firstSize > bytesToCopy) {
+                firstSize = bytesToCopy;
+            }
+            FileIOSizeT secondSize = bytesToCopy - firstSize;
+
+            int numWholePagesInFirst = firstSize / DDS_PAGE_SIZE;
             int segIndex = 0;
 
             //
@@ -869,13 +889,12 @@ CompleteIO (
             // Handle the residual
             //
             //
-            FileIOSizeT residual = DataBuff->FirstSize % DDS_PAGE_SIZE;
+            FileIOSizeT residual = firstSize % DDS_PAGE_SIZE;
             if (residual) {
                 memcpy(IO->AppBufferArray[segIndex], DataBuff->FirstAddr + segIndex * (size_t)DDS_PAGE_SIZE, residual);
             }
 
-            if (DataBuff->SecondAddr) {
-                FileIOSizeT secondSize = DataBuff->TotalSize - DataBuff->FirstSize;
+            if (secondSize) {
                 FileIOSizeT secondLeftResidual = DDS_PAGE_SIZE - residual;
 
                 if (secondSize > secondLeftResidual) {
@@ -892,8 +911,7 @@ CompleteIO (
                     //
                     secondSize -= secondLeftResidual;
                     int numWholePagesInSecond = secondSize / DDS_PAGE_SIZE;
-                    int j = 0;
-                    for (; j != numWholePagesInSecond; segIndex++, j++) {
+                    for (int j = 0; j != numWholePagesInSecond; segIndex++, j++) {
                         memcpy(IO->AppBufferArray[segIndex], DataBuff->SecondAddr + secondLeftResidual + j * (size_t)DDS_PAGE_SIZE, DDS_PAGE_SIZE);
                     }
 
@@ -934,16 +952,16 @@ DDSBackEndBridge::GetResponseFromCachedBatch(
 
     SplittableBufferT dataBuff;
     dataBuff.TotalSize = respSize - sizeof(FileIOSizeT) - sizeof(BuffMsgB2FAckHeader);
-    int delta = ProcessedBytes + sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader) - BatchRef.FirstSize;
+    int delta = (int)ProcessedBytes + (int)sizeof(FileIOSizeT) + (int)sizeof(BuffMsgB2FAckHeader) - (int)BatchRef.FirstSize;
     if (delta >= 0) {
         dataBuff.FirstAddr = BatchRef.SecondAddr + delta;
         dataBuff.FirstSize = dataBuff.TotalSize;
         dataBuff.SecondAddr = NULL;
     }
     else {
-        dataBuff.FirstAddr = BatchRef.FirstAddr + ((size_t)BatchRef.FirstSize + delta);
+        dataBuff.FirstAddr = BatchRef.FirstAddr + ((int)(BatchRef.FirstSize) + delta);
         
-        if (dataBuff.TotalSize + delta > 0) {
+        if (((int)dataBuff.TotalSize + delta) > 0) {
             dataBuff.FirstSize = 0 - delta;
             dataBuff.SecondAddr = BatchRef.SecondAddr;
         }
@@ -952,7 +970,7 @@ DDSBackEndBridge::GetResponseFromCachedBatch(
             dataBuff.SecondAddr = NULL;
         }
     }
-    CompleteIO(io, &dataBuff);
+    CompleteIO(io, resp, &dataBuff);
 
     ProcessedBytes += respSize;
     if (BatchRef.TotalSize - ProcessedBytes < (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader))) {
@@ -1037,7 +1055,7 @@ DDSBackEndBridge::GetResponse(
         *ReqId = response->RequestId;
         *BytesServiced = response->BytesServiced;
         
-        CompleteIO(io, &dataBuff);
+        CompleteIO(io, response, &dataBuff);
 
         IncrementProgress(Poll->ResponseRing, dataBuff.TotalSize + sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
 
@@ -1064,8 +1082,14 @@ DDSBackEndBridge::GetResponse(
         //
         if (FetchResponseBatch(Poll->ResponseRing, &BatchRef)) {
             NextResponse = BatchRef.FirstAddr;
-            
             return GetResponseFromCachedBatch(Poll, BytesServiced, ReqId);
+        }
+        else {
+            //
+            // Should never hit this branch
+            //
+            //
+            printf("[Error] Expecting a response\n");
         }
     }
     else if (WaitTime > 0) {
@@ -1100,7 +1124,7 @@ DDSBackEndBridge::GetResponse(
             *ReqId = response->RequestId;
             *BytesServiced = response->BytesServiced;
             
-            CompleteIO(io, &dataBuff);
+            CompleteIO(io, response, &dataBuff);
             IncrementProgress(Poll->ResponseRing, dataBuff.TotalSize + sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
             
             return response->Result;

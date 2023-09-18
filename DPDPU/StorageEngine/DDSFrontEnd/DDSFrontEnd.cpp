@@ -696,6 +696,7 @@ DDSFrontEnd::ReadFile(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -853,6 +854,7 @@ DDSFrontEnd::ReadFileScatter(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -986,6 +988,7 @@ DDSFrontEnd::WriteFile(
                 &pollResult
             );
         }
+
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
@@ -1010,6 +1013,7 @@ DDSFrontEnd::WriteFile(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -1173,6 +1177,7 @@ DDSFrontEnd::WriteFileGather(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -1217,11 +1222,8 @@ DDSFrontEnd::FindFirstFile(
     //
     FileIdT id = DDS_FILE_INVALID;
 
-    // printf("DDS (FindFirstFile): Searching for %s\n", FileName);
-
     for (FileIdT i = 0; i != FileIdEnd; i++) {
         if (AllFiles[i]) {
-            // printf("DDS (FindFirstFile): File %lu == %s\n", i, AllFiles[i]->GetName());
             if (strcmp(FileName, AllFiles[i]->GetName()) == 0) {
                 id = i;
                 break;

@@ -19,7 +19,7 @@ using std::endl;
 using std::thread;
 using std::this_thread::yield;
 
-#define PAGE_SIZE 8192
+#define PAGE_SIZE 16384
 
 std::mutex mtx;
 std::condition_variable cv;
@@ -146,7 +146,7 @@ PollThread(
             &opSize,
             &pollContext,
             &opContext,
-            0,
+            INFINITE,
             &pollResult
         );
 
@@ -205,8 +205,7 @@ BenchmarkIOWithPolling(
             NULL,
             NULL
         );
-
-        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS) {
+        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
             result = Store.WriteFile(
                 FileId,
                 writeBuffer,
@@ -259,7 +258,7 @@ BenchmarkIOWithPolling(
             NULL
         );
 
-        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS) {
+        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
             result = Store.ReadFile(
                 FileId,
                 writeBuffer,
@@ -335,7 +334,8 @@ int main()
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
     // const FileSizeT maxFileSize = 1073741824ULL;
-    const FileSizeT maxFileSize = 8192000ULL;
+    // const FileSizeT maxFileSize = 8192000;
+    const FileSizeT maxFileSize = 1638400000;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;

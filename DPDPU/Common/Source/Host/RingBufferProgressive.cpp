@@ -267,10 +267,6 @@ InsertWriteFileRequest(
             return false;
         }
 
-        //
-        // Check space
-        //
-        //
         if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
             return false;
         }
@@ -1065,10 +1061,11 @@ FetchResponse(
     FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
 
     if (responseSize == 0) {
+        DebugPrint("[Error] An empty response\n");
         return false;
     }
 
-    DebugPrint("head = %d, responseSize = %d\n", head, responseSize);
+    DebugPrint("[Debug] Fetching a response: head = %d, response size = %d\n", head, responseSize);
 
     //
     // Grab the current head
@@ -1142,10 +1139,11 @@ FetchResponseBatch(
     FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
 
     if (responseSize == 0) {
+        DebugPrint("[Error] An empty response\n");
         return false;
     }
 
-    DebugPrint("head = %d, responseSize = %d\n", head, responseSize);
+    DebugPrint("[Debug] Fetching a response batch: head = %d, response size = %d\n", head, responseSize);
 
     //
     // Grab the current head
@@ -1171,7 +1169,7 @@ FetchResponseBatch(
     //
     FileIOSizeT batchMetaSize = (FileIOSizeT)(sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
     Responses->TotalSize = responseSize - batchMetaSize;
-    int spillOver = head + batchMetaSize - DDS_RESPONSE_RING_BYTES;
+    int spillOver = head + (int)batchMetaSize - (int)DDS_RESPONSE_RING_BYTES;
     if (spillOver >= 0) {
         Responses->FirstAddr = &RingBuffer->Buffer[spillOver];
         Responses->FirstSize = Responses->TotalSize;
@@ -1208,7 +1206,7 @@ IncrementProgress(
         progress = RingBuffer->Progress[0];
     }
 
-    DebugPrint("Response progress is incremented by %d\n", ResponseSize);
+    DebugPrint("Response progress is incremented by %d. Total progress = %d\n", ResponseSize, (progress + ResponseSize) % DDS_RESPONSE_RING_BYTES);
 }
 
 //
