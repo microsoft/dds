@@ -3,12 +3,14 @@
 // #include <pthread.h>  // already included in DPUBackEndStorage.h
 #include <string.h>
 #include <stdlib.h>
-#include <sched.h>
+// #include <sched.h>
 
 #include "../Include/DPUBackEndStorage.h"
+#include "../Include/ControlPlaneHandlers.h"
+#include "../Include/FileBackEnd.h"
 
 
-struct DPUStorage* GlobalSto;
+struct DPUStorage* Sto;
 void *GlobalArg;
 //
 // Constructor
@@ -513,17 +515,30 @@ ErrorCodeT LoadDirectoriesAndFiles(
 ErrorCodeT SyncDirToDisk(
     struct DPUDir* Dir, 
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    DiskIOCallback Callback,
+    ContextT Context
 ){
-    return WriteToDiskSync(
+    return WriteToDiskAsync(
+        (BufferT)GetDirProperties(Dir),
+        DDS_BACKEND_RESERVED_SEGMENT,
+        GetDirAddressOnSegment(Dir),
+        sizeof(DPUDirPropertiesT),
+        Callback,
+        Context,
+        Sto,
+        SPDKContext,
+        true
+    );
+    /* return WriteToDiskSync(
         (BufferT)GetDirProperties(Dir),
         DDS_BACKEND_RESERVED_SEGMENT,
         GetDirAddressOnSegment(Dir),
         sizeof(DPUDirPropertiesT),
         Sto,
-        arg,
+        SPDKContext,
         true
-    );
+    ); */
 }
 
 //
@@ -552,7 +567,9 @@ ErrorCodeT SyncFileToDisk(
 //
 ErrorCodeT SyncReservedInformationToDisk(
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    DiskIOCallback Callback,
+    ContextT Context
 ){
     char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE];
 
@@ -564,15 +581,26 @@ ErrorCodeT SyncReservedInformationToDisk(
     int* numFiles = numDirs + 1;
     *numFiles = Sto->TotalFiles;
 
-    return WriteToDiskSync(
+    return WriteToDiskAsync(
+        tmpSectorBuf,
+        DDS_BACKEND_RESERVED_SEGMENT,
+        0,
+        DDS_BACKEND_SECTOR_SIZE,
+        Callback,
+        Context,
+        Sto,
+        SPDKContext,
+        true
+    );
+    /* return WriteToDiskSync(
         tmpSectorBuf,
         DDS_BACKEND_RESERVED_SEGMENT,
         0,
         DDS_BACKEND_SECTOR_SIZE,
         Sto,
-        arg,
+        SPDKContext,
         true
-    );
+    ); */
 }
 
 
@@ -595,11 +623,9 @@ IncrementProgressCallback(
 //
 //
 ErrorCodeT Initialize(
-    struct DPUStorage* Sto,
+    struct DPUStorage* Sto,  // TODO: use global var
     void *arg // NOTE: this is currently an spdkContext, but depending on the callbacks, they need different arg than this
 ){
-    GlobalSto = Sto;
-    GlobalArg = arg;
     //
     // Retrieve all segments on disk
     //
@@ -765,6 +791,59 @@ ErrorCodeT Initialize(
     }
     return DDS_ERROR_CODE_SUCCESS;
 }
+
+
+ErrorCodeT RespondWithResult(struct CreateDirectoryHandlerCtx *HandlerCtx, int MsgId, ErrorCodeT Result) {
+    HandlerCtx->Resp->Result = Result;  
+    MsgHeader* msgOut = (MsgHeader*)HandlerCtx->CtrlConn->SendBuff;
+    msgOut->MsgId = MsgId;
+    HandlerCtx->CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
+    int ret = ibv_post_send(HandlerCtx->CtrlConn->QPair, &HandlerCtx->CtrlConn->SendWr, &HandlerCtx->badSendWr);
+    if (ret) {
+        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+        return -1;
+    }
+    return Result;
+}
+
+void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct CreateDirectoryHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        // this is basically the last line of the original CreateDirectory()
+        pthread_mutex_unlock(&Sto->SectorModificationMutex);
+
+        // at this point, we've finished all work, so we just repsond with success
+        RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_SUCCESS);
+    }
+    else {
+        SPDK_ERRLOG("CreateDirectorySyncReservedInformationToDiskCallback failed\n");
+        RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+    }
+}
+
+void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct CreateDirectoryHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {  // continue to do work
+        Sto->AllDirs[HandlerCtx->DirId] = HandlerCtx->dir;
+
+        pthread_mutex_lock(&Sto->SectorModificationMutex);
+        Sto->TotalDirs++;
+        ErrorCodeT result = SyncReservedInformationToDisk(Sto, SPDKContext,
+            CreateDirectorySyncReservedInformationToDiskCallback, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("SyncReservedInformationToDisk() returned %hu\n", result);
+            pthread_mutex_unlock(&Sto->SectorModificationMutex);
+            RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        SPDK_ERRLOG("CreateDirectorySyncDirToDisk failed, can't create directory\n");
+        RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+    }
+}
+
 //
 // Create a diretory
 // Assuming id and parent id have been computed by host
@@ -775,37 +854,47 @@ ErrorCodeT CreateDirectory(
     DirIdT DirId,
     DirIdT ParentId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct CreateDirectoryHandlerCtx *HandlerCtx
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
-    if (!arg){
-        arg = GlobalArg;
-    }
     struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
-        return DDS_ERROR_CODE_OUT_OF_MEMORY;
+        return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
     
-    ErrorCodeT result = SyncDirToDisk(dir, Sto, arg);
+    HandlerCtx->DirId = DirId;
+    HandlerCtx->dir = dir;
+    ErrorCodeT result = SyncDirToDisk(dir, Sto, SPDKContext, CreateDirectorySyncDirToDiskCallback, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
+        return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
 
-    Sto->AllDirs[DirId] = dir;
+    /* Sto->AllDirs[DirId] = dir;
 
     //SectorModificationMutex.lock();
     pthread_mutex_lock(&Sto->SectorModificationMutex);
 
     Sto->TotalDirs++;
-    result = SyncReservedInformationToDisk(Sto, arg);
+    result = SyncReservedInformationToDisk(Sto, SPDKContext);
 
     //SectorModificationMutex.unlock();
     pthread_mutex_unlock(&Sto->SectorModificationMutex);
 
-    return result;
+    return result; */
+
+/* CreateDirectoryError:
+    // can't proceed, just respond with error
+    HandlerCtx->Resp->Result = DDS_ERROR_CODE_OUT_OF_MEMORY;
+    MsgHeader* msgOut = (MsgHeader*)HandlerCtx->CtrlConn->SendBuff;
+    msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
+    HandlerCtx->CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
+    int ret = ibv_post_send(HandlerCtx->CtrlConn->QPair, &HandlerCtx->CtrlConn->SendWr, &HandlerCtx->badSendWr);
+    if (ret) {
+        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+        return -1;
+    }
+    return DDS_ERROR_CODE_OUT_OF_MEMORY; */
 }
 
 //
@@ -1187,15 +1276,14 @@ ErrorCodeT ReadFile(
 ErrorCodeT WriteFile(
     FileIdT FileId,
     FileSizeT Offset,
-    BufferT SourceBuffer,
-    FileIOSizeT BytesToWrite,
+    SplittableBufferT *SourceBuffer,
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
     void *SPDKContext
 ){
     struct DPUFile* file = Sto->AllFiles[FileId];
-    FileSizeT newSize = Offset + BytesToWrite;
+    FileSizeT newSize = Offset + SourceBuffer->TotalSize;
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
     BackEndIOContextT* ioContext = (BackEndIOContextT*)Context;
 
@@ -1250,7 +1338,7 @@ ErrorCodeT WriteFile(
         SetSize(newSize,file);
     }
 
-    FileIOSizeT bytesLeftToWrite = BytesToWrite;
+    FileIOSizeT bytesLeftToWrite = SourceBuffer->TotalSize;
     ioContext->BytesIssued = bytesLeftToWrite;
 
     FileSizeT curOffset = Offset;
@@ -1258,6 +1346,7 @@ ErrorCodeT WriteFile(
     SegmentSizeT offsetOnSegment;
     SegmentSizeT bytesToIssue;
     SegmentSizeT remainingBytesOnCurSeg;
+    BufferT SourceAddr = SourceBuffer->FirstAddr;
     while (bytesLeftToWrite) {
         //
         // Cross-boundary detection
@@ -1267,15 +1356,39 @@ ErrorCodeT WriteFile(
         offsetOnSegment = curOffset % DDS_BACKEND_SEGMENT_SIZE;
         remainingBytesOnCurSeg = DDS_BACKEND_SEGMENT_SIZE - offsetOnSegment;
 
-        if (remainingBytesOnCurSeg >= bytesLeftToWrite) {
-            bytesToIssue = bytesLeftToWrite;
+        FileIOSizeT bytesWritten = SourceBuffer->TotalSize - bytesLeftToWrite;
+        FileIOSizeT firstSplitLeftToWrite = SourceBuffer->FirstSize - bytesWritten;
+        FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to write on it
+        
+        if (firstSplitLeftToWrite > 0) {  // writing from first addr
+            SourceAddr = SourceBuffer->FirstAddr;
+            bytesLeftOnCurrSplit = firstSplitLeftToWrite;
         }
-        else {
-            bytesToIssue = remainingBytesOnCurSeg;
+        else {  // writing from second addr
+            SourceAddr = SourceBuffer->SecondAddr;
+            bytesLeftOnCurrSplit = bytesLeftToWrite;
         }
 
+        //
+        // bytesToIssue will be the min of 3: bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg
+        //
+        //
+
+        bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg);
+
+        /* if (remainingBytesOnCurSeg >= bytesLeftToWrite) {  // everything can go onto curr seg
+            bytesToIssue = bytesLeftToWrite;
+            if (bytesToIssue > firstSplitLeftToWrite) {
+                bytesToIssue = firstSplitLeftToWrite;
+            }
+        }
+        else {  // write as much on curr seg now, some data will be on another seg later
+            bytesToIssue = remainingBytesOnCurSeg;
+        } */
+        
+
         result = WriteToDiskAsync(
-            SourceBuffer + (curOffset - Offset),
+            SourceAddr + (bytesWritten % SourceBuffer->FirstSize),//curOffset - Offset
             curSegment,
             offsetOnSegment,
             bytesToIssue,

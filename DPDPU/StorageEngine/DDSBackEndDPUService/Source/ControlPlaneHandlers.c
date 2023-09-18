@@ -2,6 +2,10 @@
 #include <string.h>
 
 #include "../Include/ControlPlaneHandlers.h"
+#include "DPUBackEndStorage.h"
+
+struct DPUStorage *Sto;
+SPDKContextT *SPDKContext;
 
 //
 // Handler for a CreateDirectory request
@@ -9,7 +13,8 @@
 //
 void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
-    CtrlMsgB2FAckCreateDirectory *Resp
+    CtrlMsgB2FAckCreateDirectory *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 ) {
     printf("Creating a directory: %s\n", Req->PathName);
 
@@ -17,7 +22,7 @@ void CreateDirectoryHandler(
     // TODO: Create the directory
     //
     //
-    Resp->Result = CreateDirectory(Req->PathName, Req->DirId, Req->ParentDirId, NULL, NULL);
+    CreateDirectory(Req->PathName, Req->DirId, Req->ParentDirId, Sto, SPDKContext, CtrlMsgHandlerCtx);
 
 }
 

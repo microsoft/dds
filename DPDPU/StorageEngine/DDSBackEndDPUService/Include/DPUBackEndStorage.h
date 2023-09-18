@@ -7,6 +7,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+#include "../../../Common/Include/MsgType.h"
+
 #include "DPUBackEndDir.h"
 #include "DPUBackEndFile.h"
 #include "bdev.h"
@@ -26,7 +28,7 @@ typedef struct BackEndIOContext {
     atomic_bool IsAvailable;
     ErrorCodeT ErrorCode;
     bool IsRead;
-    void *Result;  // TODO: put the response result here? which is being mutated in the callback
+    BuffMsgB2FAckHeader* Resp  // TODO: put the response result here? which is being mutated in the callback
 } BackEndIOContextT;
 
 //
@@ -177,10 +179,12 @@ ErrorCodeT LoadDirectoriesAndFiles(
 // Synchronize a directory to the disk
 //
 //
-inline ErrorCodeT SyncDirToDisk(
+ErrorCodeT SyncDirToDisk(
     struct DPUDir* Dir, 
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    DiskIOCallback Callback,
+    ContextT Context
 );
 
 //
@@ -197,9 +201,11 @@ inline ErrorCodeT SyncFileToDisk(
 // Synchronize the first sector on the reserved segment
 //
 //
-inline ErrorCodeT SyncReservedInformationToDisk(
+ErrorCodeT SyncReservedInformationToDisk(
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    DiskIOCallback Callback,
+    ContextT Context
 );
 
 
@@ -222,7 +228,8 @@ ErrorCodeT CreateDirectory(
     DirIdT DirId,
     DirIdT ParentId,
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -302,8 +309,7 @@ ErrorCodeT ReadFile(
 ErrorCodeT WriteFile(
     FileIdT FileId,
     FileSizeT Offset,
-    BufferT SourceBuffer,
-    FileIOSizeT BytesToWrite,
+    SplittableBufferT *SourceBuffer,
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
@@ -352,4 +358,15 @@ ErrorCodeT MoveFile(
     const char* NewFileName,
     struct DPUStorage* Sto,
     void *arg
+);
+
+//
+// For responding result/error with RDMA, such as when IO failed in callback and/or can't continue situations
+// e.g. Result = DDS_ERROR_CODE_OUT_OF_MEMORY, MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR
+//
+//
+ErrorCodeT RespondWithResult(
+    struct CreateDirectoryHandlerCtx *HandlerCtx,
+    int MsgId,
+    ErrorCodeT Result
 );

@@ -1,13 +1,25 @@
 #include "../../../Common/Include/MsgType.h"
 #include "DPUBackEndStorage.h"
 
+struct CreateDirectoryHandlerCtx {
+    CtrlMsgF2BReqCreateDirectory *Req;
+    CtrlMsgB2FAckCreateDirectory *Resp;
+    struct CtrlConnConfig *CtrlConn;
+    struct ibv_send_wr *badSendWr;
+    struct ibv_recv_wr *badRecvWr;
+    DirIdT DirId;  // because later we need to have this stmt: Sto->AllDirs[DirId] = dir;
+    struct DPUDir* dir;
+    void *mystuff;  // TODO: if again we need some extra data, just add more
+};
+
 //
 // Handler for a CreateDirectory request
 //
 //
 void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
-    CtrlMsgB2FAckCreateDirectory *Resp
+    CtrlMsgB2FAckCreateDirectory *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //

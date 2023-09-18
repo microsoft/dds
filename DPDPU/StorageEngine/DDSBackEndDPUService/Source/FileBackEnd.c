@@ -28,6 +28,7 @@
 static volatile int ForceQuitFileBackEnd = 0;
 
 struct DPUStorage *Sto;
+SPDKContextT *SPDKContext;
 
 //
 // Set a CM channel to be non-blocking
@@ -1288,7 +1289,12 @@ CtrlMsgHandler(
             // Create the directory
             //
             //
-            CreateDirectoryHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+
+            CreateDirectoryHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -2470,7 +2476,7 @@ void RunFileBackEnd(
     // Initialize SPDK stuff
     //
     //
-    SPDKContextT *SPDKContext = malloc(sizeof(SPDKContextT));
+    SPDKContext = malloc(sizeof(SPDKContextT));
     char* G_BDEV_NAME = "Malloc0";
     SPDKContext->bdev_name = G_BDEV_NAME;
 
