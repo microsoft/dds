@@ -55,6 +55,18 @@
 #define DDS_BACKEND_MAX_SEGMENTS_PER_FILE 1000
 #define DDS_BACKEND_SEGMENT_INVALID -1
 #define DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE 32 * ONE_MB
+
+#define min(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
+
+#define min3(x,y,z) \
+    ({ __typeof__ (x) _x = (x); \
+       __typeof__ (y) _y = (y); \
+       __typeof__ (z) _z = (z); \
+     min(min(x,y),z); })
+
 //
 // Types used in DPU
 //
