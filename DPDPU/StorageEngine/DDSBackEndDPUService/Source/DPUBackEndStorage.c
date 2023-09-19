@@ -293,6 +293,10 @@ ErrorCodeT WriteToDiskAsync(
         }
         else{
             SPDKContextT *arg = SPDKContext;
+            if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
+                SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
+            }
+            memcpy(arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], SrcBuffer, Bytes);
             rc = bdev_write(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
             seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
         }
@@ -1204,8 +1208,7 @@ ErrorCodeT GetFileSize(
 ErrorCodeT ReadFile(
     FileIdT FileId,
     FileSizeT Offset,
-    BufferT DestBuffer,
-    FileIOSizeT BytesToRead,
+    SplittableBufferT *DestBuffer,
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
@@ -1216,8 +1219,8 @@ ErrorCodeT ReadFile(
     BackEndIOContextT* ioContext = (BackEndIOContextT*)Context;
     FileSizeT remainingBytes = GetSize(file) - Offset;
 
-    FileIOSizeT bytesLeftToRead = BytesToRead;
-    if (remainingBytes < BytesToRead) {
+    FileIOSizeT bytesLeftToRead = DestBuffer->TotalSize;
+    if (remainingBytes < DestBuffer->TotalSize) {
         bytesLeftToRead = (FileIOSizeT)remainingBytes;
     }
 
@@ -1228,6 +1231,8 @@ ErrorCodeT ReadFile(
     SegmentSizeT offsetOnSegment;
     SegmentSizeT bytesToIssue;
     SegmentSizeT remainingBytesOnCurSeg;
+    BufferT DestAddr;
+
     while (bytesLeftToRead) {
         //
         // Cross-boundary detection
@@ -1236,16 +1241,38 @@ ErrorCodeT ReadFile(
         curSegment = (SegmentIdT)(curOffset / DDS_BACKEND_SEGMENT_SIZE);
         offsetOnSegment = curOffset % DDS_BACKEND_SEGMENT_SIZE;
         remainingBytesOnCurSeg = DDS_BACKEND_SEGMENT_SIZE - offsetOnSegment;
+
+        FileIOSizeT bytesRead = DestBuffer->TotalSize - bytesLeftToRead;
+        FileIOSizeT firstSplitLeftToRead = DestBuffer->FirstSize - bytesRead;
+        FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to read onto it
+        FileIOSizeT bufferOffset;
+
+        if (firstSplitLeftToRead > 0) {  // first addr
+            SPDK_NOTICELOG("reading into first split, firstSplitLeftToRead: %d\n", firstSplitLeftToRead);
+            DestAddr = DestBuffer->FirstAddr;
+            bytesLeftOnCurrSplit = firstSplitLeftToRead;
+            bufferOffset = bytesRead;
+        }
+        else {  // second addr
+            SPDK_NOTICELOG("reading into second split, bytesLeftToRead: %d\n", bytesLeftToRead);
+            DestAddr = DestBuffer->SecondAddr;
+            bytesLeftOnCurrSplit = bytesLeftToRead;
+            bufferOffset = bytesRead - DestBuffer->FirstSize;
+        }
+
+        bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToRead, remainingBytesOnCurSeg);
+        SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d\n", bytesToIssue, bufferOffset);
+
         
-        if (remainingBytesOnCurSeg >= bytesLeftToRead) {
+        /* if (remainingBytesOnCurSeg >= bytesLeftToRead) {
             bytesToIssue = bytesLeftToRead;
         }
         else {
             bytesToIssue = remainingBytesOnCurSeg;
-        }
+        } */
 
         result = ReadFromDiskAsync(
-            DestBuffer + (curOffset - Offset),
+            DestAddr + bufferOffset, //(curOffset - Offset)
             curSegment,
             offsetOnSegment,
             bytesToIssue,
@@ -1257,14 +1284,20 @@ ErrorCodeT ReadFile(
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
+            SPDK_WARNLOG("ReadFromDiskAsync() failed with ret: %d\n", result);
+            ioContext->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+            ioContext->Resp->BytesServiced = 0;
             return result;
+        }
+        else {
+            ioContext->CallbacksToRun += 1;
         }
 
         curOffset += bytesToIssue;
         bytesLeftToRead -= bytesToIssue;
-        
     }
 
+    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", ioContext->Resp->RequestId, ioContext->CallbacksToRun);
     return result;
 }
 
@@ -1359,14 +1392,19 @@ ErrorCodeT WriteFile(
         FileIOSizeT bytesWritten = SourceBuffer->TotalSize - bytesLeftToWrite;
         FileIOSizeT firstSplitLeftToWrite = SourceBuffer->FirstSize - bytesWritten;
         FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to write on it
+        FileIOSizeT bufferOffset;
         
         if (firstSplitLeftToWrite > 0) {  // writing from first addr
+            SPDK_NOTICELOG("writing from first split, firstSplitLeftToWrite: %d\n", firstSplitLeftToWrite);
             SourceAddr = SourceBuffer->FirstAddr;
             bytesLeftOnCurrSplit = firstSplitLeftToWrite;
+            bufferOffset = bytesWritten;
         }
         else {  // writing from second addr
+            SPDK_NOTICELOG("writing from second split, bytesLeftToWrite: %d\n", bytesLeftToWrite);
             SourceAddr = SourceBuffer->SecondAddr;
             bytesLeftOnCurrSplit = bytesLeftToWrite;
+            bufferOffset = bytesWritten - SourceBuffer->FirstSize;
         }
 
         //
@@ -1375,6 +1413,7 @@ ErrorCodeT WriteFile(
         //
 
         bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg);
+        SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d\n", bytesToIssue, bufferOffset);
 
         /* if (remainingBytesOnCurSeg >= bytesLeftToWrite) {  // everything can go onto curr seg
             bytesToIssue = bytesLeftToWrite;
@@ -1388,25 +1427,32 @@ ErrorCodeT WriteFile(
         
 
         result = WriteToDiskAsync(
-            SourceAddr + (bytesWritten % SourceBuffer->FirstSize),//curOffset - Offset
+            SourceAddr + bufferOffset,//curOffset - Offset
             curSegment,
             offsetOnSegment,
             bytesToIssue,
             Callback,
-            Context,
+            ioContext,
             Sto,
             SPDKContext,
             true
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
+            SPDK_WARNLOG("WriteToDiskAsync() failed with ret: %d\n", result);
+            ioContext->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+            ioContext->Resp->BytesServiced = 0;
             return result;
+        }
+        else {
+            ioContext->CallbacksToRun += 1;
         }
 
         curOffset += bytesToIssue;
         bytesLeftToWrite -= bytesToIssue;
     }
 
+    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", ioContext->Resp->RequestId, ioContext->CallbacksToRun);
     return result;
 }
 

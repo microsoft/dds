@@ -1299,14 +1299,14 @@ CtrlMsgHandler(
             //
             // Respond
             //
-            //
-            msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
+            // TODO: respond should have happend in callbacks, remove it here
+            /* msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
             ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                 ret = -1;
-            }
+            } */
         }
             break;
         //
@@ -1854,7 +1854,8 @@ ExecuteRequests(
     int headResp = BuffConn->ResponseRing.Tail;
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
-    SplittableBufferT dataBuff;
+    // USE malloc, this stack would be destroyed by the time callbacks are fired and access dataBuff!!!
+    SplittableBufferT *dataBuff = malloc(sizeof(*dataBuff));
     FileIOSizeT respSize = 0;
     FileIOSizeT totalRespSize = 0;
     int progressReq = headReq;
@@ -1906,17 +1907,17 @@ ExecuteRequests(
             //
             //
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
-            dataBuff.TotalSize = curReqObj->Bytes;
-            dataBuff.FirstAddr = buffReq + progressReq;
-            if (progressReq + dataBuff.TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
-                dataBuff.FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
-                dataBuff.SecondAddr = buffReq;
-                progressReq = dataBuff.TotalSize - dataBuff.FirstSize;
+            dataBuff->TotalSize = curReqObj->Bytes;
+            dataBuff->FirstAddr = buffReq + progressReq;
+            if (progressReq + dataBuff->TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
+                dataBuff->FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
+                dataBuff->SecondAddr = buffReq;
+                progressReq = dataBuff->TotalSize - dataBuff->FirstSize;
             }
             else {
-                dataBuff.FirstSize = curReqObj->Bytes;
-                dataBuff.SecondAddr = NULL;
-                progressReq += dataBuff.TotalSize;
+                dataBuff->FirstSize = curReqObj->Bytes;
+                dataBuff->SecondAddr = NULL;
+                progressReq += dataBuff->TotalSize;
             }
             WriteHandler(curReqObj, resp, &dataBuff);
         }
@@ -1946,22 +1947,22 @@ ExecuteRequests(
             // Extract read destination buffer from the response ring
             //
             //
-            dataBuff.TotalSize = curReqObj->Bytes;
+            dataBuff->TotalSize = curReqObj->Bytes;
             if (progressResp + respSize <= BACKEND_RESPONSE_BUFFER_SIZE) {
-                dataBuff.FirstAddr = buffResp + (progressResp + alignment);
-                dataBuff.FirstSize = dataBuff.TotalSize;
-                dataBuff.SecondAddr = NULL;
+                dataBuff->FirstAddr = buffResp + (progressResp + alignment);
+                dataBuff->FirstSize = dataBuff->TotalSize;
+                dataBuff->SecondAddr = NULL;
             }
             else {
                 if (progressResp + alignment < BACKEND_RESPONSE_BUFFER_SIZE) {
-                    dataBuff.FirstAddr = buffResp + (progressResp + alignment);
-                    dataBuff.FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
-                    dataBuff.SecondAddr = buffResp + (dataBuff.TotalSize - dataBuff.FirstSize);
+                    dataBuff->FirstAddr = buffResp + (progressResp + alignment);
+                    dataBuff->FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
+                    dataBuff->SecondAddr = buffResp + (dataBuff->TotalSize - dataBuff->FirstSize);
                 }
                 else {
-                    dataBuff.FirstAddr = buffResp;
-                    dataBuff.FirstSize = dataBuff.TotalSize;
-                    dataBuff.SecondAddr = NULL;
+                    dataBuff->FirstAddr = buffResp;
+                    dataBuff->FirstSize = dataBuff->TotalSize;
+                    dataBuff->SecondAddr = NULL;
                 }
             }
             
