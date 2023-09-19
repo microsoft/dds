@@ -15,20 +15,25 @@
 #include "Zmalloc.h"
 
 //
-// Context for each I/O operation in the back end, same with BackEndIOContext
-// In C, we use <stdatomic.h> to replace <atomic>. We use atomic_ulong and 
-// atomic_bool for BytesCompleted and IsAvailable
+// Context for each Write I/O operation in the back end, same with BackEndIOContext
+// Reason we need this: we may actually need multiple async bdev writes to fulfil the request
+// request is fulfilled when BytesIssued == BytesCompleted; otherwise if failure happens,
+// we should already be setting the response to fail outside the callback
+// TODO: instead of tracking bytes all completed, might as well just track no. of writes all completed
 //
 //
 typedef struct BackEndIOContext {
     ContextT FrontEndBufferContext;
     ContextT BackEndBufferContext;
-    FileIOSizeT BytesIssued;
-    atomic_ulong BytesCompleted;
-    atomic_bool IsAvailable;
-    ErrorCodeT ErrorCode;
+    atomic_ushort CallbacksToRun;
+    atomic_ushort CallbacksRan;
+    FileIOSizeT BytesIssued; // equals request's no. of bytes
+    SplittableBufferT *SplittableBuffer;  // free this in last callback
+    // atomic_ulong BytesCompleted;  // unused; TODO: might not need atomic, handler even with multi writes should be on same thread
+    // atomic_bool IsAvailable;  // unused
+    // ErrorCodeT ErrorCode;  // TODO: do we need this? resp has result anyway
     bool IsRead;
-    BuffMsgB2FAckHeader* Resp  // TODO: put the response result here? which is being mutated in the callback
+    BuffMsgB2FAckHeader *Resp  // the actual response, mutated in the callback
 } BackEndIOContextT;
 
 //
@@ -219,7 +224,7 @@ ErrorCodeT Initialize(
 );
 
 //
-// Create a diretory
+// Create a directory
 // Assuming id and parent id have been computed by host
 // 
 //
@@ -228,8 +233,8 @@ ErrorCodeT CreateDirectory(
     DirIdT DirId,
     DirIdT ParentId,
     struct DPUStorage* Sto,
-    void *arg,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    void *SPDKContext,
+    struct CreateDirectoryHandlerCtx *HandlerCtx
 );
 
 //
@@ -294,8 +299,7 @@ ErrorCodeT GetFileSize(
 ErrorCodeT ReadFile(
     FileIdT FileId,
     FileSizeT Offset,
-    BufferT DestBuffer,
-    FileIOSizeT BytesToRead,
+    SplittableBufferT *SourceBuffer,
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
