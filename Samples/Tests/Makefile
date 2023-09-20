@@ -42,8 +42,8 @@ PROG=TestProg
 BUILD_DIR=./build
 SRC_ROOT=../../DPDPU
 
+# ../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndStorage.c
 SRCS = test.c \
-	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndStorage.c \
 	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndFile.c \
 	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/DPUBackEndDir.c \
 	../../DPDPU/StorageEngine/DDSBackEndDPUService/Source/bdev.c \
