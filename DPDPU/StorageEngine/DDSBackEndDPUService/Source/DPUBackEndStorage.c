@@ -6,8 +6,6 @@
 // #include <sched.h>
 
 #include "../Include/DPUBackEndStorage.h"
-#include "../Include/ControlPlaneHandlers.h"
-#include "../Include/FileBackEnd.h"
 
 
 struct DPUStorage* Sto;
@@ -624,10 +622,11 @@ IncrementProgressCallback(
 
 //
 // Initialize the backend service
+// This needs to be async, so using callback chains to accomplish this
 //
 //
 ErrorCodeT Initialize(
-    struct DPUStorage* Sto,  // TODO: use global var
+    struct DPUStorage* Sto,
     void *arg // NOTE: this is currently an spdkContext, but depending on the callbacks, they need different arg than this
 ){
     //
@@ -641,7 +640,7 @@ ErrorCodeT Initialize(
     }
 
     //
-    // The first sector on the reserved segement contains initialization information
+    // The first sector on the reserved segment contains initialization information
     //
     //
     bool diskInitialized = false;

@@ -6,9 +6,19 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
-#include "MsgType.h"
-#include "Protocol.h"
-#include "RingBufferPolling.h"
+#include "ControlPlaneHandlers.h"
+#include "DataPlaneHandlers.h"
+#include "../../../Common/Include/DDSTypes.h"
+#include "DPUBackEnd.h"
+#include "DPUBackEndDir.h"
+#include "DPUBackEndFile.h"
+#include "DPUBackEndStorage.h"
+#include "bdev.h"
+#include "Zmalloc.h"
+
+#include "../../../Common/Include/MsgType.h"
+#include "../../../Common/Include/Protocol.h"
+#include "../../../Common/Include/DPU/RingBufferPolling.h"
 
 #define LISTEN_BACKLOG 64
 #define RESOLVE_TIMEOUT_MS 2000

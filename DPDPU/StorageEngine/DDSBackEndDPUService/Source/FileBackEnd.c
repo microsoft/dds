@@ -11,16 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "ControlPlaneHandlers.h"
-#include "DataPlaneHandlers.h"
-#include "DDSTypes.h"
 #include "FileBackEnd.h"
-#include "DPUBackEnd.h"
-#include "DPUBackEndDir.h"
-#include "DPUBackEndFile.h"
-#include "DPUBackEndStorage.h"
-#include "bdev.h"
-#include "Zmalloc.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -29,6 +20,7 @@ static volatile int ForceQuitFileBackEnd = 0;
 
 struct DPUStorage *Sto;
 SPDKContextT *SPDKContext;
+pthread_t FSAppThread;
 
 //
 // Set a CM channel to be non-blocking
@@ -1203,8 +1195,7 @@ ProcessCmEvents(
 // Control message handler
 //
 //
-static inline int
-CtrlMsgHandler(
+int CtrlMsgHandler(
     struct CtrlConnConfig *CtrlConn
 ) {
     int ret = 0;
@@ -1299,7 +1290,7 @@ CtrlMsgHandler(
             //
             // Respond
             //
-            // TODO: respond should have happend in callbacks, remove it here
+            // TODO: respond should have happened in callbacks, remove it here
             /* msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
             ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
@@ -2502,14 +2493,25 @@ void RunFileBackEnd(
 		return;
 	}
 
-    // TODO: maybe spdk malloc buffer here? See bdev.c sample
-
     /* Allocate memory for the write buffer.
 	 * Initialize the write buffer with the string "Hello World!"
 	 */
 	AllocateSpace(SPDKContext);
 	
     
+    
+    //
+    // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
+    //
+    //
+    /* struct DPUStorage* Sto = BackEndStorage(); */
+    ErrorCodeT result = Initialize(Sto, SPDKContext);
+    if (result != DDS_ERROR_CODE_SUCCESS){
+        fprintf(stderr, "InitStorage failed with %d\n", result);
+        return;
+    }
+
+
     //
     // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
     //
@@ -2550,6 +2552,20 @@ void RunFileBackEnd(
     if (ret) {
         ret = errno;
         fprintf(stderr, "rdma_listen error %d\n", ret);
+        return;
+    }
+        
+    // TODO: init SPDK (threads, as well as storage?)
+    pthread_create(&FSAppThread, NULL, )
+    
+    //
+    // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
+    //
+    //
+    /* struct DPUStorage* Sto = BackEndStorage(); */
+    ErrorCodeT result = Initialize(Sto, SPDKContext);
+    if (result != DDS_ERROR_CODE_SUCCESS){
+        fprintf(stderr, "InitStorage failed with %d\n", result);
         return;
     }
 
