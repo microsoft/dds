@@ -1317,7 +1317,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
             CtrlMsgF2BReqCreateDirectory *req = (CtrlMsgF2BReqCreateDirectory *)(msgIn + 1);
             CtrlMsgB2FAckCreateDirectory *resp = (CtrlMsgB2FAckCreateDirectory *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1335,8 +1334,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1351,7 +1350,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_REMOVE_DIR: {
             CtrlMsgF2BReqRemoveDirectory *req = (CtrlMsgF2BReqRemoveDirectory *)(msgIn + 1);
             CtrlMsgB2FAckRemoveDirectory *resp = (CtrlMsgB2FAckRemoveDirectory *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1369,8 +1367,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_REMOVE_DIR;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1385,7 +1383,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_CREATE_FILE: {
             CtrlMsgF2BReqCreateFile *req = (CtrlMsgF2BReqCreateFile *)(msgIn + 1);
             CtrlMsgB2FAckCreateFile *resp = (CtrlMsgB2FAckCreateFile *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1403,8 +1400,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1419,7 +1416,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_DELETE_FILE: {
             CtrlMsgF2BReqDeleteFile *req = (CtrlMsgF2BReqDeleteFile *)(msgIn + 1);
             CtrlMsgB2FAckDeleteFile *resp = (CtrlMsgB2FAckDeleteFile *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1437,8 +1433,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_DELETE_FILE;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1453,7 +1449,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE: {
             CtrlMsgF2BReqChangeFileSize *req = (CtrlMsgF2BReqChangeFileSize *)(msgIn + 1);
             CtrlMsgB2FAckChangeFileSize *resp = (CtrlMsgB2FAckChangeFileSize *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1471,8 +1466,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1487,7 +1482,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FILE_SIZE: {
             CtrlMsgF2BReqGetFileSize *req = (CtrlMsgF2BReqGetFileSize *)(msgIn + 1);
             CtrlMsgB2FAckGetFileSize *resp = (CtrlMsgB2FAckGetFileSize *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1505,8 +1499,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_SIZE;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1521,7 +1515,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FILE_INFO: {
             CtrlMsgF2BReqGetFileInfo *req = (CtrlMsgF2BReqGetFileInfo *)(msgIn + 1);
             CtrlMsgB2FAckGetFileInfo *resp = (CtrlMsgB2FAckGetFileInfo *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1539,8 +1532,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_INFO;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1555,7 +1548,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FILE_ATTR: {
             CtrlMsgF2BReqGetFileAttr *req = (CtrlMsgF2BReqGetFileAttr *)(msgIn + 1);
             CtrlMsgB2FAckGetFileAttr *resp = (CtrlMsgB2FAckGetFileAttr *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1573,8 +1565,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_ATTR;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1589,7 +1581,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FREE_SPACE: {
             CtrlMsgF2BReqGetFreeSpace *req = (CtrlMsgF2BReqGetFreeSpace *)(msgIn + 1);
             CtrlMsgB2FAckGetFreeSpace *resp = (CtrlMsgB2FAckGetFreeSpace *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1607,8 +1598,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FREE_SPACE;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -1623,7 +1614,6 @@ CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_MOVE_FILE: {
             CtrlMsgF2BReqMoveFile *req = (CtrlMsgF2BReqMoveFile *)(msgIn + 1);
             CtrlMsgB2FAckMoveFile *resp = (CtrlMsgB2FAckMoveFile *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1641,8 +1631,8 @@ CtrlMsgHandler(
             //
             //
             CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_MOVE_FILE;
-            CtrlConn->PendingControlPlanRequest.Request = req;
-            CtrlConn->PendingControlPlanRequest.Response = resp;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
@@ -2608,7 +2598,7 @@ CheckAndProcessControlPlaneCompletions(
     struct ibv_send_wr *badSendWr = NULL;
 
     for (int i = 0; i != Config->MaxClients; i++) {
-        ctrlConn = &Config->BuffConns[i];
+        ctrlConn = &Config->CtrlConns[i];
         if (ctrlConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
