@@ -550,15 +550,19 @@ ErrorCodeT SyncDirToDisk(
 ErrorCodeT SyncFileToDisk(
     struct DPUFile* File,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    DiskIOCallback Callback,
+    ContextT Context
 ){
-    return WriteToDiskSync(
+    return WriteToDiskAsync(
         (BufferT)GetFileProperties(File),
         DDS_BACKEND_RESERVED_SEGMENT,
         GetFileAddressOnSegment(File),
         sizeof(DPUFilePropertiesT),
+        Callback,
+        Context,
         Sto,
-        arg,
+        SPDKContext,
         true
     );
 }
@@ -870,7 +874,7 @@ ErrorCodeT CreateDirectory(
     ErrorCodeT result = SyncDirToDisk(dir, Sto, SPDKContext, CreateDirectorySyncDirToDiskCallback, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+        return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, result);
     }
 
     /* Sto->AllDirs[DirId] = dir;

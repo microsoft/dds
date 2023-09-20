@@ -1324,7 +1324,11 @@ int CtrlMsgHandler(
             // Remove the directory
             //
             //
-            RemoveDirectoryHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            RemoveDirectoryHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1363,7 +1367,11 @@ int CtrlMsgHandler(
             // Create the file
             //
             //
-            CreateFileHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            CreateFileHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1402,7 +1410,11 @@ int CtrlMsgHandler(
             // Delete the file
             //
             //
-            DeleteFileHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            DeleteFileHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1441,7 +1453,11 @@ int CtrlMsgHandler(
             // Change the file size
             //
             //
-            ChangeFileSizeHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            ChangeFileSizeHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1480,7 +1496,11 @@ int CtrlMsgHandler(
             // Get the file size
             //
             //
-            GetFileSizeHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            GetFileSizeHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1519,7 +1539,11 @@ int CtrlMsgHandler(
             // Get the file info
             //
             //
-            GetFileInformationByIdHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            GetFileInformationByIdHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1558,7 +1582,11 @@ int CtrlMsgHandler(
             // Get the file attributes
             //
             //
-            GetFileAttributesHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            GetFileAttributesHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1597,7 +1625,11 @@ int CtrlMsgHandler(
             // Get the free storage space
             //
             //
-            GetStorageFreeSpaceHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            GetStorageFreeSpaceHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond
@@ -1636,7 +1668,11 @@ int CtrlMsgHandler(
             // Move the file
             //
             //
-            MoveFileHandler(req, resp);
+            struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
+            CtrlMsgHandlerCtx->CtrlConn = CtrlConn;
+            CtrlMsgHandlerCtx->badRecvWr = badRecvWr;
+            CtrlMsgHandlerCtx->badSendWr = badSendWr;
+            MoveFileHandler(req, resp, CtrlMsgHandlerCtx);
 
             //
             // Respond

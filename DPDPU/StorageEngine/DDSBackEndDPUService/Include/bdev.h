@@ -32,6 +32,13 @@ typedef struct SPDKContext {
 } SPDKContextT;
 
 //
+// context will be used as an arg in callback functions
+//
+//
+typedef struct CallBackContext{
+    int position;
+};
+//
 // Init this during RunFileBackEnd
 // TODO: this is single thread context, will need to use per thread context later
 //

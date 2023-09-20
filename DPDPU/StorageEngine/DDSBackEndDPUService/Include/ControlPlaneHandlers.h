@@ -29,7 +29,8 @@ void CreateDirectoryHandler(
 //
 void RemoveDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
-    CtrlMsgB2FAckRemoveDirectory *Resp
+    CtrlMsgB2FAckRemoveDirectory *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -38,7 +39,8 @@ void RemoveDirectoryHandler(
 //
 void CreateFileHandler(
     CtrlMsgF2BReqCreateFile *Req,
-    CtrlMsgB2FAckCreateFile *Resp
+    CtrlMsgB2FAckCreateFile *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 //
 // Handler for a DeleteFile request
@@ -46,7 +48,8 @@ void CreateFileHandler(
 //
 void DeleteFileHandler(
     CtrlMsgF2BReqDeleteFile *Req,
-    CtrlMsgB2FAckDeleteFile *Resp
+    CtrlMsgB2FAckDeleteFile *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -55,7 +58,8 @@ void DeleteFileHandler(
 //
 void ChangeFileSizeHandler(
     CtrlMsgF2BReqChangeFileSize *Req,
-    CtrlMsgB2FAckChangeFileSize *Resp
+    CtrlMsgB2FAckChangeFileSize *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -64,7 +68,8 @@ void ChangeFileSizeHandler(
 //
 void GetFileSizeHandler(
     CtrlMsgF2BReqGetFileSize *Req,
-    CtrlMsgB2FAckGetFileSize *Resp
+    CtrlMsgB2FAckGetFileSize *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -73,7 +78,8 @@ void GetFileSizeHandler(
 //
 void GetFileInformationByIdHandler(
     CtrlMsgF2BReqGetFileInfo *Req,
-    CtrlMsgB2FAckGetFileInfo *Resp
+    CtrlMsgB2FAckGetFileInfo *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -82,7 +88,8 @@ void GetFileInformationByIdHandler(
 //
 void GetFileAttributesHandler(
     CtrlMsgF2BReqGetFileAttr *Req,
-    CtrlMsgB2FAckGetFileAttr *Resp
+    CtrlMsgB2FAckGetFileAttr *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -91,7 +98,8 @@ void GetFileAttributesHandler(
 //
 void GetStorageFreeSpaceHandler(
     CtrlMsgF2BReqGetFreeSpace *Req,
-    CtrlMsgB2FAckGetFreeSpace *Resp
+    CtrlMsgB2FAckGetFreeSpace *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
 
 //
@@ -100,5 +108,6 @@ void GetStorageFreeSpaceHandler(
 //
 void MoveFileHandler(
     CtrlMsgF2BReqMoveFile *Req,
-    CtrlMsgB2FAckMoveFile *Resp
+    CtrlMsgB2FAckMoveFile *Resp,
+    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
 );
