@@ -1,4 +1,6 @@
-#include "MsgType.h"
+#pragma once
+
+#include "MsgTypes.h"
 
 //
 // Handler for a read request

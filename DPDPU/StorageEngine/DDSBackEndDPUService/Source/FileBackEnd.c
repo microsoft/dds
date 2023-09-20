@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "ControlPlaneHandlers.h"
+#include "ControlPlaneHandler.h"
 #include "DataPlaneHandlers.h"
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
@@ -144,6 +144,14 @@ AllocConns(struct BackEndConfig* Config) {
     memset(Config->CtrlConns, 0, sizeof(struct CtrlConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxClients; c++) {
         Config->CtrlConns[c].CtrlId = c;
+        
+        //
+        // Initialize the pending control plane request
+        //
+        //
+        Config->CtrlConns[c].PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
+        Config->CtrlConns[c].PendingControlPlanRequest.Request = NULL;
+        Config->CtrlConns[c].PendingControlPlanRequest.Response = NULL;
     }
 
     Config->BuffConns = (struct BuffConnConfig*)malloc(sizeof(struct BuffConnConfig) * Config->MaxClients);
@@ -1326,19 +1334,14 @@ CtrlMsgHandler(
             // Create the directory
             //
             //
-            CreateDirectoryHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1365,19 +1368,14 @@ CtrlMsgHandler(
             // Remove the directory
             //
             //
-            RemoveDirectoryHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_REMOVE_DIR;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_REMOVE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckRemoveDirectory);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1404,19 +1402,14 @@ CtrlMsgHandler(
             // Create the file
             //
             //
-            CreateFileHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateFile);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1443,19 +1436,14 @@ CtrlMsgHandler(
             // Delete the file
             //
             //
-            DeleteFileHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_DELETE_FILE;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_DELETE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckDeleteFile);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1482,19 +1470,14 @@ CtrlMsgHandler(
             // Change the file size
             //
             //
-            ChangeFileSizeHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckChangeFileSize);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1521,19 +1504,14 @@ CtrlMsgHandler(
             // Get the file size
             //
             //
-            GetFileSizeHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_SIZE;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
-            msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileSize);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1560,19 +1538,14 @@ CtrlMsgHandler(
             // Get the file info
             //
             //
-            GetFileInformationByIdHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_INFO;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_INFO;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileInfo);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1599,19 +1572,14 @@ CtrlMsgHandler(
             // Get the file attributes
             //
             //
-            GetFileAttributesHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_ATTR;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_ATTR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileAttr);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1638,19 +1606,14 @@ CtrlMsgHandler(
             // Get the free storage space
             //
             //
-            GetStorageFreeSpaceHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FREE_SPACE;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFreeSpace);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1677,19 +1640,14 @@ CtrlMsgHandler(
             // Move the file
             //
             //
-            MoveFileHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_MOVE_FILE;
+            CtrlConn->PendingControlPlanRequest.Request = req;
+            CtrlConn->PendingControlPlanRequest.Response = resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
-            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_MOVE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckMoveFile);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         default:
@@ -2632,6 +2590,50 @@ CheckAndProcessIOCompletions(
             }
         }
 #endif
+    }
+
+    return ret;
+}
+
+//
+// Check and process I/O completions
+//
+//
+static inline int
+CheckAndProcessControlPlaneCompletion(
+    struct BackEndConfig *Config
+) {
+    int ret = 0;
+    struct CtrlConnConfig *ctrlConn = NULL;
+    struct ibv_send_wr *badSendWr = NULL;
+
+    for (int i = 0; i != Config->MaxClients; i++) {
+        ctrlConn = &Config->BuffConns[i];
+        if (ctrlConn->State != CONN_STATE_CONNECTED) {
+            continue;
+        }
+
+        if (ctrlConn->PendingControlPlanRequest.RequestId == DDS_REQUEST_INVALID) {
+            continue;
+        }
+
+        //
+        // The first field of response should always be the error code
+        //
+        //
+        if (*(ErrorCodeT*)(ctrlConn->PendingControlPlanRequest.Response) == DDS_ERROR_CODE_IO_PENDING) {
+            continue;
+        }
+
+        //
+        // It's complete. Respond back to the host
+        //
+        //
+        ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
+        if (ret) {
+            fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+            ret = -1;
+        }
     }
 
     return ret;

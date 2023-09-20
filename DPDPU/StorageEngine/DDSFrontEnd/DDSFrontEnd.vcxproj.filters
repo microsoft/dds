@@ -27,7 +27,7 @@
     <ClInclude Include="..\..\Common\Include\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\MsgType.h">
+    <ClInclude Include="..\..\Common\Include\MsgTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Include\RDMC.h">

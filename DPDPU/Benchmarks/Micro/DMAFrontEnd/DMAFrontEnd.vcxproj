@@ -152,7 +152,7 @@
     <ClInclude Include="..\..\..\Common\Include\Host\BackEndBridge.h" />
     <ClInclude Include="..\..\..\Common\Include\Host\DMABuffer.h" />
     <ClInclude Include="..\..\..\Common\Include\Host\RDMC.h" />
-    <ClInclude Include="..\..\Common\Include\MsgType.h" />
+    <ClInclude Include="..\..\Common\Include\MsgTypes.h" />
     <ClInclude Include="..\..\Common\Include\Protocol.h" />
     <ClInclude Include="FrontEnd.h" />
   </ItemGroup>

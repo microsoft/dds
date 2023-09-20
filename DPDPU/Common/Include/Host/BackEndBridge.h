@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MsgType.h"
+#include "MsgTypes.h"
 #include "Protocol.h"
 #include "RDMC.h"
 

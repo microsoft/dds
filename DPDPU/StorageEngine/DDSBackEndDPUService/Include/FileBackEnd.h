@@ -6,7 +6,8 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
-#include "MsgType.h"
+#include "FileBackEndTypes.h"
+#include "MsgTypes.h"
 #include "Protocol.h"
 #include "RingBufferPolling.h"
 
@@ -86,6 +87,12 @@ struct CtrlConnConfig {
     struct ibv_sge SendSgl;
     struct ibv_mr *SendMr;
     char SendBuff[CTRL_MSG_SIZE];
+
+    //
+    // Pending control-plane request
+    //
+    //
+    ControlPlaneRequestContext PendingControlPlanRequest;
 };
 
 //

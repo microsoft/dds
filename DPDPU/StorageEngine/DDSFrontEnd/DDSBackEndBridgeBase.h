@@ -2,7 +2,7 @@
 
 #include "DDSFrontEndInterface.h"
 #include "DDSFrontEndTypes.h"
-#include "MsgType.h"
+#include "MsgTypes.h"
 #include "Protocol.h"
 
 #undef CreateDirectory

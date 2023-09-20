@@ -6,7 +6,7 @@
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
 
-#include "MsgType.h"
+#include "MsgTypes.h"
 #include "Protocol.h"
 #include "RingBufferPolling.h"
 
