@@ -16,6 +16,13 @@
 #define TRUE 1
 #define FALSE 0
 
+#undef DEBUG_FILE_BACKEND
+#ifdef DEBUG_FILE_BACKEND
+#define DebugPrint(Fmt, ...) fprintf(stderr, Fmt, __VA_ARGS__)
+#else
+static inline void DebugPrint(const char* Fmt, ...) { }
+#endif
+
 static volatile int ForceQuitFileBackEnd = 0;
 
 struct DPUStorage *Sto;
@@ -611,6 +618,15 @@ SetUpForRequests(
     BuffConn->RequestDMAReadDataWr.num_sge = 1;
     BuffConn->RequestDMAReadDataWr.wr_id = BUFF_READ_REQUEST_DATA_WR_ID;
 
+    BuffConn->RequestDMAReadDataSplitSgl.addr = (uint64_t)BuffConn->RequestDMAReadDataBuff;
+    BuffConn->RequestDMAReadDataSplitSgl.length = BACKEND_REQUEST_MAX_DMA_SIZE;
+    BuffConn->RequestDMAReadDataSplitSgl.lkey = BuffConn->RequestDMAReadDataMr->lkey;
+    BuffConn->RequestDMAReadDataSplitWr.opcode = IBV_WR_RDMA_READ;
+    BuffConn->RequestDMAReadDataSplitWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->RequestDMAReadDataSplitWr.sg_list = &BuffConn->RequestDMAReadDataSplitSgl;
+    BuffConn->RequestDMAReadDataSplitWr.num_sge = 1;
+    BuffConn->RequestDMAReadDataSplitWr.wr_id = BUFF_READ_REQUEST_DATA_SPLIT_WR_ID;
+
     BuffConn->RequestDMAReadMetaSgl.addr = (uint64_t)BuffConn->RequestDMAReadMetaBuff;
     BuffConn->RequestDMAReadMetaSgl.length = RING_BUFFER_REQUEST_META_DATA_SIZE;
     BuffConn->RequestDMAReadMetaSgl.lkey = BuffConn->RequestDMAReadMetaMr->lkey;
@@ -661,10 +677,14 @@ DestroyForRequests(
     memset(&BuffConn->RequestDMAWriteMetaSgl, 0, sizeof(BuffConn->RequestDMAReadMetaSgl));
     memset(&BuffConn->RequestDMAReadMetaSgl, 0, sizeof(BuffConn->RequestDMAReadMetaSgl));
     memset(&BuffConn->RequestDMAReadDataSgl, 0, sizeof(BuffConn->RequestDMAReadDataSgl));
+    memset(&BuffConn->RequestDMAReadDataSplitSgl, 0, sizeof(BuffConn->RequestDMAReadDataSplitSgl));
     
     memset(&BuffConn->RequestDMAWriteMetaWr, 0, sizeof(BuffConn->RequestDMAWriteMetaWr));
     memset(&BuffConn->RequestDMAReadMetaWr, 0, sizeof(BuffConn->RequestDMAReadMetaWr));
     memset(&BuffConn->RequestDMAReadDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+    memset(&BuffConn->RequestDMAReadDataSplitWr, 0, sizeof(BuffConn->RequestDMAReadDataSplitWr));
+    
+    BuffConn->RequestRing.Head = 0;
 }
 
 //
@@ -720,7 +740,7 @@ SetUpForResponses(
     // Write meta buffer and region
     //
     //
-    BuffConn->ResponseDMAWriteMetaBuff = (char*)&BuffConn->ResponseRing.Tail;
+    BuffConn->ResponseDMAWriteMetaBuff = (char*)&BuffConn->ResponseRing.TailC;
     BuffConn->ResponseDMAWriteMetaMr = ibv_reg_mr(
         BuffConn->PDomain,
         BuffConn->ResponseDMAWriteMetaBuff,
@@ -740,11 +760,20 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteDataSgl.addr = (uint64_t)BuffConn->ResponseDMAWriteDataBuff;
     BuffConn->ResponseDMAWriteDataSgl.length = BACKEND_RESPONSE_MAX_DMA_SIZE;
     BuffConn->ResponseDMAWriteDataSgl.lkey = BuffConn->ResponseDMAWriteDataMr->lkey;
-    BuffConn->ResponseDMAWriteDataWr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+    BuffConn->ResponseDMAWriteDataWr.opcode = IBV_WR_RDMA_WRITE;
     BuffConn->ResponseDMAWriteDataWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->ResponseDMAWriteDataWr.sg_list = &BuffConn->ResponseDMAWriteDataSgl;
     BuffConn->ResponseDMAWriteDataWr.num_sge = 1;
-    BuffConn->ResponseDMAWriteDataWr.wr_id = BUFF_READ_RESPONSE_DATA_WR_ID;
+    BuffConn->ResponseDMAWriteDataWr.wr_id = BUFF_WRITE_RESPONSE_DATA_WR_ID;
+    
+    BuffConn->ResponseDMAWriteDataSplitSgl.addr = (uint64_t)BuffConn->ResponseDMAWriteDataBuff;
+    BuffConn->ResponseDMAWriteDataSplitSgl.length = BACKEND_RESPONSE_MAX_DMA_SIZE;
+    BuffConn->ResponseDMAWriteDataSplitSgl.lkey = BuffConn->ResponseDMAWriteDataMr->lkey;
+    BuffConn->ResponseDMAWriteDataSplitWr.opcode = IBV_WR_RDMA_WRITE;
+    BuffConn->ResponseDMAWriteDataSplitWr.send_flags = IBV_SEND_SIGNALED;
+    BuffConn->ResponseDMAWriteDataSplitWr.sg_list = &BuffConn->ResponseDMAWriteDataSplitSgl;
+    BuffConn->ResponseDMAWriteDataSplitWr.num_sge = 1;
+    BuffConn->ResponseDMAWriteDataSplitWr.wr_id = BUFF_WRITE_RESPONSE_DATA_SPLIT_WR_ID;
 
     BuffConn->ResponseDMAReadMetaSgl.addr = (uint64_t)BuffConn->ResponseDMAReadMetaBuff;
     BuffConn->ResponseDMAReadMetaSgl.length = RING_BUFFER_RESPONSE_META_DATA_SIZE;
@@ -758,7 +787,11 @@ SetUpForResponses(
     BuffConn->ResponseDMAWriteMetaSgl.addr = (uint64_t)BuffConn->ResponseDMAWriteMetaBuff;
     BuffConn->ResponseDMAWriteMetaSgl.length = sizeof(int);
     BuffConn->ResponseDMAWriteMetaSgl.lkey = BuffConn->ResponseDMAWriteMetaMr->lkey;
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT 
+    BuffConn->ResponseDMAWriteMetaWr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+#else
     BuffConn->ResponseDMAWriteMetaWr.opcode = IBV_WR_RDMA_WRITE;
+#endif
     BuffConn->ResponseDMAWriteMetaWr.send_flags = IBV_SEND_SIGNALED;
     BuffConn->ResponseDMAWriteMetaWr.sg_list = &BuffConn->ResponseDMAWriteMetaSgl;
     BuffConn->ResponseDMAWriteMetaWr.num_sge = 1;
@@ -800,6 +833,10 @@ DestroyForResponses(
     memset(&BuffConn->ResponseDMAWriteMetaWr, 0, sizeof(BuffConn->ResponseDMAWriteMetaWr));
     memset(&BuffConn->ResponseDMAReadMetaWr, 0, sizeof(BuffConn->ResponseDMAReadMetaWr));
     memset(&BuffConn->ResponseDMAWriteDataWr, 0, sizeof(BuffConn->RequestDMAReadDataWr));
+
+    BuffConn->ResponseRing.TailC = 0;
+    BuffConn->ResponseRing.TailB = 0;
+    BuffConn->ResponseRing.TailA = 0;
 }
 
 //
@@ -921,7 +958,7 @@ ProcessCmEvents(
         case RDMA_CM_EVENT_ROUTE_RESOLVED:
         {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            printf("CM: RDMA_CM_EVENT_ROUTE_RESOLVED\n");
+            fprintf(stdout, "CM: RDMA_CM_EVENT_ROUTE_RESOLVED\n");
 #endif
             rdma_ack_cm_event(Event);
             break;
@@ -939,7 +976,7 @@ ProcessCmEvents(
                     struct CtrlConnConfig *ctrlConn = NULL;
 
                     for (int index = 0; index < Config->MaxClients; index++) {
-                        if (!Config->CtrlConns[index].InUse) {
+                        if (Config->CtrlConns[index].State == CONN_STATE_AVAILABLE) {
                             ctrlConn = &Config->CtrlConns[index];
                             break;
                         }
@@ -1003,7 +1040,7 @@ ProcessCmEvents(
                         // Mark this connection unavailable
                         //
                         //
-                        ctrlConn->InUse = TRUE;
+                        ctrlConn->State = CONN_STATE_OCCUPIED;
                         fprintf(stdout, "Control connection #%d is accepted\n", ctrlConn->CtrlId);
                     }
                     else {
@@ -1019,7 +1056,7 @@ ProcessCmEvents(
                     int index;
 
                     for (index = 0; index < Config->MaxClients; index++) {
-                        if (!Config->BuffConns[index].InUse) {
+                        if (Config->BuffConns[index].State == CONN_STATE_AVAILABLE) {
                             buffConn = &Config->BuffConns[index];
                             break;
                         }
@@ -1083,7 +1120,7 @@ ProcessCmEvents(
                         // Mark this connection unavailable
                         //
                         //
-                        buffConn->InUse = TRUE;
+                        buffConn->State = CONN_STATE_OCCUPIED;
                         fprintf(stdout, "Buffer connection #%d is accepted\n", buffConn->BuffId);
                     }
                     else {
@@ -1104,19 +1141,28 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
-            uint8_t privData;
-            int connId = FindConnId(Config, Event->id, &privData);
-            if (privData) {
+            uint8_t isCtrl;
+            int connId = FindConnId(Config, Event->id, &isCtrl);
+            if (connId >= 0) {
+                if (isCtrl) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
+                    fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
+                    struct CtrlConnConfig* ctrlConn = &Config->CtrlConns[connId];
+                    ctrlConn->State = CONN_STATE_CONNECTED;
+#endif
+                }
+                else
+                {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                    fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
+                    struct BuffConnConfig* buffConn = &Config->BuffConns[connId];
+                    buffConn->State = CONN_STATE_CONNECTED;
+                }
 #endif
             }
-            else
-            {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-                fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
+            else {
+                fprintf(stderr, "CM: RDMA_CM_EVENT_ESTABLISHED with unrecognized connection\n");
             }
-#endif
 
             rdma_ack_cm_event(Event);
             break;
@@ -1137,26 +1183,26 @@ ProcessCmEvents(
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-            uint8_t privData;
-            int connId = FindConnId(Config, Event->id, &privData);
+            uint8_t isCtrl;
+            int connId = FindConnId(Config, Event->id, &isCtrl);
             if (connId >= 0) {
-                if (privData) {
-                        if (Config->CtrlConns[connId].InUse) {
+                if (isCtrl) {
+                        if (Config->CtrlConns[connId].State != CONN_STATE_AVAILABLE) {
                             struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
-                            ctrlConn->InUse = FALSE;
+                            ctrlConn->State = CONN_STATE_AVAILABLE;
                         }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                         fprintf(stdout, "CM: RDMA_CM_EVENT_DISCONNECTED for Control Conn#%d\n", connId);
 #endif
                 }
                 else {
-                        if (Config->BuffConns[connId].InUse) {
+                        if (Config->BuffConns[connId].State != CONN_STATE_AVAILABLE) {
                             struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
                             DestroyBuffRegionsAndBuffers(buffConn);
                             DestroyBuffQPair(buffConn);
-                            buffConn->InUse = FALSE;
+                            buffConn->State = CONN_STATE_AVAILABLE;
                         }
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                     fprintf(stdout, "CM: RDMA_CM_EVENT_DISCONNECTED for Buffer Conn#%d\n", connId);
@@ -1164,7 +1210,7 @@ ProcessCmEvents(
                 }
             }
             else {
-                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized control connection\n");
+                fprintf(stderr, "CM: RDMA_CM_EVENT_DISCONNECTED with unrecognized connection\n");
             }
                 
             rdma_ack_cm_event(Event);
@@ -1246,7 +1292,7 @@ int CtrlMsgHandler(
             if (req->ClientId == CtrlConn->CtrlId) {
                 DestroyCtrlRegionsAndBuffers(CtrlConn);
                 DestroyCtrlQPair(CtrlConn);
-                CtrlConn->InUse = FALSE;
+                CtrlConn->State = CONN_STATE_AVAILABLE;
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "%s [info]: Control Conn#%d is disconnected\n", __func__, req->ClientId);
 #endif
@@ -1710,7 +1756,7 @@ ProcessCtrlCqEvents(
 
     for (int i = 0; i != Config->MaxClients; i++) {
         ctrlConn = &Config->CtrlConns[i];
-        if (!ctrlConn->InUse) {
+        if (ctrlConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
 
@@ -1799,12 +1845,14 @@ BuffMsgHandler(
             BuffConn->RequestDMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->RequestRing.WriteMetaAddr;
             BuffConn->RequestDMAWriteMetaWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             BuffConn->RequestDMAReadDataWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
+            BuffConn->RequestDMAReadDataSplitWr.wr.rdma.rkey = BuffConn->RequestRing.AccessToken;
             
             BuffConn->ResponseDMAReadMetaWr.wr.rdma.remote_addr = BuffConn->ResponseRing.ReadMetaAddr;
             BuffConn->ResponseDMAReadMetaWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
             BuffConn->ResponseDMAWriteMetaWr.wr.rdma.remote_addr = BuffConn->ResponseRing.WriteMetaAddr;
             BuffConn->ResponseDMAWriteMetaWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
             BuffConn->ResponseDMAWriteDataWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
+            BuffConn->ResponseDMAWriteDataSplitWr.wr.rdma.rkey = BuffConn->ResponseRing.AccessToken;
 
             msgOut->MsgId = BUFF_MSG_B2F_RESPOND_ID;
             resp->BufferId = BuffConn->BuffId;
@@ -1840,7 +1888,7 @@ BuffMsgHandler(
             if (req->BufferId == BuffConn->BuffId && req->ClientId == BuffConn->CtrlId) {
                 DestroyBuffRegionsAndBuffers(BuffConn);
                 DestroyBuffQPair(BuffConn);
-                BuffConn->InUse = 0;
+                BuffConn->State = CONN_STATE_AVAILABLE;
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                 fprintf(stdout, "%s [info]: Buffer Conn#%d (Client#%d) is disconnected\n", __func__, req->BufferId, req->ClientId);
 #endif
@@ -1877,30 +1925,55 @@ ExecuteRequests(
 
     int tailReq = BuffConn->RequestRing.Head;
     int headReq = tailReq >= bytesTotal ? tailReq - bytesTotal : BACKEND_REQUEST_BUFFER_SIZE + tailReq - bytesTotal;
-    int tailResp = BuffConn->ResponseRing.AggressiveTail;
-    int headResp = BuffConn->ResponseRing.Tail;
+    int tailResp = BuffConn->ResponseRing.TailA;
+    int headResp = BuffConn->ResponseRing.TailB;
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
     // USE malloc, this stack would be destroyed by the time callbacks are fired and access dataBuff!!!
     SplittableBufferT *dataBuff = malloc(sizeof(*dataBuff));
+    int progressReqForParsing;
+    FileIOSizeT reqSize;
     FileIOSizeT respSize = 0;
     FileIOSizeT totalRespSize = 0;
     int progressReq = headReq;
     int progressResp = tailResp;
 
+
+    buffReq = BuffConn->RequestDMAReadDataBuff;
+    buffResp = BuffConn->ResponseDMAWriteDataBuff;
+
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    //
+    // We only need |FileIOSizeT| bytes but use |FileIOSizeT| + |BuffMsgB2FAckHeader| for alignment
+    //
+    //
+    BufferT batchMeta = buffResp + progressResp;
+    progressResp += (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+    totalRespSize += (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+    if (progressResp >= BACKEND_RESPONSE_BUFFER_SIZE) {
+        progressResp %= BACKEND_RESPONSE_BUFFER_SIZE;
+    }
+#endif
+
+    DebugPrint("Requests have been received: total request bytes = %d\n", bytesTotal);
+
     //
     // Parse all file requests in the batch
     //
     //
-    buffReq = BuffConn->RequestDMAReadDataBuff;
-    buffResp = BuffConn->ResponseDMAWriteDataBuff;
     while (bytesParsed != bytesTotal) {
         curReq = buffReq + progressReq;
-
-        bytesParsed += *(FileIOSizeT*)(curReq);
-        progressReq += *(FileIOSizeT*)(curReq);
+        reqSize = *(FileIOSizeT*)(curReq);
+        
+        progressReqForParsing = progressReq;
+        bytesParsed += reqSize;
+        progressReq += reqSize;
         if (progressReq >= BACKEND_REQUEST_BUFFER_SIZE) {
             progressReq %= BACKEND_REQUEST_BUFFER_SIZE;
+        }
+        progressReqForParsing += sizeof(FileIOSizeT) + sizeof(BuffMsgF2BReqHeader);
+        if (progressReqForParsing >= BACKEND_REQUEST_BUFFER_SIZE) {
+            progressReqForParsing %= BACKEND_REQUEST_BUFFER_SIZE;
         }
 
         curReqSize = *(FileIOSizeT*)(curReq) - sizeof(FileIOSizeT);
@@ -1912,7 +1985,24 @@ ExecuteRequests(
             // Allocate a response first, no need to check alignment
             //
             //
+            DebugPrint("%s: get a write request\n", __func__);
             respSize = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
+
+            //
+            // Extract write source buffer from the request ring
+            //
+            //
+            curReqObj = (BuffMsgF2BReqHeader*)curReq;
+            dataBuff.TotalSize = curReqObj->Bytes;
+            dataBuff.FirstAddr = buffReq + progressReqForParsing;
+            if (progressReq + dataBuff.TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
+                dataBuff.FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
+                dataBuff.SecondAddr = buffReq;
+            }
+            else {
+                dataBuff.FirstSize = curReqObj->Bytes;
+                dataBuff.SecondAddr = NULL;
+            }
 
             //
             // Record the size of the this response on the response ring
@@ -1921,6 +2011,7 @@ ExecuteRequests(
             *(FileIOSizeT*)(buffResp + progressResp) = respSize;
 
             BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
+	    resp->RequestId = curReqObj->RequestId;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             
             progressResp += respSize;
@@ -1930,22 +2021,9 @@ ExecuteRequests(
             }
 
             //
-            // Extract write source buffer from the request ring
+            // Invoke write handler 
             //
             //
-            curReqObj = (BuffMsgF2BReqHeader*)curReq;
-            dataBuff->TotalSize = curReqObj->Bytes;
-            dataBuff->FirstAddr = buffReq + progressReq;
-            if (progressReq + dataBuff->TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
-                dataBuff->FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
-                dataBuff->SecondAddr = buffReq;
-                progressReq = dataBuff->TotalSize - dataBuff->FirstSize;
-            }
-            else {
-                dataBuff->FirstSize = curReqObj->Bytes;
-                dataBuff->SecondAddr = NULL;
-                progressReq += dataBuff->TotalSize;
-            }
             WriteHandler(curReqObj, resp, &dataBuff);
         }
         else {
@@ -1954,12 +2032,14 @@ ExecuteRequests(
             // Allocate a response first, need to check alignment
             //
             //
+            DebugPrint("%s: get a read request\n", __func__);
             RingSizeT alignment = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
             respSize = alignment + curReqObj->Bytes;
             if (respSize % alignment != 0) {
                 respSize += (alignment - (respSize % alignment));
             }
+            DebugPrint("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
             
             //
             // Record the size of the this response on the response ring
@@ -1968,6 +2048,7 @@ ExecuteRequests(
             *(FileIOSizeT*)(buffResp + progressResp) = respSize;
 
             BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
+	    resp->RequestId = curReqObj->RequestId;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
 
             //
@@ -1999,6 +2080,10 @@ ExecuteRequests(
                 progressResp %= BACKEND_RESPONSE_BUFFER_SIZE;
             }
 
+            //
+            // Inovke read handler 
+            //
+            //
             ReadHandler(curReqObj, resp, &dataBuff);
         }
     }
@@ -2017,7 +2102,31 @@ ExecuteRequests(
         fprintf(stderr, "%s [error]: Response buffer is corrupted!\n", __func__);
         exit(-1);
     }
-    BuffConn->ResponseRing.AggressiveTail = progressResp;
+    DebugPrint("All requests have been executed. Response size = %d\n", totalRespSize);
+    DebugPrint("%s: AggressiveTail %d -> %d\n", __func__, BuffConn->ResponseRing.TailA, progressResp);
+    BuffConn->ResponseRing.TailA = progressResp;
+
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    *((FileIOSizeT*)batchMeta) = totalRespSize;
+#endif
+}
+
+//
+// Compute the distance between two pointers on a ring buffer
+//
+//
+static inline int
+DistanceBetweenPointers(
+    int Tail,
+    int Head,
+    size_t Capacity
+) {
+    if (Tail >= Head) {
+        return Tail - Head;
+    }
+    else {
+        return Capacity - Head + Tail;
+    }
 }
 
 //
@@ -2035,14 +2144,14 @@ ProcessBuffCqEvents(
 
     for (int i = 0; i != Config->MaxBuffs; i++) {
         buffConn = &Config->BuffConns[i];
-        if (!buffConn->InUse) {
+        if (buffConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
 
         if ((ret = ibv_poll_cq(buffConn->CompQ, 1, &wc)) == 1) {
             ret = 0;
             if (wc.status != IBV_WC_SUCCESS) {
-                fprintf(stderr, "%s [error]: ibv_poll_cq failed status %d\n", __func__, wc.status);
+                fprintf(stderr, "%s [error]: ibv_poll_cq failed status %d (%s)\n", __func__, wc.status, ibv_wc_status_str(wc.status));
                 ret = -1;
                 continue;
             }
@@ -2086,18 +2195,23 @@ ProcessBuffCqEvents(
                             RingSizeT availBytes = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
+                            uint64_t destBuffer1 = 0;
+                            uint64_t destBuffer2 = 0;
                             int head = buffConn->RequestRing.Head;
 
                             if (progress > head) {
                                 availBytes = progress - head;
                                 buffConn->RequestDMAReadDataSize = availBytes;
                                 sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
+                                destBuffer1 = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
                             }
                             else {
                                 availBytes = DDS_REQUEST_RING_BYTES - head;
                                 buffConn->RequestDMAReadDataSize = availBytes + progress;
                                 sourceBuffer1 = buffConn->RequestRing.DataBaseAddr + head;
                                 sourceBuffer2 = buffConn->RequestRing.DataBaseAddr;
+                                destBuffer1 = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
+                                destBuffer2 = (uint64_t)(buffConn->RequestDMAReadDataBuff);
                             }
 
                             //
@@ -2105,23 +2219,22 @@ ProcessBuffCqEvents(
                             //
                             //
                             buffConn->RequestDMAReadDataWr.wr.rdma.remote_addr = sourceBuffer1;
-                            buffConn->RequestDMAReadDataWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff + head);
+                            buffConn->RequestDMAReadDataWr.sg_list->addr = destBuffer1;
                             buffConn->RequestDMAReadDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {
                                 buffConn->RequestDMAReadDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
 
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataWr, &badSendWr);
+                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = destBuffer2;
+                                buffConn->RequestDMAReadDataSplitWr.sg_list->length = progress;
+                                buffConn->RequestDMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataSplitWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
                                 }
 
-                                buffConn->RequestDMAReadDataSplitWr.sg_list->addr = (uint64_t)(buffConn->RequestDMAReadDataBuff);
-                                buffConn->RequestDMAReadDataSplitWr.sg_list->length = progress;
-                                buffConn->RequestDMAReadDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
-
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataSplitWr, &badSendWr);
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->RequestDMAReadDataWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
@@ -2193,7 +2306,21 @@ ProcessBuffCqEvents(
                         int* pointers = (int*)buffConn->ResponseDMAReadMetaBuff;
                         int progress = pointers[0];
                         int head = pointers[DDS_CACHE_LINE_SIZE_BY_INT];
-                        int tail = buffConn->ResponseRing.Tail;
+                        int tailStart = buffConn->ResponseRing.TailC;
+                        int tailEnd = buffConn->ResponseRing.TailB;
+                        
+                        DebugPrint("head = %d, progress = %d, tail = %d\n", head, progress, tailStart);
+
+                        if (tailStart == tailEnd) {
+                            //
+                            // No response to send
+                            //
+                            //
+                            break;
+                        }
+
+                        const FileIOSizeT totalResponseBytes = DistanceBetweenPointers(tailEnd, tailStart, BACKEND_RESPONSE_BUFFER_SIZE);
+
                         
                         RingSizeT distance = 0;
                         if (head != progress) {
@@ -2201,6 +2328,7 @@ ProcessBuffCqEvents(
                             // Not ready to write, poll again
                             //
                             //
+			    DebugPrint("progress %d != head %d, keep polling\n", progress, head);
                             ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -2209,14 +2337,14 @@ ProcessBuffCqEvents(
                             break;
                         }
 
-                        if (tail >= head) {
-                            distance = head + DDS_RESPONSE_RING_BYTES - tail;
+                        if (tailStart >= head) {
+                            distance = head + DDS_RESPONSE_RING_BYTES - tailStart;
                         }
                         else {
-                            distance = head - tail;
+                            distance = head - tailStart;
                         }
 
-                        if (distance < buffConn->ResponseDMAWriteDataSize) {
+                        if (distance < totalResponseBytes) {
                             //
                             // Not ready to write, poll again
                             //
@@ -2233,51 +2361,57 @@ ProcessBuffCqEvents(
                             // Ready to write
                             //
                             //
-                            FileIOSizeT totalResponseBytes = 0;
                             RingSizeT availBytes = 0;
                             uint64_t sourceBuffer1 = 0;
                             uint64_t sourceBuffer2 = 0;
+                            uint64_t destBuffer1 = 0;
+                            uint64_t destBuffer2 = 0;
 
-                            totalResponseBytes = buffConn->ResponseDMAWriteDataSize;
-                            if (tail + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
+                            DebugPrint("Total response bytes = %d\n", totalResponseBytes);
+
+                            if (tailStart + totalResponseBytes <= DDS_RESPONSE_RING_BYTES) {
                                 //
                                 // No split
                                 //
                                 //
                                 availBytes = totalResponseBytes;
-                                sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tail);
+                                sourceBuffer1 = (uint64_t)(buffConn->ResponseDMAWriteDataBuff + tailStart);
+                                destBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tailStart);
                             }
                             else {
                                 //
                                 // Split
                                 //
                                 //
-                                availBytes = DDS_RESPONSE_RING_BYTES - tail;
-                                sourceBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tail);
-                                sourceBuffer2 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr);
+                                availBytes = DDS_RESPONSE_RING_BYTES - tailStart;
+                                sourceBuffer1 = (uint64_t)(buffConn->ResponseDMAWriteDataBuff + tailStart);
+                                sourceBuffer2 = (uint64_t)(buffConn->ResponseDMAWriteDataBuff);
+                                destBuffer1 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr + tailStart);
+                                destBuffer2 = (uint64_t)(buffConn->ResponseRing.DataBaseAddr);
                             }
 
                             //
                             // Post DMA writes
                             //
                             //
-                            buffConn->ResponseDMAWriteDataWr.wr.rdma.remote_addr = sourceBuffer1;
+                            buffConn->ResponseDMAWriteDataWr.wr.rdma.remote_addr = destBuffer1;
+                            buffConn->ResponseDMAWriteDataWr.sg_list->addr = sourceBuffer1;
                             buffConn->ResponseDMAWriteDataWr.sg_list->length = availBytes;
 
                             if (sourceBuffer2) {
                                 buffConn->ResponseDMAWriteDataSplitState = BUFF_READ_DATA_SPLIT_STATE_SPLIT;
 
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAWriteDataWr, &badSendWr);
+                                buffConn->ResponseDMAWriteDataSplitWr.sg_list->addr = sourceBuffer2;
+                                buffConn->ResponseDMAWriteDataSplitWr.sg_list->length = totalResponseBytes - availBytes;
+                                buffConn->ResponseDMAWriteDataSplitWr.wr.rdma.remote_addr = destBuffer2;
+
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAWriteDataSplitWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
                                 }
 
-                                buffConn->ResponseDMAWriteDataSplitWr.sg_list->addr = (uint64_t)(buffConn->ResponseDMAWriteDataBuff + availBytes);
-                                buffConn->ResponseDMAWriteDataSplitWr.sg_list->length = totalResponseBytes - availBytes;
-                                buffConn->ResponseDMAWriteDataSplitWr.wr.rdma.remote_addr = sourceBuffer2;
-
-                                ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAWriteDataSplitWr, &badSendWr);
+                                ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAWriteDataWr, &badSendWr);
                                 if (ret) {
                                     fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                                     ret = -1;
@@ -2293,7 +2427,8 @@ ProcessBuffCqEvents(
                                 }
                             }
 
-                            buffConn->ResponseRing.Tail = (tail + totalResponseBytes) % DDS_RESPONSE_RING_BYTES;
+                            DebugPrint("%s: buffConn->ResponseRing.TailC %d -> %d\n", __func__, buffConn->ResponseRing.TailC, (tailStart + totalResponseBytes) % DDS_RESPONSE_RING_BYTES);
+                            buffConn->ResponseRing.TailC = (tailStart + totalResponseBytes) % DDS_RESPONSE_RING_BYTES;
                             
                             //
                             // Immediately update remote tail, assuming DMA requests are exected in order
@@ -2345,6 +2480,7 @@ ProcessBuffCqEvents(
                             // There is nothing to do here because response completions are checked in the big loop
                             //
                             //
+			    DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
                         }
                         else {
                             buffConn->ResponseDMAWriteDataSplitState++;
@@ -2361,6 +2497,7 @@ ProcessBuffCqEvents(
                             // There is nothing to do here because response completions are checked in the big loop
                             //
                             //
+			    DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
                         }
                         else {
                             buffConn->ResponseDMAWriteDataSplitState++;
@@ -2410,7 +2547,7 @@ CheckAndProcessIOCompletions(
 
     for (int i = 0; i != Config->MaxBuffs; i++) {
         buffConn = &Config->BuffConns[i];
-        if (!buffConn->InUse) {
+        if (buffConn->State != CONN_STATE_CONNECTED) {
             continue;
         }
 
@@ -2418,18 +2555,97 @@ CheckAndProcessIOCompletions(
         // Check the error code of each response, sequentially
         //
         //
-        int head = buffConn->ResponseRing.Tail;
-        int tail = buffConn->ResponseRing.AggressiveTail;
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+        int head1 = buffConn->ResponseRing.TailB;
+        int head2 = buffConn->ResponseRing.TailC;
+        int tail = buffConn->ResponseRing.TailA;
         char* buffResp = buffConn->ResponseDMAWriteDataBuff;
         char* curResp;
         FileIOSizeT curRespSize;
+        const FileIOSizeT totalRespSize = *(FileIOSizeT*)(buffResp + head2);
+
+        if (tail == head1) {
+            continue;
+        }
+
+        if (head1 == head2) {
+            head1 += (sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+            if (head1 >= BACKEND_RESPONSE_BUFFER_SIZE) {
+                head1 %= BACKEND_RESPONSE_BUFFER_SIZE;
+            }
+        }
+
+        while (DistanceBetweenPointers(head1, head2, BACKEND_RESPONSE_BUFFER_SIZE) != totalRespSize) {
+            curResp = buffResp + head1;
+            curRespSize = *(FileIOSizeT*)curResp;
+            curResp += sizeof(FileIOSizeT);
+            if (((BuffMsgB2FAckHeader*)curResp)->Result == DDS_ERROR_CODE_IO_PENDING) {
+                //
+                // TODO: testing
+                //
+                //
+                ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
+                ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
+
+                // break;
+            }
+
+            head1 += curRespSize;
+            if (head1 >= BACKEND_RESPONSE_BUFFER_SIZE) {
+                head1 %= BACKEND_RESPONSE_BUFFER_SIZE;
+            }
+        }
+
+        if (head1 != buffConn->ResponseRing.TailB) {
+            //
+            // Update TailB immediately
+            //
+            //
+            buffConn->ResponseRing.TailB = head1;
+
+            if (DistanceBetweenPointers(head1, head2, BACKEND_RESPONSE_BUFFER_SIZE) == totalRespSize) {
+                //
+                // Send the response back to the host
+                //
+                //
+		DebugPrint("A response batch of %d bytes have finished. Polling host response progress\n", totalRespSize);
+                struct ibv_send_wr *badSendWr = NULL;
+                
+                //
+                // Poll the distance from the host
+                //
+                //
+                ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
+                if (ret) {
+                    fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                    ret = -1;
+                }
+            }
+        }
+#else
+        int head = buffConn->ResponseRing.TailB;
+        int tail = buffConn->ResponseRing.TailA;
+        char* buffResp = buffConn->ResponseDMAWriteDataBuff;
+        char* curResp;
+        FileIOSizeT curRespSize;
+
+        if (head == tail) {
+            continue;
+        }
 
         while (head != tail) {
             curResp = buffResp + head;
             curRespSize = *(FileIOSizeT*)curResp;
             curResp += sizeof(FileIOSizeT);
             if (((BuffMsgB2FAckHeader*)curResp)->Result == DDS_ERROR_CODE_IO_PENDING) {
-                break;
+                //
+                // TODO: testing
+                //
+                //
+                ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
+                ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
+
+                // break;
             }
 
             head += curRespSize;
@@ -2439,32 +2655,37 @@ CheckAndProcessIOCompletions(
         }
 
         //
-        // Do we batch?
-        // TODO: inherit the batching effect in requests
+        // No batching needed here
         //
         //
-        if (head != buffConn->ResponseRing.Tail) {
+        if (head != buffConn->ResponseRing.TailB) {
             //
             // Send the response back to the host
             //
             //
             struct ibv_send_wr *badSendWr = NULL;
-            int oldHead = buffConn->ResponseRing.Tail;
-            buffConn->ResponseDMAWriteDataSize = head > oldHead ? (head - oldHead) : (BACKEND_RESPONSE_BUFFER_SIZE - oldHead + head);
+
+            //
+            // Update TailB immediately
+            //
+            //
+            buffConn->ResponseRing.TailB = head;
             
             //
             // Poll the distance from the host
             //
             //
+            printf("%s: Polling response ring meta\n", __func__);
             ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
             if (ret) {
                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
                 ret = -1;
             }
         }
+#endif
     }
 
-    return ret;  
+    return ret;
 }
 
 //

@@ -43,7 +43,7 @@ typedef struct FileIOT {
 //
 //
 typedef struct PollT {
-    FileIOT* OutstandingRequests[DDS_FRONTEND_MAX_OUTSTANDING];
+    FileIOT* OutstandingRequests[DDS_MAX_OUTSTANDING_IO];
     Atomic<size_t> NextRequestSlot;
 #if BACKEND_TYPE == BACKEND_TYPE_DPU
     DMABuffer* MsgBuffer;

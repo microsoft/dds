@@ -56,12 +56,12 @@ typedef struct FileProperties {
   time_t CreationTime;
   time_t LastAccessTime;
   time_t LastWriteTime;
-  FileSizeT FileSize ;
+  FileSizeT FileSize;
   FileAccessT Access;
 #ifdef __GNUC__
   _Atomic PositionInFileT Position;
 #elif defined (_MSC_VER)
-  Atomic<PositionInFileT> Position = 0;
+  Atomic<PositionInFileT> Position;
 #endif
   FileShareModeT ShareMode;
   char FileName[DDS_MAX_FILE_PATH];

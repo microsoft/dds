@@ -51,6 +51,16 @@ public:
 
     int ClientId;
 
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    //
+    // Caching a received batch
+    //
+    //
+    SplittableBufferT BatchRef;
+    FileIOSizeT ProcessedBytes;
+    BufferT NextResponse;
+#endif
+
 public:
     DDSBackEndBridge();
 
@@ -242,7 +252,18 @@ public:
         RequestIdT* ReqId
     );
 
-
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+    //
+    // Retrieve a response from the cached batch
+    //
+    //
+    ErrorCodeT
+    GetResponseFromCachedBatch(
+        PollT* Poll,
+        FileIOSizeT* BytesServiced,
+        RequestIdT* ReqId
+    );
+#endif
 };
 
 }

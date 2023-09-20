@@ -15,7 +15,7 @@ namespace DDS_FrontEnd {
 //
 //
 PollT::PollT() {
-    for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+    for (size_t i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
         OutstandingRequests[i] = nullptr;
     }
 #if BACKEND_TYPE == BACKEND_TYPE_DPU
@@ -133,7 +133,7 @@ DDSFrontEnd::~DDSFrontEnd() {
 #if BACKEND_TYPE == BACKEND_TYPE_DPU
             AllPolls[p]->DestroyDMABuffer();
 #endif
-            for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+            for (size_t i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
                 delete AllPolls[p]->OutstandingRequests[i];
             }
 
@@ -185,7 +185,7 @@ DDSFrontEnd::Initialize() {
     //
     //
     PollT* poll = new PollT();
-    for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+    for (size_t i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
         poll->OutstandingRequests[i] = new FileIOT();
         if (!poll->OutstandingRequests[i]) {
             fprintf(stderr, "%s [error]: Failed to allocate a file I/O object\n", __func__);
@@ -573,7 +573,7 @@ DDSFrontEnd::ReadFile(
 
     PollT* poll = AllPolls[AllFiles[FileId]->PollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     //
@@ -643,7 +643,7 @@ DDSFrontEnd::ReadFile(
     PollIdT pollId = AllFiles[FileId]->PollId;
     PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     bool expectedAvail = true;
@@ -696,6 +696,7 @@ DDSFrontEnd::ReadFile(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -729,7 +730,7 @@ DDSFrontEnd::ReadFileScatter(
 
     PollT* poll = AllPolls[AllFiles[FileId]->PollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     //
@@ -799,7 +800,7 @@ DDSFrontEnd::ReadFileScatter(
     PollIdT pollId = AllFiles[FileId]->PollId;
     PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     bool expectedAvail = true;
@@ -853,6 +854,7 @@ DDSFrontEnd::ReadFileScatter(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -876,7 +878,7 @@ DDSFrontEnd::ReadFileScatter(
 ErrorCodeT
 DDSFrontEnd::WriteFile(
     FileIdT FileId,
-    BufferT DestBuffer,
+    BufferT SourceBuffer,
     FileIOSizeT BytesToWrite,
     FileIOSizeT* BytesWritten,
     ReadWriteCallback Callback,
@@ -886,7 +888,7 @@ DDSFrontEnd::WriteFile(
 
     PollT* poll = AllPolls[AllFiles[FileId]->PollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     //
@@ -957,7 +959,7 @@ DDSFrontEnd::WriteFile(
     PollIdT pollId = AllFiles[FileId]->PollId;
     PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     bool expectedAvail = true;
@@ -986,6 +988,7 @@ DDSFrontEnd::WriteFile(
                 &pollResult
             );
         }
+
         return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
     }
 
@@ -1010,6 +1013,7 @@ DDSFrontEnd::WriteFile(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -1043,7 +1047,7 @@ DDSFrontEnd::WriteFileGather(
 
     PollT* poll = AllPolls[AllFiles[FileId]->PollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     //
@@ -1120,7 +1124,7 @@ DDSFrontEnd::WriteFileGather(
     PollIdT pollId = AllFiles[FileId]->PollId;
     PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
-    mySlot %= DDS_FRONTEND_MAX_OUTSTANDING;
+    mySlot %= DDS_MAX_OUTSTANDING_IO;
     FileIOT* pIO = poll->OutstandingRequests[mySlot];
 
     bool expectedAvail = true;
@@ -1173,6 +1177,7 @@ DDSFrontEnd::WriteFileGather(
     );
 
     if (result != DDS_ERROR_CODE_IO_PENDING) {
+        pIO->IsAvailable = true;
         return result;
     }
 
@@ -1217,11 +1222,8 @@ DDSFrontEnd::FindFirstFile(
     //
     FileIdT id = DDS_FILE_INVALID;
 
-    // printf("DDS (FindFirstFile): Searching for %s\n", FileName);
-
     for (FileIdT i = 0; i != FileIdEnd; i++) {
         if (AllFiles[i]) {
-            // printf("DDS (FindFirstFile): File %lu == %s\n", i, AllFiles[i]->GetName());
             if (strcmp(FileName, AllFiles[i]->GetName()) == 0) {
                 id = i;
                 break;
@@ -1445,7 +1447,7 @@ DDSFrontEnd::PollCreate(
     }
 
     PollT* poll = new PollT();
-    for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+    for (size_t i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
         poll->OutstandingRequests[i] = new FileIOT();
     }
     poll->NextRequestSlot = 0;
@@ -1473,7 +1475,7 @@ DDSFrontEnd::PollDelete(
         return DDS_ERROR_CODE_INVALID_POLL_DELETION;
     }
 
-    for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+    for (size_t i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
         delete poll->OutstandingRequests[i];
     }
     delete poll;
@@ -1528,7 +1530,7 @@ DDSFrontEnd::PollWait(
     size_t sleepTimeInUs = 1;
 
     while (true) {
-        for (size_t i = 0; i != DDS_FRONTEND_MAX_OUTSTANDING; i++) {
+        for (size_t i = 0; i != DDS_MAX_OUTSTANDING_IO; i++) {
             FileIOT* io = poll->OutstandingRequests[i];
 
             bool expectedCompletion = true;
@@ -1627,7 +1629,7 @@ DDSFrontEnd::PollWait(
         io->IsAvailable.store(true);
     }
 
-    return result;
+    return DDS_ERROR_CODE_SUCCESS;
 }
 #else
 #error "Unknown backend type"

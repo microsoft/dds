@@ -5,6 +5,13 @@
 #include "MsgType.h"
 #include "RingBufferProgressive.h"
 
+#undef DEBUG_RING_BUFFER
+#ifdef DEBUG_RING_BUFFER
+#define DebugPrint(Fmt, ...) fprintf(stderr, Fmt, __VA_ARGS__)
+#else
+static inline void DebugPrint(const char* Fmt, ...) { }
+#endif
+
 namespace DDS_FrontEnd {
 
 //
@@ -260,10 +267,6 @@ InsertWriteFileRequest(
             return false;
         }
 
-        //
-        // Check space
-        //
-        //
         if (requestBytes > DDS_REQUEST_RING_BYTES - distance) {
             return false;
         }
@@ -1042,7 +1045,6 @@ bool
 FetchResponse(
     ResponseRingBufferProgressive* RingBuffer,
     BuffMsgB2FAckHeader** Response,
-    FileIOSizeT* ResponseSize,
     SplittableBufferT* DataBuffer
 ) {
     //
@@ -1059,8 +1061,11 @@ FetchResponse(
     FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
 
     if (responseSize == 0) {
+        DebugPrint("[Error] An empty response\n");
         return false;
     }
+
+    DebugPrint("[Debug] Fetching a response: head = %d, response size = %d\n", head, responseSize);
 
     //
     // Grab the current head
@@ -1084,7 +1089,6 @@ FetchResponse(
     // Now, it's safe to return the response
     //
     //
-    *ResponseSize = responseSize;
     *Response = (BuffMsgB2FAckHeader*)(&RingBuffer->Buffer[head + sizeof(FileIOSizeT)]);
 
     FileIOSizeT offset = sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader);
@@ -1111,6 +1115,82 @@ FetchResponse(
     return true;
 }
 
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+//
+// Fetch a batch of responses from the response buffer
+//
+//
+bool
+FetchResponseBatch(
+    ResponseRingBufferProgressive* RingBuffer,
+    SplittableBufferT* Responses
+) {
+    //
+    // Check if there is a response at the head
+    //
+    //
+    int tail = RingBuffer->Tail[0];
+    int head = RingBuffer->Head[0];
+
+    if (tail == head) {
+        return false;
+    }
+
+    FileIOSizeT responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
+
+    if (responseSize == 0) {
+        DebugPrint("[Error] An empty response\n");
+        return false;
+    }
+
+    DebugPrint("[Debug] Fetching a response batch: head = %d, response size = %d\n", head, responseSize);
+
+    //
+    // Grab the current head
+    //
+    //
+    while(RingBuffer->Head[0].compare_exchange_weak(head, (head + responseSize) % DDS_RESPONSE_RING_BYTES) == false) {
+        tail = RingBuffer->Tail[0];
+        head = RingBuffer->Head[0];
+        responseSize = *(FileIOSizeT*)&RingBuffer->Buffer[head];
+
+        if (tail == head) {
+            return false;
+        }
+
+        if (responseSize == 0) {
+            return false;
+        }
+    }
+
+    //
+    // Now, it's safe to return the response
+    //
+    //
+    FileIOSizeT batchMetaSize = (FileIOSizeT)(sizeof(FileIOSizeT) + sizeof(BuffMsgB2FAckHeader));
+    Responses->TotalSize = responseSize - batchMetaSize;
+    int spillOver = head + (int)batchMetaSize - (int)DDS_RESPONSE_RING_BYTES;
+    if (spillOver >= 0) {
+        Responses->FirstAddr = &RingBuffer->Buffer[spillOver];
+        Responses->FirstSize = Responses->TotalSize;
+    }
+    else {
+        Responses->FirstAddr = &RingBuffer->Buffer[head + batchMetaSize];
+
+        if (head + responseSize > DDS_RESPONSE_RING_BYTES) {
+            Responses->FirstSize = 0 - spillOver;
+            Responses->SecondAddr = &RingBuffer->Buffer[0];
+        }
+        else {
+            Responses->FirstSize = Responses->TotalSize;
+            Responses->SecondAddr = NULL;
+        }
+    }
+    
+    return true;
+}
+#endif
+
 //
 // Increment the progress
 //
@@ -1121,9 +1201,12 @@ IncrementProgress(
     FileIOSizeT ResponseSize
 ) {
     int progress = RingBuffer->Progress[0];
+
     while (RingBuffer->Progress[0].compare_exchange_weak(progress, (progress + ResponseSize) % DDS_RESPONSE_RING_BYTES) == false) {
         progress = RingBuffer->Progress[0];
     }
+
+    DebugPrint("Response progress is incremented by %d. Total progress = %d\n", ResponseSize, (progress + ResponseSize) % DDS_RESPONSE_RING_BYTES);
 }
 
 //

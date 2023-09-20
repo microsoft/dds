@@ -189,9 +189,20 @@ bool
 FetchResponse(
     ResponseRingBufferProgressive* RingBuffer,
     BuffMsgB2FAckHeader** Response,
-    FileIOSizeT* ResponseSize,
     SplittableBufferT* DataBuffer
 );
+
+#ifdef RING_BUFFER_RESPONSE_BATCH_ENABLED
+//
+// Fetch a batch of responses from the response buffer
+//
+//
+bool
+FetchResponseBatch(
+    ResponseRingBufferProgressive* RingBuffer,
+    SplittableBufferT* Responses
+);
+#endif
 
 //
 // Increment the progress

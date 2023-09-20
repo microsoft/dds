@@ -122,12 +122,22 @@ DMABuffer::Allocate(
 
 	if (((MsgHeader*)MsgBuf)->MsgId == BUFF_MSG_B2F_RESPOND_ID) {
 		BufferId = ((BuffMsgB2FRespondId*)(MsgBuf + sizeof(MsgHeader)))->BufferId;
-		printf("DMABuffer: connected to the back end with assigned buffer Id (%d)\n", BufferId);
+		printf("DMABuffer: connected to the back end with assigned buffer id (%d)\n", BufferId);
 	}
 	else {
 		printf("DMABuffer: wrong message from the back end\n");
 		return false;
 	}
+
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT
+	//
+	// Post receives to allow backend to write responses
+	//
+	//
+	for (int i = 0; i != DDS_MAX_COMPLETION_BUFFERING; i++) {
+		RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
+	}
+#endif
 
 	//
 	// This buffer is RDMA-accessible from DPU now
@@ -145,8 +155,8 @@ void
 DMABuffer::WaitForACompletion(
 	bool Blocking
 ) {
-	RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
 	RDMC_WaitForCompletionAndCheckContext(CompQ, &Ov, MSG_CTXT, Blocking);
+	RDMC_PostReceive(QPair, MsgSgl, 1, MSG_CTXT);
 }
 
 

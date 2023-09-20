@@ -63,6 +63,13 @@
 #define RING_BUFFER_REQUEST_META_DATA_SIZE 128
 #define RING_BUFFER_RESPONSE_META_DATA_SIZE 128
 
+#define DDS_MAX_OUTSTANDING_IO 256
+#define DDS_MAX_COMPLETION_BUFFERING 16
+
+#define DDS_NOTIFICATION_METHOD_INTERRUPT 0
+#define DDS_NOTIFICATION_METHOD_TIMER 1
+#define DDS_NOTIFICATION_METHOD DDS_NOTIFICATION_METHOD_INTERRUPT
+
 //
 // Check a few parameters at the compile time
 //
@@ -77,12 +84,20 @@
 #pragma warning(push)
 #pragma warning (disable: 4804)
 #endif
+
 assert_static_protocol(RING_BUFFER_REQUEST_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 0);
 assert_static_protocol(RING_BUFFER_RESPONSE_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 1);
 assert_static_protocol(DDS_REQUEST_RING_BYTES == DDS_REQUEST_RING_SIZE * DDS_REQUEST_RING_SLOT_SIZE, 2);
 assert_static_protocol(DDS_REQUEST_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 3);
 assert_static_protocol(DDS_RESPONSE_RING_BYTES == DDS_RESPONSE_RING_SIZE * DDS_RESPONSE_RING_SLOT_SIZE, 4);
 assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
+
+#if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT
+#ifndef RING_BUFFER_RESPONSE_BATCH_ENABLED
+#error "Responses must be batched on the DPU"
+#endif
+#endif
+
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #else

@@ -19,7 +19,7 @@ using std::endl;
 using std::thread;
 using std::this_thread::yield;
 
-#define PAGE_SIZE 8192
+#define PAGE_SIZE 16384
 
 std::mutex mtx;
 std::condition_variable cv;
@@ -95,14 +95,14 @@ void BenchmarkIO(
     }
 
     cout << "Benchmarking reads..." << endl;
-    char* readBuffer = new char[PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING];
-    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING);
+    char* readBuffer = new char[PAGE_SIZE * DDS_MAX_OUTSTANDING_IO];
+    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_MAX_OUTSTANDING_IO);
     completedIOs = 0;
     profiler.Start();
     for (size_t i = 0; i != totalIOs; i++) {
         result = Store.ReadFile(
             FileId,
-            &readBuffer[(i % DDS_FRONTEND_MAX_OUTSTANDING) * PAGE_SIZE],
+            &readBuffer[(i % DDS_MAX_OUTSTANDING_IO) * PAGE_SIZE],
             PAGE_SIZE,
             &bytesServiced,
             DummyCallback,
@@ -146,12 +146,12 @@ PollThread(
             &opSize,
             &pollContext,
             &opContext,
-            0,
+            INFINITE,
             &pollResult
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
-            cout << "Failed to poll an operation" << endl;
+            cout << "Failed to poll an operation [" << result << "]" << endl;
             return;
         }
 
@@ -205,8 +205,7 @@ BenchmarkIOWithPolling(
             NULL,
             NULL
         );
-
-        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS) {
+        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
             result = Store.WriteFile(
                 FileId,
                 writeBuffer,
@@ -218,7 +217,7 @@ BenchmarkIOWithPolling(
         }
 
         if (result != DDS_ERROR_CODE_IO_PENDING) {
-            cout << "Failed to write file: " << FileId << endl;
+            cout << "Failed to write file: " << FileId << " [" << result << "]" << endl;
         }
     }
 
@@ -240,8 +239,8 @@ BenchmarkIOWithPolling(
     }
 
     cout << "Benchmarking reads..." << endl;
-    char* readBuffer = new char[PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING];
-    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_FRONTEND_MAX_OUTSTANDING);
+    char* readBuffer = new char[PAGE_SIZE * DDS_MAX_OUTSTANDING_IO];
+    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_MAX_OUTSTANDING_IO);
     
     pollWorker = new thread(
         [&Store, FileId, totalIOs]
@@ -252,14 +251,14 @@ BenchmarkIOWithPolling(
     for (size_t i = 0; i != totalIOs; i++) {
         result = Store.ReadFile(
             FileId,
-            &readBuffer[(i % DDS_FRONTEND_MAX_OUTSTANDING) * PAGE_SIZE],
+            &readBuffer[(i % DDS_MAX_OUTSTANDING_IO) * PAGE_SIZE],
             PAGE_SIZE,
             &bytesServiced,
             NULL,
             NULL
         );
 
-        while (result == DDS_ERROR_CODE_REQUIRE_POLLING) {
+        while (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
             result = Store.ReadFile(
                 FileId,
                 writeBuffer,
@@ -334,7 +333,9 @@ int main()
     const char* storeName = "DDS-Store0";
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
-    const FileSizeT maxFileSize = 1073741824ULL;
+    // const FileSizeT maxFileSize = 1073741824ULL;
+    // const FileSizeT maxFileSize = 8192000;
+    const FileSizeT maxFileSize = 1638400000;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;
@@ -386,16 +387,27 @@ int main()
         DummyCallback,
         &ioCount
     );
-    if (result != DDS_ERROR_CODE_SUCCESS) {
+    if (result != DDS_ERROR_CODE_SUCCESS && result != DDS_ERROR_CODE_IO_PENDING) {
         cout << "Failed to write file" << endl;
     }
     else {
         cout << "Write posted" << endl;
     }
 
+    ContextT ioCtxt, fileCtxt;
+    bool pollResult = false;
+
+    cout << "Calling PollWait..." << endl;
+    while (!pollResult) {
+        store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, 0, &pollResult);
+    }
+    cout << "PollWait finished " << pollResult << " (" << bytesServiced << " bytes serviced)" << endl;
+
+    /*
     while (ioCount != 1) {
         yield();
     }
+    */
 
     cout << "Data has been written" << endl;
 
@@ -419,32 +431,43 @@ int main()
         DummyCallback,
         &ioCount
     );
-    if (result != DDS_ERROR_CODE_SUCCESS) {
+    if (result != DDS_ERROR_CODE_SUCCESS && result != DDS_ERROR_CODE_IO_PENDING) {
         cout << "Failed to read file " << result << endl;
     }
     else {
         cout << "Read posted" << endl;
     }
 
+    cout << "Calling PollWait..." << endl;
+    pollResult = false;
+    while (!pollResult) {
+        store.PollWait(DDS_POLL_DEFAULT, &bytesServiced, &fileCtxt, &ioCtxt, 0, &pollResult);
+    }
+    cout << "PollWait finished " << pollResult << " (" << bytesServiced << " bytes serviced)" << endl;
+    /*
     while (ioCount != 2) {
         yield();
     }
+    */
 
     cout << "Data has been read: " << readBuffer << endl;
 
+    /*
     cout << "Benchmarking callback-based I/O" << endl;
     BenchmarkIO(
         store,
         fileId,
         maxFileSize
     );
-
+    */
+    
     cout << "Benchmarking polling-based I/O" << endl;
     BenchmarkIOWithPolling(
         store,
         fileId,
         maxFileSize
     );
+    
 
     return 0;
 }

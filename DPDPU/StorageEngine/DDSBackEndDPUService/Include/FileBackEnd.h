@@ -47,9 +47,12 @@
 #define BUFF_WRITE_RESPONSE_DATA_WR_ID 12
 #define BUFF_WRITE_RESPONSE_DATA_SPLIT_WR_ID 13
 
-
 #define BUFF_READ_DATA_SPLIT_STATE_NOT_SPLIT 1
 #define BUFF_READ_DATA_SPLIT_STATE_SPLIT 0
+
+#define CONN_STATE_AVAILABLE 0
+#define CONN_STATE_OCCUPIED 1
+#define CONN_STATE_CONNECTED 2
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
@@ -68,7 +71,7 @@ struct DMAConfig {
 //
 struct CtrlConnConfig {
     uint32_t CtrlId;
-    uint8_t InUse;
+    uint8_t State;
 
     //
     // Setup for a DMA channel
@@ -102,7 +105,7 @@ struct CtrlConnConfig {
 struct BuffConnConfig {
     uint32_t BuffId;
     uint32_t CtrlId;
-    uint8_t InUse;
+    uint8_t State;
 
     //
     // Setup for a DMA channel
