@@ -1,8 +1,13 @@
+/* Benchmark the SPDK send msg (SPDK thread overhead) */
+
 #include "../../DPDPU/StorageEngine/DDSBackEndDPUService/Include/DPUBackEndStorage.h"
 #include "../../DPDPU/StorageEngine/DDSBackEndDPUService/Include/bdev.h"
 
 #include <pthread.h>
 #include "spdk/thread.h"
+#include <time.h>
+
+#define ITER 1000000
 
 SPDKContextT *SPDKContext;
 
@@ -35,6 +40,11 @@ struct app_start_args {
 
 struct app_thread_ctx {
     struct spdk_thread **spdk_threads;
+    atomic_bool thread_created;
+};
+
+struct spdk_thread_work_ctx {
+    atomic_ullong count;
 };
 
 
@@ -62,23 +72,53 @@ void io2_callback_func(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 
 
 void thread_work_func(void *thread_ctx) {
-    SPDK_NOTICELOG("DOING WORK A...\n");
-
-    void *tmpbuf = malloc(4096);
-    SyncRWCompletionStatus cookie = 777;
-    int rc = bdev_read(SPDKContext, tmpbuf, 0, 1024, io1_callback_func, &(cookie));
-    SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
-
-    SPDK_NOTICELOG("DOING WORK B...\n");
+    // printf("thread_work_func() ran\n");
+    struct spdk_thread_work_ctx *work_ctx = thread_ctx;
+    work_ctx->count++;
+    // printf("work_ctx->count = %ld\n", work_ctx->count);
     // SPDK_NOTICELOG("thread work finished... stopping app...\n");
     // spdk_app_stop(0);
+}
+
+#define NS_PER_SECOND 1000000000
+void sub_timespec(struct timespec t1, struct timespec t2, struct timespec *td)
+{
+    td->tv_nsec = t2.tv_nsec - t1.tv_nsec;
+    td->tv_sec  = t2.tv_sec - t1.tv_sec;
+    if (td->tv_sec > 0 && td->tv_nsec < 0)
+    {
+        td->tv_nsec += NS_PER_SECOND;
+        td->tv_sec--;
+    }
+    else if (td->tv_sec < 0 && td->tv_nsec > 0)
+    {
+        td->tv_nsec -= NS_PER_SECOND;
+        td->tv_sec++;
+    }
+}
+
+void worker_thread_start(void *ctx) {
+    struct app_thread_ctx *spdk_app_ctx = ctx;
+    spdk_app_ctx->spdk_threads[0] = spdk_thread_create("thread0", NULL);
 }
 
 void TestBackEnd(
     void *args
 ) {
     struct app_thread_ctx *spdk_app_ctx = args;
+
+    /* pthread_t worker_thread;
+    SPDK_NOTICELOG("pthread_create, worker_thread_start\n");
+    pthread_create(&worker_thread, NULL, worker_thread_start, spdk_app_ctx);
+    int worker_ret;
+    pthread_join(worker_thread, &worker_ret);
+    SPDK_NOTICELOG("pthread_join\n"); */
+
+    // starting a new SPDK thread on same pthread will cause msg to not run until after current func return...
+    SPDK_NOTICELOG("spdk_thread_create()\n");
     spdk_app_ctx->spdk_threads[0] = spdk_thread_create("thread0", NULL);
+    spdk_app_ctx->thread_created = true;
+
     //
     // Initialize SPDK stuff
     //
@@ -107,43 +147,34 @@ void TestBackEnd(
 		spdk_app_stop(-1);
 		return;
 	}
-    
-    struct mythread_ctx *myctx = malloc(sizeof(*myctx));
-    myctx->SPDKContext = spdkContext;
-    myctx->cookie = 999;
-    printf("myctx->cookie ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-
-    SyncRWCompletionStatus *cb_arg = &(myctx->cookie);
-    printf("cb_arg ptr: %p, value: %hu\n", cb_arg, *cb_arg);
-
-    while (0) {
-        SPDK_NOTICELOG("DOING WORK A...\n");
-
-        SPDK_NOTICELOG("DOING IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-        void *tmpbuf = malloc(4096);
-        int rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io1_callback_func, &(myctx->cookie));
-        SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
-        SPDK_NOTICELOG("FINISHED IO 1..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-
-        SPDK_NOTICELOG("DOING WORK B...\n");
-
-        SPDK_NOTICELOG("DOING IO 2..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-        rc = bdev_read(myctx->SPDKContext, tmpbuf, 0, 1024, io2_callback_func, &(myctx->cookie));
-        SPDK_NOTICELOG("bdev_read() rc: %d\n", rc);
-        SPDK_NOTICELOG("FINISHED IO 2..., status ptr: %p, value: %hu\n", &(myctx->cookie), myctx->cookie);
-
-        SPDK_NOTICELOG("DOING WORK C...\n");
-        sleep(1);
-    }
-
-    /* SPDK_NOTICELOG("ALL WORK DONE, STOPPING...\n");
-    spdk_bdev_close(spdkContext->bdev_desc);
-    spdk_put_io_channel(spdkContext->bdev_io_channel);
-    spdk_app_stop(0); */
 
     SPDKContext = spdkContext;
-    spdk_thread_send_msg(spdk_app_ctx->spdk_threads[0], thread_work_func, NULL);
-    SPDK_NOTICELOG("SPDK MAIN ended but not stopped, also has spdk threads spawned...\n");
+
+    /* struct spdk_thread_work_ctx *work_ctx = malloc(sizeof(*work_ctx));
+    work_ctx->count = 0;
+    struct timespec start, end, delta;
+    printf("starting thread send msg...\n");
+    clock_gettime(CLOCK_REALTIME, &start);
+    int rc;
+    for (int i = 0; i < ITER; i++) {
+        rc = spdk_thread_send_msg(spdk_app_ctx->spdk_threads[0], thread_work_func, work_ctx);
+        if (rc) {
+            printf("rc: %d\n", rc);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    sub_timespec(start, end, &delta);
+    printf("sendmsg called %d times, elapsed: %d.%.9ld\n", ITER, (int)delta.tv_sec, delta.tv_nsec);
+    printf("TestBackEnd: work_ctx->count = %ld\n", work_ctx->count);
+
+    SPDK_NOTICELOG("stopping...\n");
+    spdk_bdev_close(SPDKContext->bdev_desc);
+    spdk_put_io_channel(SPDKContext->bdev_io_channel);
+    spdk_thread_exit(spdk_get_thread());
+    spdk_app_stop(0); */
+    
+    // SPDK_NOTICELOG("SPDK MAIN ended but not stopped, also has spdk threads spawned...\n");
 }
 
 
@@ -175,9 +206,10 @@ int main(int argc, char **argv) {
     struct spdk_app_opts opts = {};
     spdk_app_opts_init(&opts, sizeof(opts));
     opts.name = "hello_bdev";
+    // opts.msg_mempool_size = 255;
 
     struct spdk_thread *spdk_app_threads[3];
-    struct app_thread_ctx spdk_app_ctx = { .spdk_threads = spdk_app_threads};
+    struct app_thread_ctx spdk_app_ctx = { .spdk_threads = spdk_app_threads, .thread_created = false };
     
     struct app_start_args app_start_ctx = {
         .app_start_wrapper_func = TestBackEnd,
@@ -190,14 +222,54 @@ int main(int argc, char **argv) {
 		exit(rc);
 	}
 
+    printf("creating app thread...\n");
     pthread_create(&app_thread, NULL, app_start_wrapper_func, &app_start_ctx);
     // rc = spdk_app_start(&opts, TestBackEnd, NULL);  // block until `spdk_app_stop` is called
     // SPDK_NOTICELOG("spdk_app_start returned with: %d\n", rc);
 
-    SPDK_NOTICELOG("joining app thread...\n");
+    struct spdk_thread_work_ctx *work_ctx = malloc(sizeof(*work_ctx));
+    work_ctx->count = 0;
+    struct timespec start, end, delta;
+    while (!spdk_app_ctx.thread_created) {
+        printf("WAITING FOR SPDK THREAD CREATE... SLEEP 1\n");
+        sleep(1);
+    }
+    printf("starting thread send msg...\n");
+    clock_gettime(CLOCK_REALTIME, &start);
+    int i;
+    for (i = 0; i < ITER; i++) {
+        rc = spdk_thread_send_msg(spdk_app_ctx.spdk_threads[0], thread_work_func, work_ctx);
+        if (rc) {
+            // printf("rc: %d\n", rc);
+            i--;
+            // break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    sub_timespec(start, end, &delta);
+    printf("main: work_ctx->count = %ld\n", work_ctx->count);
+    printf("sendmsg should have been called %d times, actually: %d, elapsed: %d.%.9ld\n", ITER, i, (int)delta.tv_sec, delta.tv_nsec);
+    printf("main: work_ctx->count = %ld\n", work_ctx->count);
+
+    while (work_ctx->count < i) {
+        SPDK_NOTICELOG("main waiting for worker thread to finish, work_ctx->count: %ld\n", work_ctx->count);
+        sleep(1);
+    }
+
+    SPDK_NOTICELOG("stopping..., work_ctx->count = %ld\n", work_ctx->count);
+    printf("spdk_bdev_close...\n");
+    spdk_bdev_close(SPDKContext->bdev_desc);
+    printf("spdk_put_io_channel...\n");
+    spdk_put_io_channel(SPDKContext->bdev_io_channel);
+    printf("spdk_thread_exit...\n");
+    spdk_thread_exit(spdk_get_thread());
+    printf("spdk_app_stop...\n");
+    spdk_app_stop(0);
+
+    printf("joining app thread...\n");
     int *app_ret;
     int join_ret = pthread_join(app_thread, app_ret);
-    SPDK_NOTICELOG("join returned: %d, app_ret: %d\n", join_ret, app_ret);
+    printf("join returned: %d, app_ret: %d\n", join_ret, app_ret);
 
     /* while (1) {
         SPDK_NOTICELOG("main thread looping...\n");
