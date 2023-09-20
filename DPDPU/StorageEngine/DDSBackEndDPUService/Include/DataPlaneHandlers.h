@@ -1,5 +1,6 @@
 #include "../../../Common/Include/MsgType.h"
 #include "bdev.h"
+#include "DPUBackEndStorage.h"
 #include <stdbool.h>
 
 //
