@@ -199,7 +199,9 @@ ErrorCodeT SyncDirToDisk(
 inline ErrorCodeT SyncFileToDisk(
     struct DPUFile* File,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    DiskIOCallback Callback,
+    ContextT Context
 );
 
 //
