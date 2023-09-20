@@ -1929,7 +1929,11 @@ ExecuteRequests(
     int headResp = BuffConn->ResponseRing.TailB;
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
-    // USE malloc, this stack would be destroyed by the time callbacks are fired and access dataBuff!!!
+    //
+    // should use malloc, this stack would be destroyed by the time callbacks are fired and access dataBuff
+    // Callbacks will free this dataBuff at the end; previously it was just a struct on the stack and passed as &dataBuff
+    //
+    //
     SplittableBufferT *dataBuff = malloc(sizeof(*dataBuff));
     int progressReqForParsing;
     FileIOSizeT reqSize;
@@ -1993,15 +1997,15 @@ ExecuteRequests(
             //
             //
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
-            dataBuff.TotalSize = curReqObj->Bytes;
-            dataBuff.FirstAddr = buffReq + progressReqForParsing;
-            if (progressReq + dataBuff.TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
-                dataBuff.FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
-                dataBuff.SecondAddr = buffReq;
+            dataBuff->TotalSize = curReqObj->Bytes;
+            dataBuff->FirstAddr = buffReq + progressReqForParsing;
+            if (progressReq + dataBuff->TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
+                dataBuff->FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
+                dataBuff->SecondAddr = buffReq;
             }
             else {
-                dataBuff.FirstSize = curReqObj->Bytes;
-                dataBuff.SecondAddr = NULL;
+                dataBuff->FirstSize = curReqObj->Bytes;
+                dataBuff->SecondAddr = NULL;
             }
 
             //
@@ -2024,7 +2028,7 @@ ExecuteRequests(
             // Invoke write handler 
             //
             //
-            WriteHandler(curReqObj, resp, &dataBuff);
+            WriteHandler(curReqObj, resp, dataBuff);  // was &dataBuff
         }
         else {
             //
@@ -2081,10 +2085,10 @@ ExecuteRequests(
             }
 
             //
-            // Inovke read handler 
+            // Invoke read handler 
             //
             //
-            ReadHandler(curReqObj, resp, &dataBuff);
+            ReadHandler(curReqObj, resp, dataBuff);
         }
     }
 
