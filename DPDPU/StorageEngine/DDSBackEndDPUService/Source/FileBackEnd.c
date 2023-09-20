@@ -2596,11 +2596,11 @@ CheckAndProcessIOCompletions(
 }
 
 //
-// Check and process I/O completions
+// Check and process control plane completions
 //
 //
 static inline int
-CheckAndProcessControlPlaneCompletion(
+CheckAndProcessControlPlaneCompletions(
     struct BackEndConfig *Config
 ) {
     int ret = 0;
@@ -2652,6 +2652,7 @@ int RunFileBackEnd(
     struct BackEndConfig config;
     struct rdma_cm_event *event;
     int ret = 0;
+    int dataPlaneCounter = 0;
 
     //
     // Initialize the back end configuration
@@ -2702,38 +2703,50 @@ int RunFileBackEnd(
     signal(SIGTERM, SignalHandler);
 
     while (ForceQuitFileBackEnd == 0) {
-        //
-        // Process connection events
-        //
-        //
-        ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
-        if (ret && errno != EAGAIN) {
-            ret = errno;
-            fprintf(stderr, "rdma_get_cm_event error %d\n", ret);
-            SignalHandler(SIGTERM);
-        }
-        else if (!ret) {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            fprintf(stdout, "cma_event type %s cma_id %p (%s)\n",
-                rdma_event_str(event->event), event->id,
-                (event->id == config.DMAConf.CmId) ? "parent" : "child");
-#endif
-
-            ret = ProcessCmEvents(&config, event);
-            if (ret) {
-                fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+        if (dataPlaneCounter == 0) {
+            //
+            // Process connection events
+            //
+            //
+            ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
+            if (ret && errno != EAGAIN) {
+                ret = errno;
+                fprintf(stderr, "rdma_get_cm_event error %d\n", ret);
                 SignalHandler(SIGTERM);
             }
-        }
+            else if (!ret) {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stdout, "cma_event type %s cma_id %p (%s)\n",
+                    rdma_event_str(event->event), event->id,
+                    (event->id == config.DMAConf.CmId) ? "parent" : "child");
+#endif
 
-        //
-        // Process RDMA events for control connections
-        //
-        //
-        ret = ProcessCtrlCqEvents(&config);
-        if (ret) {
-            fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
-            SignalHandler(SIGTERM);
+                ret = ProcessCmEvents(&config, event);
+                if (ret) {
+                    fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+                    SignalHandler(SIGTERM);
+                }
+            }
+
+            //
+            // Process RDMA events for control connections
+            //
+            //
+            ret = ProcessCtrlCqEvents(&config);
+            if (ret) {
+                fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+
+            //
+            // Check and process control plane completions
+            //
+            //
+            ret = CheckAndProcessControlPlaneCompletions(&config);
+            if (ret) {
+                fprintf(stderr, "CheckAndProcessControlPlaneCompletions error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
         }
 
         //
@@ -2755,6 +2768,11 @@ int RunFileBackEnd(
             fprintf(stderr, "CheckAndProcessIOCompletions error %d\n", ret);
             SignalHandler(SIGTERM);
         }
+
+        dataPlaneCounter++;
+        if (dataPlaneCounter == DATA_PLANE_WEIGHT) {
+            dataPlaneCounter = 0;
+        }
     }
 
     //
@@ -2768,5 +2786,5 @@ int RunFileBackEnd(
 }
 
 int main() {
-    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32);
+    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1);
 }
