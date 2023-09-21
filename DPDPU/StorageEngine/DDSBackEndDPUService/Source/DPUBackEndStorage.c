@@ -820,12 +820,12 @@ void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *b
         // this is basically the last line of the original CreateDirectory()
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
 
-        // at this point, we've finished all work, so we just repsond with success
-        RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_SUCCESS);
+        // at this point, we've finished all work, don't do RDMA, just return
+        // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_SUCCESS);
     }
     else {
         SPDK_ERRLOG("CreateDirectorySyncReservedInformationToDiskCallback failed\n");
-        RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+        // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
 }
 
@@ -833,7 +833,7 @@ void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Suc
     struct CreateDirectoryHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  // continue to do work
-        Sto->AllDirs[HandlerCtx->DirId] = HandlerCtx->dir;
+        Sto->AllDirs[HandlerCtx->Req->DirId] = HandlerCtx->dir;
 
         pthread_mutex_lock(&Sto->SectorModificationMutex);
         Sto->TotalDirs++;
@@ -842,12 +842,14 @@ void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Suc
         if (result != 0) {  // fatal, can't continue, and the callback won't run
             SPDK_ERRLOG("SyncReservedInformationToDisk() returned %hu\n", result);
             pthread_mutex_unlock(&Sto->SectorModificationMutex);
-            RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+            HandlerCtx->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+            // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
         }  // else, the callback passed to it should be guaranteed to run
     }
     else {
         SPDK_ERRLOG("CreateDirectorySyncDirToDisk failed, can't create directory\n");
-        RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+        HandlerCtx->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+        // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
 }
 
@@ -866,15 +868,19 @@ ErrorCodeT CreateDirectory(
 ){
     struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
-        return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+        HandlerCtx->Resp->Result = DDS_ERROR_CODE_OUT_OF_MEMORY;
+        // don't do RDMA here, only update the result
+        // return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
     
-    HandlerCtx->DirId = DirId;
-    HandlerCtx->dir = dir;
+    // just use the data in req, they are the same
+    /* HandlerCtx->DirId = DirId;
+    HandlerCtx->dir = dir; */
     ErrorCodeT result = SyncDirToDisk(dir, Sto, SPDKContext, CreateDirectorySyncDirToDiskCallback, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, result);
+        HandlerCtx->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+        // return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_IO_FAILURE);
     }
 
     /* Sto->AllDirs[DirId] = dir;
