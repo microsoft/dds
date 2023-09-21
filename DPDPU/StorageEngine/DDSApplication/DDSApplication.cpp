@@ -281,6 +281,201 @@ BenchmarkIOWithPolling(
     delete pollWorker;
 }
 
+void 
+BenchmarkIOCPUEfficient(
+    DDS_FrontEnd::DDSFrontEnd& Store,
+    FileIdT FileId,
+    FileSizeT MaxFileSize
+) {
+    char* writeBuffer = new char[PAGE_SIZE];
+    memset(writeBuffer, 0, sizeof(char) * PAGE_SIZE);
+    *((int*)writeBuffer) = 42;
+    FileSizeT totalWrittenSize = 0;
+    const size_t totalIOs = MaxFileSize / PAGE_SIZE;
+    FileIOSizeT bytesServiced;
+
+    PollIdT pollId;
+    FileIOSizeT opSize;
+    ContextT opContext;
+    ContextT pollContext;
+    bool pollResult;
+    size_t completedOps = 0;
+
+    ErrorCodeT result = Store->GetDefaultPoll(&pollId);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << "Failed to get default poll" << endl;
+        return;
+    }
+
+    result = Store.SetFilePointer(
+        FileId,
+        0,
+        FilePointerPosition::BEGIN
+    );
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << "Failed to set file pointer" << endl;
+    }
+    else {
+        cout << "File pointer reset" << endl;
+    }
+
+    cout << "Benchmarking writes..." << endl;
+    Profiler profiler(totalIOs);
+    profiler.Start();
+
+    for (size_t i = 0; i != totalIOs; i++) {
+        result = Store.WriteFile(
+            FileId,
+            writeBuffer,
+            PAGE_SIZE,
+            &bytesServiced,
+            NULL,
+            NULL
+        );
+
+        if (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
+            result = Store->PollWait(
+                pollId,
+                &opSize,
+                &pollContext,
+                &opContext,
+                INFINITE,
+                &pollResult
+            );
+
+            if (result != DDS_ERROR_CODE_SUCCESS) {
+                cout << "Failed to poll an operation [" << result << "]" << endl;
+                return;
+            }
+
+            if (pollResult) {
+                completedOps++;
+
+                result = Store.WriteFile(
+                    FileId,
+                    writeBuffer,
+                    PAGE_SIZE,
+                    &bytesServiced,
+                    NULL,
+                    NULL
+                );
+            }
+        }
+
+        if (result != DDS_ERROR_CODE_IO_PENDING) {
+            cout << "Failed to write file: " << FileId << " [" << result << "]" << endl;
+        }
+    }
+
+    while (completedOps != totalIOs) {
+        result = Store->PollWait(
+            pollId,
+            &opSize,
+            &pollContext,
+            &opContext,
+            INFINITE,
+            &pollResult
+        );
+
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            cout << "Failed to poll an operation [" << result << "]" << endl;
+            return;
+        }
+
+        if (pollResult) {
+            completedOps++;
+        }
+    }
+    
+    profiler.Stop();
+    profiler.Report();
+
+    result = Store.SetFilePointer(
+        FileId,
+        0,
+        FilePointerPosition::BEGIN
+    );
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << "Failed to set file pointer" << endl;
+    }
+    else {
+        cout << "File pointer reset" << endl;
+    }
+
+    cout << "Benchmarking reads..." << endl;
+    char* readBuffer = new char[PAGE_SIZE * DDS_MAX_OUTSTANDING_IO];
+    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_MAX_OUTSTANDING_IO);
+    completedOps = 0;
+
+    profiler.Start();
+    for (size_t i = 0; i != totalIOs; i++) {
+        result = Store.ReadFile(
+            FileId,
+            &readBuffer[(i % DDS_MAX_OUTSTANDING_IO) * PAGE_SIZE],
+            PAGE_SIZE,
+            &bytesServiced,
+            NULL,
+            NULL
+        );
+
+        if (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
+            result = Store->PollWait(
+                pollId,
+                &opSize,
+                &pollContext,
+                &opContext,
+                INFINITE,
+                &pollResult
+            );
+
+            if (result != DDS_ERROR_CODE_SUCCESS) {
+                cout << "Failed to poll an operation [" << result << "]" << endl;
+                return;
+            }
+
+            if (pollResult) {
+                completedOps++;
+
+                result = Store.ReadFile(
+                    FileId,
+                    writeBuffer,
+                    PAGE_SIZE,
+                    &bytesServiced,
+                    NULL,
+                    NULL
+                );
+            }
+        }
+
+        if (result != DDS_ERROR_CODE_IO_PENDING) {
+            cout << "Failed to read file: " << FileId << endl;
+        }
+    }
+
+    while (completedOps != totalIOs) {
+        result = Store->PollWait(
+            pollId,
+            &opSize,
+            &pollContext,
+            &opContext,
+            INFINITE,
+            &pollResult
+        );
+
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            cout << "Failed to poll an operation [" << result << "]" << endl;
+            return;
+        }
+
+        if (pollResult) {
+            completedOps++;
+        }
+    }
+    
+    profiler.Stop();
+    profiler.Report();
+}
+
 DWORD WINAPI SleepThread(LPVOID lpParam) {
     SetEvent(eventHandle);
     Sleep(30000);
@@ -461,13 +656,21 @@ int main()
     );
     */
     
+    /*
     cout << "Benchmarking polling-based I/O" << endl;
     BenchmarkIOWithPolling(
         store,
         fileId,
         maxFileSize
     );
-    
+    */
+
+   cout << "Benchmarking (CPU efficient)" << endl;
+   BenchmarkIOCPUEfficient(
+        store,
+        fileId,
+        maxFileSize
+    );
 
     return 0;
 }
