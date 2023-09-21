@@ -2612,8 +2612,86 @@ CheckAndProcessControlPlaneCompletions(
         //
         //
         if (*(ErrorCodeT*)(ctrlConn->PendingControlPlanRequest.Response) == DDS_ERROR_CODE_IO_PENDING) {
-            continue;
+            //
+            // TODO: testing
+            //
+            //
+            switch (ctrlConn->PendingControlPlanRequest.RequestId)
+            {
+            case CTRL_MSG_F2B_REQ_CREATE_DIR:
+            {
+                CtrlMsgB2FAckCreateDirectory* resp = (CtrlMsgB2FAckCreateDirectory*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_REMOVE_DIR:
+            {
+                CtrlMsgB2FAckRemoveDirectory* resp = (CtrlMsgB2FAckRemoveDirectory*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_CREATE_FILE:
+            {
+                CtrlMsgB2FAckCreateFile* resp = (CtrlMsgB2FAckCreateFile*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_DELETE_FILE:
+            {
+                CtrlMsgB2FAckDeleteFile* resp = (CtrlMsgB2FAckDeleteFile*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE:
+            {
+                CtrlMsgB2FAckChangeFileSize* resp = (CtrlMsgB2FAckChangeFileSize*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FILE_SIZE:
+            {
+                CtrlMsgB2FAckGetFileSize* resp = (CtrlMsgB2FAckGetFileSize*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                resp->FileSize = 0;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FILE_INFO:
+            {
+                CtrlMsgB2FAckGetFileInfo* resp = (CtrlMsgB2FAckGetFileInfo*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FILE_ATTR:
+            {
+                CtrlMsgB2FAckGetFileAttr* resp = (CtrlMsgB2FAckGetFileAttr*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                resp->FileAttr = 0;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FREE_SPACE:
+            {
+                CtrlMsgB2FAckGetFreeSpace* resp = (CtrlMsgB2FAckGetFreeSpace*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                resp->FreeSpace = 0;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_MOVE_FILE:
+            {
+                CtrlMsgB2FAckMoveFile* resp = (CtrlMsgB2FAckMoveFile*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            default:
+                break;
+            }
+
+            // continue;
         }
+
+        ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
+        ctrlConn->PendingControlPlanRequest.Request = NULL;
+        ctrlConn->PendingControlPlanRequest.Response = NULL;
 
         //
         // It's complete. Respond back to the host
