@@ -237,7 +237,7 @@ ErrorCodeT CreateDirectory(
     DirIdT ParentId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct CreateDirectoryHandlerCtx *HandlerCtx
+    struct ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -247,7 +247,8 @@ ErrorCodeT CreateDirectory(
 ErrorCodeT RemoveDirectory(
     DirIdT DirId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -260,7 +261,8 @@ ErrorCodeT CreateFile(
     FileIdT FileId,
     DirIdT DirId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -271,7 +273,8 @@ ErrorCodeT DeleteFileOnSto(
     FileIdT FileId,
     DirIdT DirId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -281,7 +284,8 @@ ErrorCodeT DeleteFileOnSto(
 ErrorCodeT ChangeFileSize(
     FileIdT FileId,
     FileSizeT NewSize,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckChangeFileSize *Resp
 );
 
 //
@@ -291,7 +295,8 @@ ErrorCodeT ChangeFileSize(
 ErrorCodeT GetFileSize(
     FileIdT FileId,
     FileSizeT* FileSize,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFileSize *Resp
 );
 
 
@@ -330,7 +335,8 @@ ErrorCodeT WriteFile(
 ErrorCodeT GetFileInformationById(
     FileIdT FileId,
     DDSFilePropertiesT* FileProperties,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFileInfo *Resp
 );
 
 //
@@ -341,7 +347,8 @@ ErrorCodeT
 GetFileAttributes(
     FileIdT FileId,
     FileAttributesT* FileAttributes,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFileAttr *Resp
 );
 
 //
@@ -350,7 +357,8 @@ GetFileAttributes(
 //
 ErrorCodeT GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFreeSpace *Resp
 );
 
 //
@@ -364,7 +372,8 @@ ErrorCodeT MoveFile(
     DirIdT NewDirId,
     const char* NewFileName,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -373,7 +382,7 @@ ErrorCodeT MoveFile(
 //
 //
 ErrorCodeT RespondWithResult(
-    struct CreateDirectoryHandlerCtx *HandlerCtx,
+    struct ControlPlaneHandlerCtx *HandlerCtx,
     int MsgId,
     ErrorCodeT Result
 );

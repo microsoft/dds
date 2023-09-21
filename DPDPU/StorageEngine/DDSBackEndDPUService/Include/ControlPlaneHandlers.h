@@ -1,16 +1,22 @@
 #pragma once
 #include "../../../Common/Include/MsgType.h"
-// #include "DPUBackEndStorage.h"
+#include "DPUBackEndStorage.h"
 
-struct CreateDirectoryHandlerCtx {
-    CtrlMsgF2BReqCreateDirectory *Req;
-    CtrlMsgB2FAckCreateDirectory *Resp;
-    /* struct CtrlConnConfig *CtrlConn;
-    struct ibv_send_wr *badSendWr;
-    struct ibv_recv_wr *badRecvWr; */
-    // DirIdT DirId;  // this is just from the req
-    struct DPUDir* dir;  // this is the dir we created, will be used later in the callback
-    // void *mystuff;  // TODO: if we need some extra data like `dir` above, just add more
+
+struct ControlPlaneHandlerCtx {
+    // CtrlMsgF2BReqCreateDirectory *Req;
+    // CtrlMsgB2FAckCreateDirectory *Resp;
+    // struct CtrlConnConfig *CtrlConn;
+    // struct ibv_send_wr *badSendWr;
+    // struct ibv_recv_wr *badRecvWr;
+    ErrorCodeT *Result;
+    DirIdT DirId;  // because later we need to have this stmt: Sto->AllDirs[DirId] = dir;
+    struct DPUDir* dir;
+    FileIdT FileId;
+    struct DPUFile* File;
+    struct DPUDir* NewDir; // only used in MoveFile() as NewDir pointer
+    char* NewFileName; // only used in MoveFile() as new file name
+    // void *mystuff;  // TODO: if again we need some extra data, just add more
 };
 
 //
@@ -20,14 +26,14 @@ struct CreateDirectoryHandlerCtx {
 void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
     CtrlMsgB2FAckCreateDirectory *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 );
 
-struct RemoveDirectoryHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct RemoveDirectoryHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a RemoveDirectory request
@@ -36,14 +42,14 @@ struct RemoveDirectoryHandlerCtx {
 void RemoveDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
     CtrlMsgB2FAckRemoveDirectory *Resp,
-    struct RemoveDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 );
 
-struct CreateFileHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct CreateFileHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a CreateFile request
@@ -52,14 +58,14 @@ struct CreateFileHandlerCtx {
 void CreateFileHandler(
     CtrlMsgF2BReqCreateFile *Req,
     CtrlMsgB2FAckCreateFile *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 );
 
-struct DeleteFileHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct DeleteFileHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a DeleteFile request
@@ -68,14 +74,14 @@ struct DeleteFileHandlerCtx {
 void DeleteFileHandler(
     CtrlMsgF2BReqDeleteFile *Req,
     CtrlMsgB2FAckDeleteFile *Resp,
-    struct DeleteFileHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 );
 
-struct ChangeFileHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct ChangeFileHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a ChangeFileSize request
@@ -83,15 +89,14 @@ struct ChangeFileHandlerCtx {
 //
 void ChangeFileSizeHandler(
     CtrlMsgF2BReqChangeFileSize *Req,
-    CtrlMsgB2FAckChangeFileSize *Resp,
-    struct ChangeFileHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckChangeFileSize *Resp
 );
 
-struct GetFileSizeHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct GetFileSizeHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a GetFileSize request
@@ -99,15 +104,14 @@ struct GetFileSizeHandlerCtx {
 //
 void GetFileSizeHandler(
     CtrlMsgF2BReqGetFileSize *Req,
-    CtrlMsgB2FAckGetFileSize *Resp,
-    struct GetFileSizeHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFileSize *Resp
 );
 
-struct GetFileInformationByIdHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct GetFileInformationByIdHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a GetFileInformationById request
@@ -115,15 +119,14 @@ struct GetFileInformationByIdHandlerCtx {
 //
 void GetFileInformationByIdHandler(
     CtrlMsgF2BReqGetFileInfo *Req,
-    CtrlMsgB2FAckGetFileInfo *Resp,
-    struct GetFileInformationByIdHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFileInfo *Resp
 );
 
-struct GetFileAttributesHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct GetFileAttributesHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a GetFileAttributes request
@@ -131,15 +134,14 @@ struct GetFileAttributesHandlerCtx {
 //
 void GetFileAttributesHandler(
     CtrlMsgF2BReqGetFileAttr *Req,
-    CtrlMsgB2FAckGetFileAttr *Resp,
-    struct GetFileAttributesHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFileAttr *Resp
 );
 
-struct GetStorageFreeSpaceHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct GetStorageFreeSpaceHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 //
 // Handler for a GetStorageFreeSpace request
@@ -147,15 +149,14 @@ struct GetStorageFreeSpaceHandlerCtx {
 //
 void GetStorageFreeSpaceHandler(
     CtrlMsgF2BReqGetFreeSpace *Req,
-    CtrlMsgB2FAckGetFreeSpace *Resp,
-    struct GetStorageFreeSpaceHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFreeSpace *Resp
 );
 
-struct MoveFileHandlerCtx {
-    CtrlMsgF2BReqRemoveDirectory *Req;
-    CtrlMsgB2FAckRemoveDirectory *Resp;
-    // maybe more
-};
+// struct MoveFileHandlerCtx {
+//     CtrlMsgF2BReqRemoveDirectory *Req;
+//     CtrlMsgB2FAckRemoveDirectory *Resp;
+//     // maybe more
+// };
 
 
 //
@@ -165,5 +166,5 @@ struct MoveFileHandlerCtx {
 void MoveFileHandler(
     CtrlMsgF2BReqMoveFile *Req,
     CtrlMsgB2FAckMoveFile *Resp,
-    struct MoveFileHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 );

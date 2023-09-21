@@ -39,6 +39,9 @@
 #define DDS_ERROR_CODE_SEGMENT_RETRIEVAL_FAILURE 24
 #define DDS_ERROR_CODE_RESERVED_SEGMENT_ERROR 25
 #define DDS_ERROR_CODE_OUT_OF_MEMORY 26
+#define DDS_ERROR_CODE_IO_WRONG 27 //this happened when SPDK failed with 
+                                   //I/O operation, will be used in different
+                                   //callbacks in DPUBackEndStorage.c 
 
 #define ONE_KB 1024ULL
 #define ONE_MB 1048576ULL

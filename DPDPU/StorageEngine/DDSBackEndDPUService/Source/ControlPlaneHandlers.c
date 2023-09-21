@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "../Include/ControlPlaneHandlers.h"
-#include "DPUBackEndStorage.h"
 
 struct DPUStorage *Sto;
 SPDKContextT *SPDKContext;
@@ -14,7 +13,7 @@ SPDKContextT *SPDKContext;
 void CreateDirectoryHandler(
     CtrlMsgF2BReqCreateDirectory *Req,
     CtrlMsgB2FAckCreateDirectory *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 ) {
     printf("Creating a directory: %s\n", Req->PathName);
 
@@ -33,7 +32,7 @@ void CreateDirectoryHandler(
 void RemoveDirectoryHandler(
     CtrlMsgF2BReqRemoveDirectory *Req,
     CtrlMsgB2FAckRemoveDirectory *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 ) {
     printf("Removing a directory: %u\n", Req->DirId);
 
@@ -52,7 +51,7 @@ void RemoveDirectoryHandler(
 void CreateFileHandler(
     CtrlMsgF2BReqCreateFile *Req,
     CtrlMsgB2FAckCreateFile *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 ) {
     printf("Creating a file: %s\n", Req->FileName);
 
@@ -72,7 +71,7 @@ void CreateFileHandler(
 void DeleteFileHandler(
     CtrlMsgF2BReqDeleteFile *Req,
     CtrlMsgB2FAckDeleteFile *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 ) {
     printf("Deleting a file: %u\n", Req->FileId);
 
@@ -90,8 +89,7 @@ void DeleteFileHandler(
 //
 void ChangeFileSizeHandler(
     CtrlMsgF2BReqChangeFileSize *Req,
-    CtrlMsgB2FAckChangeFileSize *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckChangeFileSize *Resp
 ) {
     printf("Changing the size of a file: %u\n", Req->FileId);
 
@@ -100,7 +98,7 @@ void ChangeFileSizeHandler(
     //
     //
 
-    ChangeFileSize(Req->FileId, Req->NewSize, Sto, CtrlMsgHandlerCtx);
+    ChangeFileSize(Req->FileId, Req->NewSize, Sto, Resp);
 }
 
 //
@@ -109,8 +107,7 @@ void ChangeFileSizeHandler(
 //
 void GetFileSizeHandler(
     CtrlMsgF2BReqGetFileSize *Req,
-    CtrlMsgB2FAckGetFileSize *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFileSize *Resp
 ) {
     printf("Getting the size of a file: %u\n", Req->FileId);
 
@@ -118,7 +115,7 @@ void GetFileSizeHandler(
     // TODO: Get the file size
     //
     //
-    GetFileSize(Req->FileId, &Resp->FileSize, Sto, CtrlMsgHandlerCtx;
+    GetFileSize(Req->FileId, &Resp->FileSize, Sto, Resp);
 }
 
 //
@@ -127,8 +124,7 @@ void GetFileSizeHandler(
 //
 void GetFileInformationByIdHandler(
     CtrlMsgF2BReqGetFileInfo *Req,
-    CtrlMsgB2FAckGetFileInfo *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFileInfo *Resp
 ) {
     printf("Getting the properties of a file: %u\n", Req->FileId);
 
@@ -136,7 +132,7 @@ void GetFileInformationByIdHandler(
     // TODO: Get the file info
     //
     //
-    GetFileInformationById(Req->FileId, &Resp->FileInfo, Sto, CtrlMsgHandlerCtx); 
+    GetFileInformationById(Req->FileId, &Resp->FileInfo, Sto, Resp); 
 }
 
 //
@@ -145,8 +141,7 @@ void GetFileInformationByIdHandler(
 //
 void GetFileAttributesHandler(
     CtrlMsgF2BReqGetFileAttr *Req,
-    CtrlMsgB2FAckGetFileAttr *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFileAttr *Resp
 ) {
     printf("Getting the attributes of a file: %u\n", Req->FileId);
 
@@ -154,7 +149,7 @@ void GetFileAttributesHandler(
     // TODO: Get the file attributes
     //
     //
-    GetFileAttributes(Req->FileId, &Resp->FileAttr, Sto, CtrlMsgHandlerCtx);
+    GetFileAttributes(Req->FileId, &Resp->FileAttr, Sto, Resp);
 }
 
 //
@@ -163,8 +158,7 @@ void GetFileAttributesHandler(
 //
 void GetStorageFreeSpaceHandler(
     CtrlMsgF2BReqGetFreeSpace *Req,
-    CtrlMsgB2FAckGetFreeSpace *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    CtrlMsgB2FAckGetFreeSpace *Resp
 ) {
     printf("Getting storage free space (%d)\n", Req->Dummy);
 
@@ -172,7 +166,7 @@ void GetStorageFreeSpaceHandler(
     // TODO: Get the free storage space
     //
     //
-    GetStorageFreeSpace(&Resp->FreeSpace, Sto, CtrlMsgHandlerCtx);
+    GetStorageFreeSpace(&Resp->FreeSpace, Sto, Resp);
 }
 
 //
@@ -182,7 +176,7 @@ void GetStorageFreeSpaceHandler(
 void MoveFileHandler(
     CtrlMsgF2BReqMoveFile *Req,
     CtrlMsgB2FAckMoveFile *Resp,
-    struct CreateDirectoryHandlerCtx *CtrlMsgHandlerCtx
+    struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx
 ) {
     printf("Moving the file %u to %s\n", Req->FileId, Req->NewFileName);
 

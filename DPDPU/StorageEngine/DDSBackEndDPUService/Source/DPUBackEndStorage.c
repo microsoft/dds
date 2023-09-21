@@ -800,40 +800,41 @@ ErrorCodeT Initialize(
 }
 
 
-ErrorCodeT RespondWithResult(struct CreateDirectoryHandlerCtx *HandlerCtx, int MsgId, ErrorCodeT Result) {
-    HandlerCtx->Resp->Result = Result;  
-    MsgHeader* msgOut = (MsgHeader*)HandlerCtx->CtrlConn->SendBuff;
-    msgOut->MsgId = MsgId;
-    HandlerCtx->CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
-    int ret = ibv_post_send(HandlerCtx->CtrlConn->QPair, &HandlerCtx->CtrlConn->SendWr, &HandlerCtx->badSendWr);
-    if (ret) {
-        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-        return -1;
-    }
-    return Result;
-}
+// ErrorCodeT RespondWithResult(struct ControlPlaneHandlerCtx *HandlerCtx, int MsgId, ErrorCodeT Result) {
+//     HandlerCtx->Resp->Result = Result;  
+//     MsgHeader* msgOut = (MsgHeader*)HandlerCtx->CtrlConn->SendBuff;
+//     msgOut->MsgId = MsgId;
+//     HandlerCtx->CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
+//     int ret = ibv_post_send(HandlerCtx->CtrlConn->QPair, &HandlerCtx->CtrlConn->SendWr, &HandlerCtx->badSendWr);
+//     if (ret) {
+//         fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+//         return -1;
+//     }
+//     return Result;
+// }
 
 void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct CreateDirectoryHandlerCtx *HandlerCtx = Context;
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         // this is basically the last line of the original CreateDirectory()
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
-
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
         // at this point, we've finished all work, don't do RDMA, just return
         // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_SUCCESS);
     }
     else {
         SPDK_ERRLOG("CreateDirectorySyncReservedInformationToDiskCallback failed\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
         // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
 }
 
 void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct CreateDirectoryHandlerCtx *HandlerCtx = Context;
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  // continue to do work
-        Sto->AllDirs[HandlerCtx->Req->DirId] = HandlerCtx->dir;
+        Sto->AllDirs[HandlerCtx->DirId] = HandlerCtx->dir;
 
         pthread_mutex_lock(&Sto->SectorModificationMutex);
         Sto->TotalDirs++;
@@ -842,14 +843,15 @@ void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Suc
         if (result != 0) {  // fatal, can't continue, and the callback won't run
             SPDK_ERRLOG("SyncReservedInformationToDisk() returned %hu\n", result);
             pthread_mutex_unlock(&Sto->SectorModificationMutex);
-            HandlerCtx->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
             // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
         }  // else, the callback passed to it should be guaranteed to run
     }
     else {
         SPDK_ERRLOG("CreateDirectorySyncDirToDisk failed, can't create directory\n");
-        HandlerCtx->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
         // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
+
     }
 }
 
@@ -864,50 +866,64 @@ ErrorCodeT CreateDirectory(
     DirIdT ParentId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct CreateDirectoryHandlerCtx *HandlerCtx
+    struct ControlPlaneHandlerCtx *HandlerCtx
 ){
     struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
-        HandlerCtx->Resp->Result = DDS_ERROR_CODE_OUT_OF_MEMORY;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_OUT_OF_MEMORY;
         // don't do RDMA here, only update the result
         // return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
-    
-    // just use the data in req, they are the same
-    /* HandlerCtx->DirId = DirId;
-    HandlerCtx->dir = dir; */
+    HandlerCtx->DirId = DirId;
+    HandlerCtx->dir = dir;
     ErrorCodeT result = SyncDirToDisk(dir, Sto, SPDKContext, CreateDirectorySyncDirToDiskCallback, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        HandlerCtx->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
         // return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_IO_FAILURE);
     }
+    return result;
+}
 
-    /* Sto->AllDirs[DirId] = dir;
-
-    //SectorModificationMutex.lock();
-    pthread_mutex_lock(&Sto->SectorModificationMutex);
-
-    Sto->TotalDirs++;
-    result = SyncReservedInformationToDisk(Sto, SPDKContext);
-
-    //SectorModificationMutex.unlock();
-    pthread_mutex_unlock(&Sto->SectorModificationMutex);
-
-    return result; */
-
-/* CreateDirectoryError:
-    // can't proceed, just respond with error
-    HandlerCtx->Resp->Result = DDS_ERROR_CODE_OUT_OF_MEMORY;
-    MsgHeader* msgOut = (MsgHeader*)HandlerCtx->CtrlConn->SendBuff;
-    msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
-    HandlerCtx->CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
-    int ret = ibv_post_send(HandlerCtx->CtrlConn->QPair, &HandlerCtx->CtrlConn->SendWr, &HandlerCtx->badSendWr);
-    if (ret) {
-        fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-        return -1;
+void RemoveDirectoryCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        pthread_mutex_unlock(&Sto->SectorModificationMutex);
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        // at this point, we've finished all work, so we just repsond with success
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_REMOVE_DIR, DDS_ERROR_CODE_SUCCESS);
     }
-    return DDS_ERROR_CODE_OUT_OF_MEMORY; */
+    else {
+        SPDK_ERRLOG("RemoveDirectoryCallback2() failed\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_REMOVE_DIR, DDS_ERROR_CODE_IO_WRONG);
+    }
+}
+
+void RemoveDirectoryCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {  
+        // continue to do work
+        free(Sto->AllDirs[HandlerCtx->DirId]);
+        Sto->AllDirs[HandlerCtx->DirId] = NULL;
+
+        pthread_mutex_lock(&Sto->SectorModificationMutex);
+
+        Sto->TotalDirs--;
+        ErrorCodeT result = SyncReservedInformationToDisk(Sto, SPDKContext,
+            RemoveDirectoryCallback2, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("RemoveDirectoryCallback1() returned %hu\n", result);
+            pthread_mutex_unlock(&Sto->SectorModificationMutex);
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        SPDK_ERRLOG("RemoveDirectoryCallback1() failed, can't create directory\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+    }
 }
 
 //
@@ -917,41 +933,91 @@ ErrorCodeT CreateDirectory(
 ErrorCodeT RemoveDirectory(
     DirIdT DirId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
-    if (!arg){
-        arg = GlobalArg;
-    }
     if (!Sto->AllDirs[DirId]) {
-        return DDS_ERROR_CODE_SUCCESS;
+       *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     GetDirProperties(Sto->AllDirs[DirId])->Id = DDS_DIR_INVALID;
-    ErrorCodeT result = SyncDirToDisk(Sto->AllDirs[DirId], Sto, arg);
+    HandlerCtx->DirId = DirId;
+    ErrorCodeT result = SyncDirToDisk(Sto->AllDirs[DirId], Sto, SPDKContext, RemoveDirectoryCallback1, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
-
-    //delete AllDirs[DirId];
-    free(Sto->AllDirs[DirId]);
-    Sto->AllDirs[DirId] = NULL;
-
-    //SectorModificationMutex.lock();
-    pthread_mutex_lock(&Sto->SectorModificationMutex);
-
-    Sto->TotalDirs--;
-    result = SyncReservedInformationToDisk(Sto, arg);
-
-    //SectorModificationMutex.unlock();
-    pthread_mutex_unlock(&Sto->SectorModificationMutex);
-
     return result;
 }
 
+void CreateFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        pthread_mutex_unlock(&Sto->SectorModificationMutex);
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        // at this point, we've finished all work, so we just repsond with success
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_FILE, DDS_ERROR_CODE_SUCCESS);
+    }
+    else {
+        SPDK_ERRLOG("CreateFileCallback3() failed\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_FILE, DDS_ERROR_CODE_IO_WRONG);
+    }
+}
+
+void CreateFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        Unlock(HandlerCtx->dir);
+        //
+        // Finally, file is added
+        //
+        //
+        Sto->AllFiles[HandlerCtx->DirId] = HandlerCtx->File;
+
+        pthread_mutex_lock(&Sto->SectorModificationMutex);
+
+        Sto->TotalFiles++;
+        ErrorCodeT result = SyncReservedInformationToDisk(Sto, SPDKContext,
+            CreateFileCallback3, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("CreateFileCallback2() returned %hu\n", result);
+            pthread_mutex_unlock(&Sto->SectorModificationMutex);
+            *(HandlerCtx->Result) =  DDS_ERROR_CODE_IO_FAILURE;
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        SPDK_ERRLOG("CreateFileCallback2() failed\n");
+        *(HandlerCtx->Result) =  DDS_ERROR_CODE_IO_FAILURE;
+    }
+}
+
+void CreateFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {  // continue to do work
+        //
+        // Add this file to its directory and make the update persistent
+        //
+        //
+        Lock(HandlerCtx->dir);
+    
+        AddFile(HandlerCtx->FileId, HandlerCtx->dir);
+        ErrorCodeT result = SyncDirToDisk(HandlerCtx->dir, Sto, SPDKContext,
+            CreateFileCallback2, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("CreateFileCallback1() returned %hu\n", result);
+            Unlock(HandlerCtx->dir);
+            *(HandlerCtx->Result) =  DDS_ERROR_CODE_IO_FAILURE;
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        SPDK_ERRLOG("CreateFileCallback1() failed, can't create directory\n");
+        *(HandlerCtx->Result) =  DDS_ERROR_CODE_IO_FAILURE;
+    }
+}
 //
 // Create a file
 // 
@@ -962,65 +1028,102 @@ ErrorCodeT CreateFile(
     FileIdT FileId,
     DirIdT DirId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
-    if (!arg){
-        arg = GlobalArg;
-    }
     struct DPUDir* dir = Sto->AllDirs[DirId];
     if (!dir) {
-        return DDS_ERROR_CODE_DIR_NOT_FOUND;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     struct DPUFile* file = BackEndFileI(FileId, FileName, FileAttributes);
     if (!file) {
-        return DDS_ERROR_CODE_OUT_OF_MEMORY;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_OUT_OF_MEMORY;
     }
 
     //
     // Make file persistent
     //
     //
-    ErrorCodeT result = SyncFileToDisk(file, Sto, arg);
+    HandlerCtx->DirId = DirId;
+    HandlerCtx->dir = dir;
+    HandlerCtx->FileId = FileId;
+    HandlerCtx->File = file;
+    ErrorCodeT result = SyncFileToDisk(file, Sto, SPDKContext, CreateFileCallback1, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
-
-    //
-    // Add this file to its directory and make the update persistent
-    //
-    //
-    Lock(dir);
-    
-    AddFile(FileId, dir);
-    result = SyncDirToDisk(dir, Sto, arg);
-    
-    Unlock(dir);
-
-    if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
-    }
-
-    //
-    // Finally, file is added
-    //
-    //
-    Sto->AllFiles[DirId] = file;
-
-    //SectorModificationMutex.lock();
-    pthread_mutex_lock(&Sto->SectorModificationMutex);
-
-    Sto->TotalFiles++;
-    result = SyncReservedInformationToDisk(Sto, arg);
-
-    //SectorModificationMutex.unlock();
-    pthread_mutex_unlock(&Sto->SectorModificationMutex);
-
     return result;
+}
+void DeleteFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        pthread_mutex_unlock(&Sto->SectorModificationMutex);
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        // at this point, we've finished all work, so we just repsond with success
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_DELETE_FILE, DDS_ERROR_CODE_SUCCESS);
+    }
+    else {
+        SPDK_ERRLOG("DeleteFileCallback3() failed\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_DELETE_FILE, DDS_ERROR_CODE_IO_WRONG);
+    }
+}
+
+void DeleteFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        Unlock(HandlerCtx->dir);
+        //
+        // Finally, delete the file
+        //
+        //
+        free(HandlerCtx->File);
+        Sto->AllFiles[HandlerCtx->FileId] = NULL;
+
+        pthread_mutex_lock(&Sto->SectorModificationMutex);
+
+        Sto->TotalFiles--;
+        ErrorCodeT result = SyncReservedInformationToDisk(Sto, SPDKContext,
+            DeleteFileCallback3, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("DeleteFileCallback2() returned %hu\n", result);
+            pthread_mutex_unlock(&Sto->SectorModificationMutex);
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        SPDK_ERRLOG("DeleteFileCallback2() failed\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+    }
+}
+
+void DeleteFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {  // continue to do work
+        //
+        // Delete this file from its directory and make the update persistent
+        //
+        //
+        Lock(HandlerCtx->dir);
+
+        DeleteFile(HandlerCtx->FileId, HandlerCtx->dir);
+        ErrorCodeT result = SyncDirToDisk(HandlerCtx->dir, Sto, SPDKContext,
+            DeleteFileCallback2, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("DeleteFileCallback1() returned %hu\n", result);
+            Unlock(HandlerCtx->dir);
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        SPDK_ERRLOG("DeleteFileCallback1() failed, can't create directory\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+    }
 }
 
 //
@@ -1031,19 +1134,16 @@ ErrorCodeT DeleteFileOnSto(
     FileIdT FileId,
     DirIdT DirId,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
-    if (!arg){
-        arg = GlobalArg;
-    }
     struct DPUFile* file = Sto->AllFiles[FileId];
     struct DPUDir* dir = Sto->AllDirs[DirId];
-
-    if (!file || !dir) {
-        return DDS_ERROR_CODE_SUCCESS;
+    if (!file) {
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_FILE_NOT_FOUND;
+    }
+    if (!dir) {
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     GetFileProperties(file)->Id = DDS_FILE_INVALID;
@@ -1052,40 +1152,16 @@ ErrorCodeT DeleteFileOnSto(
     // Make the change persistent
     //
     //
-    ErrorCodeT result = SyncFileToDisk(file, Sto, arg);
+    HandlerCtx->DirId = DirId;
+    HandlerCtx->dir = dir;
+    HandlerCtx->FileId = FileId;
+    HandlerCtx->File = file;
+    ErrorCodeT result = SyncFileToDisk(file, Sto, SPDKContext, DeleteFileCallback1, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
-
-    //
-    // Delete this file from its directory and make the update persistent
-    //
-    //
-    Lock(dir);
-
-    DeleteFile(FileId, dir);
-    result = SyncDirToDisk(dir, Sto, arg);
-
-    Unlock(dir);
-
-    //
-    // Finally, delete the file
-    //
-    //
-    free(file);
-    Sto->AllFiles[FileId] = NULL;
-
-    //SectorModificationMutex.lock();
-    pthread_mutex_lock(&Sto->SectorModificationMutex);
-
-    Sto->TotalFiles--;
-    result = SyncReservedInformationToDisk(Sto, arg);
-
-   //SectorModificationMutex.unlock();
-    pthread_mutex_unlock(&Sto->SectorModificationMutex);
-
-    return result;
+    return result
 }
 
 //
@@ -1095,14 +1171,13 @@ ErrorCodeT DeleteFileOnSto(
 ErrorCodeT ChangeFileSize(
     FileIdT FileId,
     FileSizeT NewSize,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckChangeFileSize *Resp
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
     struct DPUFile* file = Sto->AllFiles[FileId];
 
     if (!file) {
+        Resp->Result = DDS_ERROR_CODE_FILE_NOT_FOUND;
         return DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
 
@@ -1138,6 +1213,7 @@ ErrorCodeT ChangeFileSize(
             if (numSegmentsToAllocate > Sto->AvailableSegments) {
                 //SegmentAllocationMutex.unlock();
                 pthread_mutex_unlock(&Sto->SegmentAllocationMutex);
+                Resp->Result = DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE;
                 return DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE;
             }
 
@@ -1183,7 +1259,7 @@ ErrorCodeT ChangeFileSize(
     //
     //
     SetSize(NewSize, file);
-
+    Resp->Result = DDS_ERROR_CODE_SUCCESS;
     return DDS_ERROR_CODE_SUCCESS;
 }
 
@@ -1194,19 +1270,18 @@ ErrorCodeT ChangeFileSize(
 ErrorCodeT GetFileSize(
     FileIdT FileId,
     FileSizeT* FileSize,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFileSize *Resp
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
     struct DPUFile* file = Sto->AllFiles[FileId];
 
     if (!file) {
+        Resp->Result = DDS_ERROR_CODE_FILE_NOT_FOUND;
         return DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
 
     *FileSize = GetSize(file);
-
+    Resp->Result = DDS_ERROR_CODE_SUCCESS;
     return DDS_ERROR_CODE_SUCCESS;
 }
 
@@ -1472,20 +1547,19 @@ ErrorCodeT WriteFile(
 ErrorCodeT GetFileInformationById(
     FileIdT FileId,
     DDSFilePropertiesT* FileProperties,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFileInfo *Resp
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
     struct DPUFile* file = Sto->AllFiles[FileId];
-    if (file) {
+    if (!file) {
+        Resp->Result = DDS_ERROR_CODE_FILE_NOT_FOUND;
         return DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
 
     FileProperties->FileAttributes = GetAttributes(file);
     strcpy(FileProperties->FileName, GetName(file));
     FileProperties->FileSize = GetSize(file);
-
+    Resp->Result = DDS_ERROR_CODE_SUCCESS;
     return DDS_ERROR_CODE_SUCCESS;
 }
 
@@ -1497,18 +1571,17 @@ ErrorCodeT
 GetFileAttributes(
     FileIdT FileId,
     FileAttributesT* FileAttributes,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFileAttr *Resp
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
     struct DPUFile* file = Sto->AllFiles[FileId];
-    if (file) {
+    if (!file) {
+        Resp->Result = DDS_ERROR_CODE_FILE_NOT_FOUND;
         return DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
 
     *FileAttributes = GetAttributes(file);
-
+    Resp->Result = DDS_ERROR_CODE_SUCCESS;
     return DDS_ERROR_CODE_SUCCESS;
 }
 
@@ -1518,11 +1591,9 @@ GetFileAttributes(
 //
 ErrorCodeT GetStorageFreeSpace(
     FileSizeT* StorageFreeSpace,
-    struct DPUStorage* Sto
+    struct DPUStorage* Sto,
+    CtrlMsgB2FAckGetFreeSpace *Resp
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
     //SegmentAllocationMutex.lock();
     pthread_mutex_lock(&Sto->SegmentAllocationMutex);
 
@@ -1530,8 +1601,58 @@ ErrorCodeT GetStorageFreeSpace(
 
     //SegmentAllocationMutex.unlock();
     pthread_mutex_unlock(&Sto->SegmentAllocationMutex);
-
+    Resp->Result = DDS_ERROR_CODE_SUCCESS;
     return DDS_ERROR_CODE_SUCCESS;
+}
+
+void MoveFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {
+        Unlock(HandlerCtx->NewDir);
+        SetName(HandlerCtx->NewFileName, HandlerCtx->File);
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+
+        // at this point, we've finished all work, so we just repsond with success
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_MOVE_FILE, DDS_ERROR_CODE_SUCCESS);
+    }
+    else {
+        SPDK_ERRLOG("RemoveDirectoryCallback2() failed\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_MOVE_FILE, DDS_ERROR_CODE_IO_WRONG);
+    }
+}
+
+void MoveFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    spdk_bdev_free_io(bdev_io);
+    if (Success) {  
+        Unlock(HandlerCtx->dir);
+        //
+        // Update new directory
+        //
+        //
+        Lock(HandlerCtx->NewDir);
+    
+        ErrorCodeT result = AddFile(HandlerCtx->FileId, HandlerCtx->NewDir);
+
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            Unlock(HandlerCtx->NewDir);
+            *(HandlerCtx->Result) = result;
+        }
+        result = SyncDirToDisk(HandlerCtx->NewDir, Sto, SPDKContext,
+            MoveFileCallback2, HandlerCtx);
+        if (result != 0) {  // fatal, can't continue, and the callback won't run
+            SPDK_ERRLOG("MoveFileCallback1() returned %hu\n", result);
+            Unlock(HandlerCtx->NewDir);
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        }  // else, the callback passed to it should be guaranteed to run
+    }
+    else {
+        Unlock(HandlerCtx->dir);
+        SPDK_ERRLOG("MoveFileCallback1() failed, can't create directory\n");
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+    }
 }
 
 //
@@ -1545,67 +1666,41 @@ ErrorCodeT MoveFile(
     DirIdT NewDirId,
     const char* NewFileName,
     struct DPUStorage* Sto,
-    void *arg
+    void *SPDKContext,
+    struct ControlPlaneHandlerCtx *HandlerCtx
 ){
-    if (!Sto){
-        Sto = GlobalSto;
-    }
-    if (!arg){
-        arg = GlobalArg;
-    }
     struct DPUFile* file = Sto->AllFiles[FileId];
-    struct DPUDir* oldDir = Sto->AllDirs[OldDirId];
-    struct DPUDir* newDir = Sto->AllDirs[NewDirId];
+    struct DPUDir* OldDir = Sto->AllDirs[OldDirId];
+    struct DPUDir* NewDir = Sto->AllDirs[NewDirId];
     if (!file) {
-        return DDS_ERROR_CODE_FILE_NOT_FOUND;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
-    if (!oldDir || !newDir) {
-        return DDS_ERROR_CODE_DIR_NOT_FOUND;
+    if (!OldDir || !NewDir) {
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
 
     //
     // Update old directory
     //
     //
-    Lock(oldDir);
+    Lock(OldDir);
 
-    ErrorCodeT result = DeleteFile(FileId, oldDir);
-
-    if (result != DDS_ERROR_CODE_SUCCESS) {
-        Unlock(oldDir);
-        return result;
-    }
-
-    result = SyncDirToDisk(oldDir, Sto, arg);
-
-    Unlock(oldDir);
+    ErrorCodeT result = DeleteFile(FileId, OldDir);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
+        Unlock(OldDir);
+        *(HandlerCtx->Result) = result;
         return result;
     }
-
-    //
-    // Update new directory
-    //
-    //
-    Lock(newDir);
-    
-    result = AddFile(FileId, newDir);
+    HandlerCtx->dir = OldDir;
+    HandlerCtx->NewDir = NewDir;
+    HandlerCtx->FileId = FileId;
+    HandlerCtx->File = file;
+    HandlerCtx->NewFileName = NewFileName;
+    ErrorCodeT result = SyncDirToDisk(OldDir, Sto, SPDKContext, MoveFileCallback1, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
-        Unlock(newDir);
-        return result;
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
-
-    result = SyncDirToDisk(newDir, Sto, arg);
-
-    Unlock(newDir);
-
-    if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
-    }
-
-    SetName(NewFileName, file);
-    
-    return DDS_ERROR_CODE_SUCCESS;
+    return result;
 }
