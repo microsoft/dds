@@ -2659,7 +2659,7 @@ CheckAndProcessControlPlaneCompletions(
             {
                 CtrlMsgB2FAckGetFileInfo* resp = (CtrlMsgB2FAckGetFileInfo*)ctrlConn->PendingControlPlanRequest.Response;
                 resp->Result = DDS_ERROR_CODE_SUCCESS;
-                memset(&Resp->FileInfo, 0, sizeof(Resp->FileInfo));
+                memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_ATTR:
