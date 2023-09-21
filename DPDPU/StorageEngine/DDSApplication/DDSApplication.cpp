@@ -19,7 +19,7 @@ using std::endl;
 using std::thread;
 using std::this_thread::yield;
 
-#define PAGE_SIZE 16384
+#define PAGE_SIZE 64
 
 std::mutex mtx;
 std::condition_variable cv;
