@@ -5,11 +5,12 @@
 #include <stdlib.h>
 // #include <sched.h>
 
-#include "../Include/DPUBackEndStorage.h"
+#include "DPUBackEndStorage.h"
+#include "bdev.h"
 
 
 struct DPUStorage* Sto;
-void *GlobalArg;
+SPDKContextT *SPDKContext;
 //
 // Constructor
 // 
@@ -31,8 +32,6 @@ struct DPUStorage* BackEndStorage(){
     tmp->TotalDirs = 0;
     tmp->TotalFiles = 0;
 
-    tmp->TargetProgress = 0;
-    tmp->CurrentProgress = 0;
     tmp->TotalSegments = DDS_BACKEND_CAPACITY / DDS_BACKEND_SEGMENT_SIZE;
     pthread_mutex_init(&tmp->SectorModificationMutex, NULL);
     pthread_mutex_init(&tmp->SegmentAllocationMutex, NULL);
@@ -609,6 +608,90 @@ ErrorCodeT SyncReservedInformationToDisk(
     ); */
 }
 
+void InitializeSyncReservedInfoCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+) {
+    free(bdev_io);
+    struct InitializeCtx *Ctx = Context;
+    if (!Success) {
+        SPDK_NOTICELOG("Initialize() SyncReservedInformationToDisk IO failed...\n");
+        return;
+    }
+    // TODO: success, Initialize() done, continue work
+}
+
+void InitializeSyncDirToDiskCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+) {
+    free(bdev_io);
+    struct InitializeCtx *Ctx = Context;
+    if (!Success) {
+        SPDK_NOTICELOG("Initialize() SyncDirToDisk IO failed...\n");
+        return;
+    }
+
+    Sto->AllDirs[DDS_DIR_ROOT] = Ctx->RootDir;
+
+    //
+    // Set the formatted mark and the numbers of dirs and files
+    //
+    //
+    ErrorCodeT result;
+    Sto->TotalDirs = 1;
+    Sto->TotalFiles = 0;
+    result = SyncReservedInformationToDisk(Sto, Ctx->SPDKContext, InitializeSyncReservedInfoCallback, Ctx);
+
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        SPDK_ERRLOG("Initialize() SyncReservedInformationToDisk failed!!!\n");
+        return;
+    }
+
+}
+
+void RemainingPagesProgressCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+) {
+    free(bdev_io);
+    struct InitializeCtx *Ctx = Context;
+    if (Ctx->HasAborted) {
+        return;
+    }
+    if (!Success) {
+        Ctx->HasFailed = true;
+    }
+
+    if (Ctx->CurrentProgress == Ctx->TargetProgress) {
+        SPDK_NOTICELOG("Initialize() RemainingPagesProgressCallback last one running\n");
+        if (Ctx->HasFailed) {
+            // TODO: something went wrong, can't continue to do work
+            SPDK_ERRLOG("Initialize() RemainingPagesProgressCallback has failed IO, stopping...\n");
+            return;
+        }
+        else {  // we can do the rest of the work
+            //
+            // Create the root directory, which is on the second sector on the segment
+            //
+            //
+            ErrorCodeT result;
+            struct DPUDir* rootDir = BackEndDirI(DDS_DIR_ROOT, DDS_DIR_INVALID, DDS_BACKEND_ROOT_DIR_NAME);
+            Ctx->RootDir = rootDir;
+            result = SyncDirToDisk(rootDir, Sto, Ctx->SPDKContext, InitializeSyncDirToDiskCallback, Ctx);
+
+            if (result != DDS_ERROR_CODE_SUCCESS) {
+                SPDK_ERRLOG("Initialize() SyncDirToDisk early fail!!\n");
+                return;
+            }
+
+            
+        }
+    }
+}
 
 //
 // Increment progress callback
@@ -618,52 +701,87 @@ void
 IncrementProgressCallback(
     struct spdk_bdev_io *bdev_io,
     bool Success,
-    ContextT Context) {
-    atomic_size_t* progress = (atomic_size_t*)Context;
+    ContextT Context)
+{
+    free(bdev_io);
+    struct InitializeCtx *Ctx = Context;
+    if (Ctx->HasAborted) {
+        return;
+    }
+
+    if (!Success) {
+        Ctx->HasFailed = true;
+    }
+
+    // this is the last of looped IO callbacks
+    if (Ctx->CurrentProgress == Ctx->TargetProgress) {
+        SPDK_NOTICELOG("Initialize() IncrementProgressCallback last one running\n");
+        if (Ctx->HasFailed) {
+            // TODO: something went wrong, can't continue to do work
+            SPDK_ERRLOG("Initialize() IncrementProgressCallback has failed IO, stopping...\n");
+            return;
+        }
+        else {  // we can do the rest of the work
+            ErrorCodeT result;
+            SPDK_NOTICELOG("continue Initialize() work\n");
+            //
+            // Handle the remaining pages
+            //
+            //
+            SPDK_NOTICELOG("Initialize(), pagesLeft: %d\n", Ctx->PagesLeft);  // this should be 0?
+            Ctx->TargetProgress = Ctx->PagesLeft;
+            Ctx->CurrentProgress = 0;
+            char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
+            memset(tmpPageBuf, 0, DDS_BACKEND_PAGE_SIZE);
+
+            for (size_t q = 0; q != Ctx->PagesLeft; q++) {
+                result = WriteToDiskAsync(
+                    tmpPageBuf,
+                    0,
+                    (SegmentSizeT)((Ctx->NumPagesWritten + q) * DDS_BACKEND_PAGE_SIZE),
+                    DDS_BACKEND_PAGE_SIZE,
+                    RemainingPagesProgressCallback,
+                    Ctx,
+                    Sto,
+                    Ctx->SPDKContext,
+                    true
+                );
+
+                if (result != DDS_ERROR_CODE_SUCCESS) {
+                    Ctx->HasAborted = true;  // don't need to run callbacks anymore
+                    return;
+                }
+            }
+
+            /* while (Sto->CurrentProgress != Sto->TargetProgress) {
+                //std::this_thread::yield();
+                sched_yield();
+            } */
+
+            
+        }
+    }
+    else {  // not last, wait until it's the last callback
+        // TODO: finish the part where it's already initialized
+    }
+
+    /* atomic_size_t* progress = (atomic_size_t*)Context;
     (*progress) += 1;
-    spdk_bdev_free_io(bdev_io);
+    spdk_bdev_free_io(bdev_io); */
 }
 
-//
-// Initialize the backend service
-// This needs to be async, so using callback chains to accomplish this
-//
-//
-ErrorCodeT Initialize(
-    struct DPUStorage* Sto,
-    void *arg // NOTE: this is currently an spdkContext, but depending on the callbacks, they need different arg than this
-){
-    //
-    // Retrieve all segments on disk
-    //
-    //
-    ErrorCodeT result = RetrieveSegments(Sto);
+void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
+    free(bdev_io);
+    struct InitializeCtx *Ctx = Context;
+    ErrorCodeT result;
 
-    if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
-    }
-
-    //
-    // The first sector on the reserved segment contains initialization information
-    //
-    //
-    bool diskInitialized = false;
-    SegmentT* rSeg = &Sto->AllSegments[DDS_BACKEND_RESERVED_SEGMENT];
-    char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE];
-    memset(tmpSectorBuf, 0, DDS_BACKEND_SECTOR_SIZE);
-
-    result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg, true);
-
-    if (result != DDS_ERROR_CODE_SUCCESS) {
-        return result;
-    }
-    if (strcmp(DDS_BACKEND_INITIALIZATION_MARK, tmpSectorBuf)) {
+    if (strcmp(DDS_BACKEND_INITIALIZATION_MARK, Ctx->tmpSectorBuf)) {
         //
         // Empty every byte on the reserved segment
         //
         //
         char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
-        memset(tmpPageBuf, 0, DDS_BACKEND_SECTOR_SIZE);
+        memset(tmpPageBuf, 0, DDS_BACKEND_PAGE_SIZE);  // original: DDS_BACKEND_SECTOR_SIZE probably wrong
         
         size_t pagesPerSegment = DDS_BACKEND_SEGMENT_SIZE / DDS_BACKEND_PAGE_SIZE;
         size_t numPagesWritten = 0;
@@ -672,92 +790,38 @@ ErrorCodeT Initialize(
         // Issue writes with the maximum queue depth
         //
         //
-        while ((numPagesWritten + DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT) <= pagesPerSegment) {
-            Sto->TargetProgress = pagesPerSegment;
-            Sto->CurrentProgress = 0;
-            for (size_t q = 0; q != DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT; q++) {
-                result = WriteToDiskAsync(
-                    tmpPageBuf,
-                    0,
-                    (SegmentSizeT)((numPagesWritten + q) * DDS_BACKEND_PAGE_SIZE),
-                    DDS_BACKEND_PAGE_SIZE,
-                    IncrementProgressCallback,
-                    &Sto->CurrentProgress,
-                    Sto,
-                    arg,
-                    true
-                );
-
-                if (result != DDS_ERROR_CODE_SUCCESS) {
-                    return result;
-                }
-            }
-
-            while (Sto->CurrentProgress != Sto->TargetProgress) {
-                //std::this_thread::yield();
-                //not sure does this function have the same effect
-                //pthread_yield() is non-standard function so I replace it by
-                sched_yield();
-            }
-
-            numPagesWritten += DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT;
-        }
-
-        //
-        // Handle the remaining pages
-        //
-        //
-        size_t pagesLeft = pagesPerSegment - numPagesWritten;
-        printf("Initialize(), pagesLeft: %d\n", pagesLeft);  // this should be 0?
-        Sto->TargetProgress = pagesLeft;
-        Sto->CurrentProgress = 0;
-        for (size_t q = 0; q != pagesLeft; q++) {
+        Ctx->TargetProgress = pagesPerSegment;
+        
+        while (numPagesWritten < pagesPerSegment) {
             result = WriteToDiskAsync(
                 tmpPageBuf,
                 0,
-                (SegmentSizeT)((numPagesWritten + q) * DDS_BACKEND_PAGE_SIZE),
+                (SegmentSizeT)(numPagesWritten * DDS_BACKEND_PAGE_SIZE),
                 DDS_BACKEND_PAGE_SIZE,
                 IncrementProgressCallback,
-                &Sto->CurrentProgress,
+                Ctx,
                 Sto,
-                arg,
+                Ctx->SPDKContext,
                 true
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
+                Ctx->HasAborted = true;  // don't need to run callbacks anymore
                 return result;
             }
+
+            /* while (Sto->CurrentProgress != Sto->TargetProgress) {
+                //std::this_thread::yield();
+                //not sure does this function have the same effect
+                //pthread_yield() is non-standard function so I replace it by
+                sched_yield();
+            } */
+            
+            Ctx->CurrentProgress = numPagesWritten + 1;
+            numPagesWritten += 1;
         }
-
-        while (Sto->CurrentProgress != Sto->TargetProgress) {
-            //std::this_thread::yield();
-            sched_yield();
-        }
-
-        //
-        // Create the root directory, which is on the second sector on the segment
-        //
-        //
-        struct DPUDir* rootDir = BackEndDirI(DDS_DIR_ROOT, DDS_DIR_INVALID, DDS_BACKEND_ROOT_DIR_NAME);
-        result = SyncDirToDisk(rootDir, Sto, arg);
-
-        if (result != DDS_ERROR_CODE_SUCCESS) {
-            return result;
-        }
-
-        Sto->AllDirs[DDS_DIR_ROOT] = rootDir;
-
-        //
-        // Set the formatted mark and the numbers of dirs and files
-        //
-        //
-        Sto->TotalDirs = 1;
-        Sto->TotalFiles = 0;
-        result = SyncReservedInformationToDisk(Sto, arg);
-
-        if (result != DDS_ERROR_CODE_SUCCESS) {
-            return result;
-        }
+        Ctx->NumPagesWritten = numPagesWritten;
+        Ctx->PagesLeft = pagesPerSegment - numPagesWritten;
     }
     else {
         //
@@ -795,6 +859,51 @@ ErrorCodeT Initialize(
                 }
             }
         }
+    }
+    
+}
+
+//
+// Initialize the backend service
+// This needs to be async, so using callback chains to accomplish this
+//
+//
+ErrorCodeT Initialize(
+    struct DPUStorage* Sto,
+    void *arg // NOTE: this is currently an spdkContext, but depending on the callbacks, they need different arg than this
+){
+    //
+    // Retrieve all segments on disk
+    //
+    //
+    ErrorCodeT result = RetrieveSegments(Sto);
+
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        return result;
+    }
+
+    //
+    // The first sector on the reserved segment contains initialization information
+    //
+    //
+    bool diskInitialized = false;
+    SegmentT* rSeg = &Sto->AllSegments[DDS_BACKEND_RESERVED_SEGMENT];
+    char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE + 1];
+    memset(tmpSectorBuf, 0, DDS_BACKEND_SECTOR_SIZE + 1);  // probably better to make sure it's NUL terminated
+
+    // read reserved sector
+    struct InitializeCtx *InitializeCtx = malloc(sizeof(*InitializeCtx));
+    InitializeCtx->HasFailed = false;
+    InitializeCtx->CurrentProgress = 0;
+    InitializeCtx->TargetProgress = 0;
+    InitializeCtx->SPDKContext = SPDKContext;
+    result = ReadFromDiskAsync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE,
+        InitializeReadReservedSectorCallback, InitializeCtx, Sto, arg, true);
+    // result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg, true);
+
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        printf("Initialize read reserved sector failed!!!\n");
+        return result;
     }
     return DDS_ERROR_CODE_SUCCESS;
 }

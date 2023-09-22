@@ -2791,31 +2791,6 @@ void RunFileBackEnd(
 	 * Initialize the write buffer with the string "Hello World!"
 	 */
 	AllocateSpace(SPDKContext);
-	
-    
-    
-    //
-    // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
-    //
-    //
-    /* struct DPUStorage* Sto = BackEndStorage(); */
-    ErrorCodeT result = Initialize(Sto, SPDKContext);
-    if (result != DDS_ERROR_CODE_SUCCESS){
-        fprintf(stderr, "InitStorage failed with %d\n", result);
-        return;
-    }
-
-
-    //
-    // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
-    //
-    //
-    /* struct DPUStorage* Sto = BackEndStorage(); */
-    ErrorCodeT result = Initialize(Sto, SPDKContext);
-    if (result != DDS_ERROR_CODE_SUCCESS){
-        fprintf(stderr, "InitStorage failed with %d\n", result);
-        return;
-    }
 
     //
     // Initialize DMA
@@ -2849,14 +2824,21 @@ void RunFileBackEnd(
         return;
     }
         
+    //
+    // We call this thread agent thread, we now create an app thread, in which we `Initialize()`, and creates some worker threads,
+    // and then calls spdk_app_start() which blocks
     // TODO: init SPDK (threads, as well as storage?)
-    pthread_create(&FSAppThread, NULL, )
+    //
+    // TODO: need what ctx?
+    struct FSAppStartEntryPointCtx *entryPointCtx = malloc(sizeof(*entryPointCtx));
+    pthread_create(&FSAppThread, NULL, FSAppStartEntryPoint, entryPointCtx);
     
     //
     // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
     //
     //
-    /* struct DPUStorage* Sto = BackEndStorage(); */
+    // TODO: see the above TODO
+    Sto = BackEndStorage();
     ErrorCodeT result = Initialize(Sto, SPDKContext);
     if (result != DDS_ERROR_CODE_SUCCESS){
         fprintf(stderr, "InitStorage failed with %d\n", result);
@@ -2950,6 +2932,10 @@ void RunFileBackEnd(
     printf("spdk_app_stop returned with: %d\n", ret);
 
     return;
+}
+
+void FSAppStartEntryPoint(void *args) {
+    // TODO
 }
 
 //

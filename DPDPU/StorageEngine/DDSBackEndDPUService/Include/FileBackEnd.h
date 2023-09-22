@@ -204,6 +204,12 @@ struct BackEndConfig {
     struct BuffConnConfig* BuffConns;
 };
 
+void FSAppStartEntryPoint(void *args);
+
+struct FSAppStartEntryPointCtx {
+    // TODO
+};
+
 //
 // The entry point for the back end,
 // but SPDK requires all the parameters be in just one struct, like the following

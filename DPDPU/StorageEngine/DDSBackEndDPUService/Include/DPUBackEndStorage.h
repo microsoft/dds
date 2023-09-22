@@ -66,8 +66,13 @@ typedef struct DPUStorage {
     pthread_mutex_t SectorModificationMutex;
     pthread_mutex_t SegmentAllocationMutex;
     
-    atomic_size_t TargetProgress;
-    atomic_size_t CurrentProgress;
+    //
+    // these are used during `Initialize`, move them to their own context
+    //
+    //
+
+    // atomic_size_t TargetProgress;
+    // atomic_size_t CurrentProgress;
 };
 
 //
@@ -225,6 +230,22 @@ ErrorCodeT Initialize(
     struct DPUStorage* Sto,
     void *arg
 );
+
+struct InitializeCtx {
+    SPDKContextT *SPDKContext;
+    char *tmpSectorBuf;  // actually the buff that stores the reserved segment
+    atomic_size_t TargetProgress;
+    atomic_size_t CurrentProgress;
+    size_t PagesLeft;
+    size_t NumPagesWritten;
+    struct DPUDir* RootDir;
+    //
+    // this will be set if some callback during the progress has callbacks run with failed param
+    //
+    //
+    atomic_bool HasFailed;
+    atomic_bool HasAborted;  // already fatal, some callback won't run, don't need to run other callbacks anymore
+};
 
 //
 // Create a directory
