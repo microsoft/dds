@@ -929,6 +929,7 @@ void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *b
         // this is basically the last line of the original CreateDirectory()
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
         *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        free(HandlerCtx);
         // at this point, we've finished all work, don't do RDMA, just return
         // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_SUCCESS);
     }
@@ -982,6 +983,7 @@ ErrorCodeT CreateDirectory(
     struct DPUDir* dir = BackEndDirI(DirId, ParentId, PathName);
     if (!dir) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_OUT_OF_MEMORY;
+        return DDS_ERROR_CODE_OUT_OF_MEMORY;
         // don't do RDMA here, only update the result
         // return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
@@ -991,6 +993,7 @@ ErrorCodeT CreateDirectory(
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        return result;
         // return RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_IO_FAILURE);
     }
     return result;
@@ -1002,6 +1005,7 @@ void RemoveDirectoryCallback2(struct spdk_bdev_io *bdev_io, bool Success, Contex
     if (Success) {
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
         *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        free(HandlerCtx);
         // at this point, we've finished all work, so we just repsond with success
         //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_REMOVE_DIR, DDS_ERROR_CODE_SUCCESS);
     }
@@ -1049,6 +1053,7 @@ ErrorCodeT RemoveDirectory(
 ){
     if (!Sto->AllDirs[DirId]) {
        *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
+       return DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     GetDirProperties(Sto->AllDirs[DirId])->Id = DDS_DIR_INVALID;
@@ -1057,6 +1062,7 @@ ErrorCodeT RemoveDirectory(
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
+        return DDS_ERROR_CODE_IO_FAILURE;
     }
     return result;
 }
@@ -1067,6 +1073,7 @@ void CreateFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
     if (Success) {
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
         *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        free(HandlerCtx);
         // at this point, we've finished all work, so we just repsond with success
         //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_FILE, DDS_ERROR_CODE_SUCCESS);
     }
@@ -1145,11 +1152,13 @@ ErrorCodeT CreateFile(
     struct DPUDir* dir = Sto->AllDirs[DirId];
     if (!dir) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
+        return DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     struct DPUFile* file = BackEndFileI(FileId, FileName, FileAttributes);
     if (!file) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_OUT_OF_MEMORY;
+        return DDS_ERROR_CODE_OUT_OF_MEMORY;
     }
 
     //
@@ -1173,6 +1182,7 @@ void DeleteFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
     if (Success) {
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
         *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
+        free(HandlerCtx);
         // at this point, we've finished all work, so we just repsond with success
         //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_DELETE_FILE, DDS_ERROR_CODE_SUCCESS);
     }
@@ -1252,9 +1262,11 @@ ErrorCodeT DeleteFileOnSto(
     struct DPUDir* dir = Sto->AllDirs[DirId];
     if (!file) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_FILE_NOT_FOUND;
+        return DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
     if (!dir) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
+        return DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     GetFileProperties(file)->Id = DDS_FILE_INVALID;
@@ -1723,7 +1735,7 @@ void MoveFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Cont
         Unlock(HandlerCtx->NewDir);
         SetName(HandlerCtx->NewFileName, HandlerCtx->File);
         *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
-
+        free(HandlerCtx);
         // at this point, we've finished all work, so we just repsond with success
         //RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_MOVE_FILE, DDS_ERROR_CODE_SUCCESS);
     }
@@ -1785,9 +1797,11 @@ ErrorCodeT MoveFile(
     struct DPUDir* NewDir = Sto->AllDirs[NewDirId];
     if (!file) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
+        return DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
     if (!OldDir || !NewDir) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_FILE_NOT_FOUND;
+        return DDS_ERROR_CODE_FILE_NOT_FOUND;
     }
 
     //
