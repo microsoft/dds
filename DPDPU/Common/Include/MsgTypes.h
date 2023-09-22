@@ -181,8 +181,8 @@ typedef struct {
 // Check a few parameters at the compile time
 //
 //
-#define assert_static_msg_type(e, num) \
-    enum { assert_static_msg_type__##num = 1/(e) }
+#define AssertStaticMsgTypes(e, num) \
+    enum { AssertStaticMsgTypes__##num = 1/(e) }
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -196,8 +196,8 @@ typedef struct {
 // The alignment is enforced once a request/response is inserted into the ring
 //
 //
-assert_static_msg_type(DDS_REQUEST_RING_BYTES % (sizeof(BuffMsgF2BReqHeader) + sizeof(FileIOSizeT)) == 0, 0);
-assert_static_msg_type(DDS_RESPONSE_RING_BYTES % (sizeof(BuffMsgB2FAckHeader) + sizeof(FileIOSizeT)) == 0, 1);
+AssertStaticMsgTypes(DDS_REQUEST_RING_BYTES % (sizeof(BuffMsgF2BReqHeader) + sizeof(FileIOSizeT)) == 0, 0);
+AssertStaticMsgTypes(DDS_RESPONSE_RING_BYTES % (sizeof(BuffMsgB2FAckHeader) + sizeof(FileIOSizeT)) == 0, 1);
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #else

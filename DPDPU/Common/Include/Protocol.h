@@ -69,12 +69,15 @@
 #define DDS_NOTIFICATION_METHOD_TIMER 1
 #define DDS_NOTIFICATION_METHOD DDS_NOTIFICATION_METHOD_INTERRUPT
 
+#define DDS_INTRA_BACKEND_REQUEST_RING_BYTES 25165824
+#define DDS_INTRA_BACKEND_RESPONSE_RING_BYTES 25165824
+
 //
 // Check a few parameters at the compile time
 //
 //
-#define assert_static_protocol(e, num) \
-    enum { assert_static_protocol__##num = 1/(e) }
+#define AssertStaticProtocol(e, num) \
+    enum { AssertStaticProtocol__##num = 1/(e) }
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -84,12 +87,12 @@
 #pragma warning (disable: 4804)
 #endif
 
-assert_static_protocol(RING_BUFFER_REQUEST_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 0);
-assert_static_protocol(RING_BUFFER_RESPONSE_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 1);
-assert_static_protocol(DDS_REQUEST_RING_BYTES == DDS_REQUEST_RING_SIZE * DDS_REQUEST_RING_SLOT_SIZE, 2);
-assert_static_protocol(DDS_REQUEST_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 3);
-assert_static_protocol(DDS_RESPONSE_RING_BYTES == DDS_RESPONSE_RING_SIZE * DDS_RESPONSE_RING_SLOT_SIZE, 4);
-assert_static_protocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
+AssertStaticProtocol(RING_BUFFER_REQUEST_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 0);
+AssertStaticProtocol(RING_BUFFER_RESPONSE_META_DATA_SIZE == DDS_CACHE_LINE_SIZE * 2, 1);
+AssertStaticProtocol(DDS_REQUEST_RING_BYTES == DDS_REQUEST_RING_SIZE * DDS_REQUEST_RING_SLOT_SIZE, 2);
+AssertStaticProtocol(DDS_REQUEST_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 3);
+AssertStaticProtocol(DDS_RESPONSE_RING_BYTES == DDS_RESPONSE_RING_SIZE * DDS_RESPONSE_RING_SLOT_SIZE, 4);
+AssertStaticProtocol(DDS_RESPONSE_RING_BYTES % DDS_CACHE_LINE_SIZE == 0, 5);
 
 #if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_INTERRUPT
 #ifndef RING_BUFFER_RESPONSE_BATCH_ENABLED
