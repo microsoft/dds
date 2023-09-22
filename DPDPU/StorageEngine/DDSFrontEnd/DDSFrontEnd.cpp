@@ -956,6 +956,77 @@ DDSFrontEnd::WriteFile(
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 
+    /*
+    PollIdT pollId = AllFiles[FileId]->PollId;
+    PollT* poll = AllPolls[pollId];
+    size_t mySlot;
+    FileIOT* pIO;
+    bool expectedAvail;
+    bool found = false;
+
+    for (int i = DDS_MAX_OUTSTANDING_IO; i != 0; i--) {
+        mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
+        mySlot %= DDS_MAX_OUTSTANDING_IO;
+        pIO = poll->OutstandingRequests[mySlot];
+
+        expectedAvail = true;
+        if (pIO->IsAvailable.compare_exchange_weak(
+            expectedAvail,
+            false,
+            std::memory_order_relaxed
+        ) == false) {
+            //
+            // If this is a callback-based completion,
+            // perform polling once
+            //
+            //
+            if (pIO->AppCallback) {
+                FileIOSizeT bytesServiced;
+                ContextT fileCtxt;
+                ContextT ioCtxt;
+                bool pollResult;
+
+                PollWait(
+                    pollId,
+                    &bytesServiced,
+                    &fileCtxt,
+                    &ioCtxt,
+                    0,
+                    &pollResult
+                );
+            }
+        }
+        else {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        //
+        // If this is a callback-based completion,
+        // perform polling once
+        //
+        //
+        if (pIO->AppCallback) {
+            FileIOSizeT bytesServiced;
+            ContextT fileCtxt;
+            ContextT ioCtxt;
+            bool pollResult;
+
+            PollWait(
+                pollId,
+                &bytesServiced,
+                &fileCtxt,
+                &ioCtxt,
+                0,
+                &pollResult
+            );
+        }
+
+        return DDS_ERROR_CODE_TOO_MANY_REQUESTS;
+    }
+    */
+
     PollIdT pollId = AllFiles[FileId]->PollId;
     PollT* poll = AllPolls[pollId];
     size_t mySlot = poll->NextRequestSlot.fetch_add(1, std::memory_order_relaxed);
