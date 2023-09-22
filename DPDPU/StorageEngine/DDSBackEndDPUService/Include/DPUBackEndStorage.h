@@ -7,10 +7,10 @@
 #include <time.h>
 #include <stdbool.h>
 
-#include "../../../Common/Include/MsgType.h"
+#include "MsgTypes.h"
 #include "FileBackEnd.h"
 #include "DPUBackEndDir.h"
-#include "ControlPlaneHandlers.h"
+#include "ControlPlaneHandler.h"
 #include "DPUBackEndFile.h"
 #include "bdev.h"
 #include "Zmalloc.h"

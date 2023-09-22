@@ -828,6 +828,8 @@ void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *b
         *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
         // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_OUT_OF_MEMORY);
     }
+    // we should free the handler ctx at the end of the last callback
+    free(HandlerCtx);
 }
 
 void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
