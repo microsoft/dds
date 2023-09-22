@@ -41,7 +41,7 @@
 #define BUFF_MSG_F2B_RELEASE 102
 
 typedef struct {
-    int MsgId;
+    RequestIdT MsgId;
 } MsgHeader;
 
 typedef struct {

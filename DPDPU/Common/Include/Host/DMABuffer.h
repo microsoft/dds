@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RDMC.h"
-#include "MsgType.h"
+#include "MsgTypes.h"
 
 class DMABuffer {
 private:

@@ -19,7 +19,7 @@ using std::endl;
 using std::thread;
 using std::this_thread::yield;
 
-#define PAGE_SIZE 16384
+#define PAGE_SIZE 8192
 
 std::mutex mtx;
 std::condition_variable cv;
@@ -281,6 +281,252 @@ BenchmarkIOWithPolling(
     delete pollWorker;
 }
 
+static uint64_t file_time_2_utc(const FILETIME* ftime)
+{
+    LARGE_INTEGER li;
+
+    li.LowPart = ftime->dwLowDateTime;
+    li.HighPart = ftime->dwHighDateTime;
+    return li.QuadPart;
+}
+
+static int get_processor_number()
+{
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (int)info.dwNumberOfProcessors;
+}
+
+void 
+BenchmarkIOCPUEfficient(
+    DDS_FrontEnd::DDSFrontEnd& Store,
+    FileIdT FileId,
+    FileSizeT MaxFileSize
+) {
+    char* writeBuffer = new char[PAGE_SIZE];
+    memset(writeBuffer, 0, sizeof(char) * PAGE_SIZE);
+    *((int*)writeBuffer) = 42;
+    FileSizeT totalWrittenSize = 0;
+    const size_t totalIOs = MaxFileSize / PAGE_SIZE;
+    FileIOSizeT bytesServiced;
+
+    PollIdT pollId;
+    FileIOSizeT opSize;
+    ContextT opContext;
+    ContextT pollContext;
+    bool pollResult;
+    size_t completedOps = 0;
+
+    ErrorCodeT result = Store.GetDefaultPoll(&pollId);
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << "Failed to get default poll" << endl;
+        return;
+    }
+
+    result = Store.SetFilePointer(
+        FileId,
+        0,
+        FilePointerPosition::BEGIN
+    );
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << "Failed to set file pointer" << endl;
+    }
+    else {
+        cout << "File pointer reset" << endl;
+    }
+
+    cout << "Benchmarking writes..." << endl;
+    
+    FILETIME now;
+    FILETIME creation_time;
+    FILETIME exit_time;
+    FILETIME kernel_time;
+    FILETIME user_time;
+    int64_t system_time;
+    int64_t time;
+    int64_t system_time_delta;
+    int64_t time_delta;
+    int64_t last_time_ = 0;
+    int64_t last_system_time_ = 0;
+
+    GetSystemTimeAsFileTime(&now);
+    GetProcessTimes(GetCurrentProcess(), &creation_time, &exit_time, &kernel_time, &user_time);
+
+    system_time = (file_time_2_utc(&kernel_time) + file_time_2_utc(&user_time)) / get_processor_number();
+    time = file_time_2_utc(&now);
+    last_system_time_ = system_time;
+    last_time_ = time;
+
+    Profiler profiler(totalIOs);
+    profiler.Start();
+
+    for (size_t i = 0; i != totalIOs;) {
+        result = Store.WriteFile(
+            FileId,
+            writeBuffer,
+            PAGE_SIZE,
+            &bytesServiced,
+            NULL,
+            NULL
+        );
+
+        if (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
+            result = Store.PollWait(
+                pollId,
+                &opSize,
+                &pollContext,
+                &opContext,
+                INFINITE,
+                &pollResult
+            );
+
+            do {
+                completedOps++;
+                Store.PollWait(
+                    pollId,
+                    &opSize,
+                    &pollContext,
+                    &opContext,
+                    0,
+                    &pollResult
+                );
+            } while (pollResult);
+        }
+        else {
+            i++;
+        }
+    }
+
+    while (completedOps != totalIOs) {
+        result = Store.PollWait(
+            pollId,
+            &opSize,
+            &pollContext,
+            &opContext,
+            INFINITE,
+            &pollResult
+        );
+
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            cout << "Failed to poll an operation [" << result << "]" << endl;
+            return;
+        }
+
+        if (pollResult) {
+            completedOps++;
+        }
+    }
+    
+    profiler.Stop();
+
+    GetSystemTimeAsFileTime(&now);
+    GetProcessTimes(GetCurrentProcess(), &creation_time, &exit_time, &kernel_time, &user_time);
+
+    profiler.Report();
+
+    system_time = (file_time_2_utc(&kernel_time) + file_time_2_utc(&user_time)) / get_processor_number();
+    time = file_time_2_utc(&now);
+    system_time_delta = system_time - last_system_time_;
+    time_delta = time - last_time_;
+    cout << "CPU utilization: " << (system_time_delta * 1.0 / time_delta) * 100 << "%" << endl;
+
+    result = Store.SetFilePointer(
+        FileId,
+        0,
+        FilePointerPosition::BEGIN
+    );
+    if (result != DDS_ERROR_CODE_SUCCESS) {
+        cout << "Failed to set file pointer" << endl;
+    }
+    else {
+        cout << "File pointer reset" << endl;
+    }
+
+    cout << "Benchmarking reads..." << endl;
+    char* readBuffer = new char[PAGE_SIZE * DDS_MAX_OUTSTANDING_IO];
+    memset(readBuffer, 0, sizeof(char) * PAGE_SIZE * DDS_MAX_OUTSTANDING_IO);
+    completedOps = 0;
+
+    GetSystemTimeAsFileTime(&now);
+    GetProcessTimes(GetCurrentProcess(), &creation_time, &exit_time, &kernel_time, &user_time);
+
+    system_time = (file_time_2_utc(&kernel_time) + file_time_2_utc(&user_time)) / get_processor_number();
+    time = file_time_2_utc(&now);
+    last_system_time_ = system_time;
+    last_time_ = time;
+
+    profiler.Start();
+    for (size_t i = 0; i != totalIOs;) {
+        result = Store.ReadFile(
+            FileId,
+            &readBuffer[(i % DDS_MAX_OUTSTANDING_IO) * PAGE_SIZE],
+            PAGE_SIZE,
+            &bytesServiced,
+            NULL,
+            NULL
+        );
+
+        if (result == DDS_ERROR_CODE_TOO_MANY_REQUESTS || result == DDS_ERROR_CODE_REQUEST_RING_FAILURE) {
+            result = Store.PollWait(
+                pollId,
+                &opSize,
+                &pollContext,
+                &opContext,
+                INFINITE,
+                &pollResult
+            );
+
+            do {
+                completedOps++;
+                Store.PollWait(
+                    pollId,
+                    &opSize,
+                    &pollContext,
+                    &opContext,
+                    0,
+                    &pollResult
+                );
+            } while (pollResult);
+        }
+        else {
+            i++;
+        }
+    }
+
+    while (completedOps != totalIOs) {
+        result = Store.PollWait(
+            pollId,
+            &opSize,
+            &pollContext,
+            &opContext,
+            INFINITE,
+            &pollResult
+        );
+
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            cout << "Failed to poll an operation [" << result << "]" << endl;
+            return;
+        }
+
+        if (pollResult) {
+            completedOps++;
+        }
+    }
+    
+    profiler.Stop();
+
+    GetSystemTimeAsFileTime(&now);
+    GetProcessTimes(GetCurrentProcess(), &creation_time, &exit_time, &kernel_time, &user_time);
+    
+    profiler.Report();
+
+    system_time = (file_time_2_utc(&kernel_time) + file_time_2_utc(&user_time)) / get_processor_number();
+    time = file_time_2_utc(&now);
+    system_time_delta = system_time - last_system_time_;
+    time_delta = time - last_time_;
+    cout << "CPU utilization: " << (system_time_delta * 1.0 / time_delta) * 100 << "%" << endl;
+}
+
 DWORD WINAPI SleepThread(LPVOID lpParam) {
     SetEvent(eventHandle);
     Sleep(30000);
@@ -335,7 +581,7 @@ int main()
     const char* fileName = "/data/example";
     // const FileSizeT maxFileSize = 1073741824ULL;
     // const FileSizeT maxFileSize = 8192000;
-    const FileSizeT maxFileSize = 1638400000;
+    const FileSizeT maxFileSize = 163840000000;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;
@@ -461,13 +707,21 @@ int main()
     );
     */
     
+    /*
     cout << "Benchmarking polling-based I/O" << endl;
     BenchmarkIOWithPolling(
         store,
         fileId,
         maxFileSize
     );
-    
+    */
+
+   cout << "Benchmarking (CPU efficient)" << endl;
+   BenchmarkIOCPUEfficient(
+        store,
+        fileId,
+        maxFileSize
+    );
 
     return 0;
 }

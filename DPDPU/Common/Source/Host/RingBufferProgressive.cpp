@@ -1,8 +1,6 @@
 #pragma once
 
-#include <iostream>
-
-#include "MsgType.h"
+#include "MsgTypes.h"
 #include "RingBufferProgressive.h"
 
 #undef DEBUG_RING_BUFFER

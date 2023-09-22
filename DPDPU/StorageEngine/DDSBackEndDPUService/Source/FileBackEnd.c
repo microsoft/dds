@@ -11,6 +11,9 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "ControlPlaneHandler.h"
+#include "DataPlaneHandlers.h"
+#include "DDSTypes.h"
 #include "FileBackEnd.h"
 
 #define TRUE 1
@@ -145,6 +148,14 @@ AllocConns(struct BackEndConfig* Config) {
     memset(Config->CtrlConns, 0, sizeof(struct CtrlConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxClients; c++) {
         Config->CtrlConns[c].CtrlId = c;
+        
+        //
+        // Initialize the pending control plane request
+        //
+        //
+        Config->CtrlConns[c].PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
+        Config->CtrlConns[c].PendingControlPlanRequest.Request = NULL;
+        Config->CtrlConns[c].PendingControlPlanRequest.Response = NULL;
     }
 
     Config->BuffConns = (struct BuffConnConfig*)malloc(sizeof(struct BuffConnConfig) * Config->MaxClients);
@@ -1309,7 +1320,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
             CtrlMsgF2BReqCreateDirectory *req = (CtrlMsgF2BReqCreateDirectory *)(msgIn + 1);
             CtrlMsgB2FAckCreateDirectory *resp = (CtrlMsgB2FAckCreateDirectory *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1326,22 +1336,14 @@ int CtrlMsgHandler(
             // Create the directory
             //
             //
-            struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
-            CtrlMsgHandlerCtx->Result = &resp->Result;
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            CreateDirectoryHandler(req, resp, CtrlMsgHandlerCtx);
-
-            //
-            // Respond
-            //
-            // TODO: respond should have happened in callbacks, remove it here
-            /* msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            } */
         }
             break;
         //
@@ -1351,7 +1353,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_REMOVE_DIR: {
             CtrlMsgF2BReqRemoveDirectory *req = (CtrlMsgF2BReqRemoveDirectory *)(msgIn + 1);
             CtrlMsgB2FAckRemoveDirectory *resp = (CtrlMsgB2FAckRemoveDirectory *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1368,21 +1369,14 @@ int CtrlMsgHandler(
             // Remove the directory
             //
             //
-            struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
-            CtrlMsgHandlerCtx->Result = &resp->Result;
-            RemoveDirectoryHandler(req, resp, CtrlMsgHandlerCtx);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_REMOVE_DIR;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_REMOVE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckRemoveDirectory);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1392,7 +1386,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_CREATE_FILE: {
             CtrlMsgF2BReqCreateFile *req = (CtrlMsgF2BReqCreateFile *)(msgIn + 1);
             CtrlMsgB2FAckCreateFile *resp = (CtrlMsgB2FAckCreateFile *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1409,21 +1402,14 @@ int CtrlMsgHandler(
             // Create the file
             //
             //
-            struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
-            CtrlMsgHandlerCtx->Result = &resp->Result;
-            CreateFileHandler(req, resp, CtrlMsgHandlerCtx);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateFile);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1433,7 +1419,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_DELETE_FILE: {
             CtrlMsgF2BReqDeleteFile *req = (CtrlMsgF2BReqDeleteFile *)(msgIn + 1);
             CtrlMsgB2FAckDeleteFile *resp = (CtrlMsgB2FAckDeleteFile *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1450,21 +1435,14 @@ int CtrlMsgHandler(
             // Delete the file
             //
             //
-            struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
-            CtrlMsgHandlerCtx->Result = &resp->Result;
-            DeleteFileHandler(req, resp, CtrlMsgHandlerCtx);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_DELETE_FILE;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_DELETE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckDeleteFile);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1474,7 +1452,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE: {
             CtrlMsgF2BReqChangeFileSize *req = (CtrlMsgF2BReqChangeFileSize *)(msgIn + 1);
             CtrlMsgB2FAckChangeFileSize *resp = (CtrlMsgB2FAckChangeFileSize *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1491,19 +1468,14 @@ int CtrlMsgHandler(
             // Change the file size
             //
             //
-            ChangeFileSizeHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckChangeFileSize);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1513,7 +1485,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FILE_SIZE: {
             CtrlMsgF2BReqGetFileSize *req = (CtrlMsgF2BReqGetFileSize *)(msgIn + 1);
             CtrlMsgB2FAckGetFileSize *resp = (CtrlMsgB2FAckGetFileSize *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1530,19 +1501,14 @@ int CtrlMsgHandler(
             // Get the file size
             //
             //
-            GetFileSizeHandler(req, resp;
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_SIZE;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
-            msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileSize);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1552,7 +1518,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FILE_INFO: {
             CtrlMsgF2BReqGetFileInfo *req = (CtrlMsgF2BReqGetFileInfo *)(msgIn + 1);
             CtrlMsgB2FAckGetFileInfo *resp = (CtrlMsgB2FAckGetFileInfo *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1569,19 +1534,14 @@ int CtrlMsgHandler(
             // Get the file info
             //
             //
-            GetFileInformationByIdHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_INFO;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_INFO;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileInfo);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1591,7 +1551,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FILE_ATTR: {
             CtrlMsgF2BReqGetFileAttr *req = (CtrlMsgF2BReqGetFileAttr *)(msgIn + 1);
             CtrlMsgB2FAckGetFileAttr *resp = (CtrlMsgB2FAckGetFileAttr *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1608,19 +1567,14 @@ int CtrlMsgHandler(
             // Get the file attributes
             //
             //
-            GetFileAttributesHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FILE_ATTR;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_ATTR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileAttr);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1630,7 +1584,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_GET_FREE_SPACE: {
             CtrlMsgF2BReqGetFreeSpace *req = (CtrlMsgF2BReqGetFreeSpace *)(msgIn + 1);
             CtrlMsgB2FAckGetFreeSpace *resp = (CtrlMsgB2FAckGetFreeSpace *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1647,19 +1600,14 @@ int CtrlMsgHandler(
             // Get the free storage space
             //
             //
-            GetStorageFreeSpaceHandler(req, resp);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_GET_FREE_SPACE;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFreeSpace);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         //
@@ -1669,7 +1617,6 @@ int CtrlMsgHandler(
         case CTRL_MSG_F2B_REQ_MOVE_FILE: {
             CtrlMsgF2BReqMoveFile *req = (CtrlMsgF2BReqMoveFile *)(msgIn + 1);
             CtrlMsgB2FAckMoveFile *resp = (CtrlMsgB2FAckMoveFile *)(msgOut + 1);
-            struct ibv_send_wr *badSendWr = NULL;
             struct ibv_recv_wr *badRecvWr = NULL;
 
             //
@@ -1686,21 +1633,14 @@ int CtrlMsgHandler(
             // Move the file
             //
             //
-            struct ControlPlaneHandlerCtx *CtrlMsgHandlerCtx = malloc(sizeof(*CtrlMsgHandlerCtx));
-            CtrlMsgHandlerCtx->Result = &resp->Result;
-            MoveFileHandler(req, resp, CtrlMsgHandlerCtx);
+            CtrlConn->PendingControlPlanRequest.RequestId = CTRL_MSG_F2B_REQ_MOVE_FILE;
+            CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
+            CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
+            resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
 
-            //
-            // Respond
-            //
-            //
-            msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
+            msgOut->MsgId = CTRL_MSG_B2F_ACK_MOVE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckMoveFile);
-            ret = ibv_post_send(CtrlConn->QPair, &CtrlConn->SendWr, &badSendWr);
-            if (ret) {
-                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-                ret = -1;
-            }
         }
             break;
         default:
@@ -2663,6 +2603,128 @@ CheckAndProcessIOCompletions(
 }
 
 //
+// Check and process control plane completions
+//
+//
+static inline int
+CheckAndProcessControlPlaneCompletions(
+    struct BackEndConfig *Config
+) {
+    int ret = 0;
+    struct CtrlConnConfig *ctrlConn = NULL;
+    struct ibv_send_wr *badSendWr = NULL;
+
+    for (int i = 0; i != Config->MaxClients; i++) {
+        ctrlConn = &Config->CtrlConns[i];
+        if (ctrlConn->State != CONN_STATE_CONNECTED) {
+            continue;
+        }
+
+        if (ctrlConn->PendingControlPlanRequest.RequestId == DDS_REQUEST_INVALID) {
+            continue;
+        }
+
+        //
+        // The first field of response should always be the error code
+        //
+        //
+        if (*(ErrorCodeT*)(ctrlConn->PendingControlPlanRequest.Response) == DDS_ERROR_CODE_IO_PENDING) {
+            //
+            // TODO: testing
+            //
+            //
+            switch (ctrlConn->PendingControlPlanRequest.RequestId)
+            {
+            case CTRL_MSG_F2B_REQ_CREATE_DIR:
+            {
+                CtrlMsgB2FAckCreateDirectory* resp = (CtrlMsgB2FAckCreateDirectory*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_REMOVE_DIR:
+            {
+                CtrlMsgB2FAckRemoveDirectory* resp = (CtrlMsgB2FAckRemoveDirectory*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_CREATE_FILE:
+            {
+                CtrlMsgB2FAckCreateFile* resp = (CtrlMsgB2FAckCreateFile*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_DELETE_FILE:
+            {
+                CtrlMsgB2FAckDeleteFile* resp = (CtrlMsgB2FAckDeleteFile*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE:
+            {
+                CtrlMsgB2FAckChangeFileSize* resp = (CtrlMsgB2FAckChangeFileSize*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FILE_SIZE:
+            {
+                CtrlMsgB2FAckGetFileSize* resp = (CtrlMsgB2FAckGetFileSize*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                resp->FileSize = 0;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FILE_INFO:
+            {
+                CtrlMsgB2FAckGetFileInfo* resp = (CtrlMsgB2FAckGetFileInfo*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FILE_ATTR:
+            {
+                CtrlMsgB2FAckGetFileAttr* resp = (CtrlMsgB2FAckGetFileAttr*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                resp->FileAttr = 0;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_GET_FREE_SPACE:
+            {
+                CtrlMsgB2FAckGetFreeSpace* resp = (CtrlMsgB2FAckGetFreeSpace*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                resp->FreeSpace = 0;
+            }
+                break;
+            case CTRL_MSG_F2B_REQ_MOVE_FILE:
+            {
+                CtrlMsgB2FAckMoveFile* resp = (CtrlMsgB2FAckMoveFile*)ctrlConn->PendingControlPlanRequest.Response;
+                resp->Result = DDS_ERROR_CODE_SUCCESS;
+            }
+                break;
+            default:
+                break;
+            }
+
+            // continue;
+        }
+
+        ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
+        ctrlConn->PendingControlPlanRequest.Request = NULL;
+        ctrlConn->PendingControlPlanRequest.Response = NULL;
+
+        //
+        // It's complete. Respond back to the host
+        //
+        //
+        ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
+        if (ret) {
+            fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+            ret = -1;
+        }
+    }
+
+    return ret;
+}
+
+//
 // The entry point for the back end
 //
 // Jason: this is the mainloop, so it needs to be supplied to SPDK's `spdk_app_start`, which will call it
@@ -2681,6 +2743,7 @@ void RunFileBackEnd(
     struct BackEndConfig config;
     struct rdma_cm_event *event;
     int ret = 0;
+    int dataPlaneCounter = 0;
 
     //
     // Initialize the back end configuration
@@ -2804,38 +2867,50 @@ void RunFileBackEnd(
     signal(SIGTERM, SignalHandler);
 
     while (ForceQuitFileBackEnd == 0) {
-        //
-        // Process connection events
-        //
-        //
-        ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
-        if (ret && errno != EAGAIN) {
-            ret = errno;
-            fprintf(stderr, "rdma_get_cm_event error %d\n", ret);
-            SignalHandler(SIGTERM);
-        }
-        else if (!ret) {
-#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
-            fprintf(stdout, "cma_event type %s cma_id %p (%s)\n",
-                rdma_event_str(event->event), event->id,
-                (event->id == config.DMAConf.CmId) ? "parent" : "child");
-#endif
-
-            ret = ProcessCmEvents(&config, event);
-            if (ret) {
-                fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+        if (dataPlaneCounter == 0) {
+            //
+            // Process connection events
+            //
+            //
+            ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
+            if (ret && errno != EAGAIN) {
+                ret = errno;
+                fprintf(stderr, "rdma_get_cm_event error %d\n", ret);
                 SignalHandler(SIGTERM);
             }
-        }
+            else if (!ret) {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stdout, "cma_event type %s cma_id %p (%s)\n",
+                    rdma_event_str(event->event), event->id,
+                    (event->id == config.DMAConf.CmId) ? "parent" : "child");
+#endif
 
-        //
-        // Process RDMA events for control connections
-        //
-        //
-        ret = ProcessCtrlCqEvents(&config);
-        if (ret) {
-            fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
-            SignalHandler(SIGTERM);
+                ret = ProcessCmEvents(&config, event);
+                if (ret) {
+                    fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+                    SignalHandler(SIGTERM);
+                }
+            }
+
+            //
+            // Process RDMA events for control connections
+            //
+            //
+            ret = ProcessCtrlCqEvents(&config);
+            if (ret) {
+                fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+
+            //
+            // Check and process control plane completions
+            //
+            //
+            ret = CheckAndProcessControlPlaneCompletions(&config);
+            if (ret) {
+                fprintf(stderr, "CheckAndProcessControlPlaneCompletions error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
         }
 
         //
@@ -2856,6 +2931,11 @@ void RunFileBackEnd(
         if (ret) {
             fprintf(stderr, "CheckAndProcessIOCompletions error %d\n", ret);
             SignalHandler(SIGTERM);
+        }
+
+        dataPlaneCounter++;
+        if (dataPlaneCounter == DATA_PLANE_WEIGHT) {
+            dataPlaneCounter = 0;
         }
     }
 
@@ -2907,13 +2987,13 @@ int main(int argc, char **argv) {
         printf("spdk_app_parse_args() failed with: %d\n", rc);
 		exit(rc);
 	}
-    /* int ret = RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 32, 32); */
+    /* int ret = RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1); */
     
     struct runFileBackEndArgs args = {
         .ServerIpStr = DDS_BACKEND_ADDR,
         .ServerPort = DDS_BACKEND_PORT,
-        .MaxClients = 32,
-        .MaxBuffs = 32
+        .MaxClients = 1,
+        .MaxBuffs = 1
     };
     
     rc = spdk_app_start(&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called

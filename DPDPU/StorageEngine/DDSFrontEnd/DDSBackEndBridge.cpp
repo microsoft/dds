@@ -365,7 +365,7 @@ DDSBackEndBridge::Disconnect() {
 static inline ErrorCodeT
 SendCtrlMsgAndWait(
     DDSBackEndBridge* BackEnd,
-    int ExpectedMsgId
+    RequestIdT ExpectedMsgId
 ) {
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
 

@@ -77,3 +77,29 @@ typedef struct {
     BufferT FirstAddr;
     BufferT SecondAddr;
 } SplittableBufferT;
+
+
+//
+// Check a few parameters at the compile time
+//
+//
+#define assert_static_ddstypes(e, num) \
+    enum { assert_static_ddstypes__##num = 1/(e) }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result" 
+#else
+#pragma warning(push)
+#pragma warning (disable: 4804)
+#endif
+
+assert_static_ddstypes((1 << sizeof(FileIdT) * 8) - 1 == DDS_FILE_INVALID, 0);
+assert_static_ddstypes((1 << sizeof(DirIdT) * 8) - 1 == DDS_DIR_INVALID, 1);
+assert_static_ddstypes((1 << sizeof(RequestIdT) * 8) - 1 == DDS_REQUEST_INVALID, 2);
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#else
+#pragma warning(pop)
+#endif

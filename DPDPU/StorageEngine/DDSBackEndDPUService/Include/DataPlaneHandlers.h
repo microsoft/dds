@@ -1,4 +1,6 @@
-#include "../../../Common/Include/MsgType.h"
+#pragma once
+
+#include "MsgTypes.h"
 #include "bdev.h"
 #include "DPUBackEndStorage.h"
 #include <stdbool.h>

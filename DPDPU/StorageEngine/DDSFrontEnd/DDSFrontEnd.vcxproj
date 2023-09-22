@@ -143,11 +143,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Common\Include\DDSTypes.h" />
-    <ClInclude Include="..\..\Common\Include\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\Host\DDSFrontEndInterface.h" />
+    <ClInclude Include="..\..\Common\Include\Host\DMABuffer.h" />
     <ClInclude Include="..\..\Common\Include\Host\LinkedList.h" />
     <ClInclude Include="..\..\Common\Include\Host\RingBufferProgressive.h" />
-    <ClInclude Include="..\..\Common\Include\MsgType.h" />
+    <ClInclude Include="..\..\Common\Include\MsgTypes.h" />
     <ClInclude Include="..\..\Common\Include\Protocol.h" />
     <ClInclude Include="..\..\Common\Include\RDMC.h" />
     <ClInclude Include="DDSBackEndBridgeBase.h" />

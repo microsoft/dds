@@ -6,9 +6,10 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
+#include "FileBackEndTypes.h"
 #include "ControlPlaneHandlers.h"
 #include "DataPlaneHandlers.h"
-#include "../../../Common/Include/DDSTypes.h"
+#include "DDSTypes.h"
 #include "DPUBackEnd.h"
 #include "DPUBackEndDir.h"
 #include "DPUBackEndFile.h"
@@ -16,9 +17,9 @@
 #include "bdev.h"
 #include "Zmalloc.h"
 
-#include "../../../Common/Include/MsgType.h"
-#include "../../../Common/Include/Protocol.h"
-#include "../../../Common/Include/DPU/RingBufferPolling.h"
+#include "MsgTypes.h"
+#include "Protocol.h"
+#include "RingBufferPolling.h"
 
 #define LISTEN_BACKLOG 64
 #define RESOLVE_TIMEOUT_MS 2000
@@ -53,6 +54,8 @@
 #define CONN_STATE_AVAILABLE 0
 #define CONN_STATE_OCCUPIED 1
 #define CONN_STATE_CONNECTED 2
+
+#define DATA_PLANE_WEIGHT 10
 
 #define DDS_STORAGE_FILE_BACKEND_VERBOSE
 
@@ -96,6 +99,12 @@ struct CtrlConnConfig {
     struct ibv_sge SendSgl;
     struct ibv_mr *SendMr;
     char SendBuff[CTRL_MSG_SIZE];
+
+    //
+    // Pending control-plane request
+    //
+    //
+    ControlPlaneRequestContext PendingControlPlanRequest;
 };
 
 //

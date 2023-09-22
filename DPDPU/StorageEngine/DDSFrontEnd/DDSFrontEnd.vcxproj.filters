@@ -24,10 +24,7 @@
     <ClInclude Include="DDSFile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Include\DMABuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\Include\MsgType.h">
+    <ClInclude Include="..\..\Common\Include\MsgTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Include\RDMC.h">
@@ -61,6 +58,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DDSFrontEndConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Include\Host\DMABuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
