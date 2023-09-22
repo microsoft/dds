@@ -5,7 +5,7 @@ SPDK_HEADER_DIR=$(SPDK_DIR)/include
 SPDK_LIB_DIR=$(SPDK_DIR)/build/lib
 DPDK_LIB_DIR=$(SPDK_DIR)/dpdk/build/lib
 
-Include=-I$(SPDK_HEADER_DIR) #-I../../DPDPU/Common/Include -I../../DPDPU/StorageEngine/DDSBackEndDPUService/Include
+Include=-I$(SPDK_HEADER_DIR) -I../../DPDPU/Common/Include -I../../DPDPU/Common/Include/DPU -I../../DPDPU/StorageEngine/DDSBackEndDPUService/Include
 
 COMMON_CFLAGS=-I$(SPDK_HEADER_DIR)
 COMMON_CFLAGS+=-L$(SPDK_LIB_DIR)
