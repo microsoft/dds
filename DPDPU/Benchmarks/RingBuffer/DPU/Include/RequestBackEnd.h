@@ -68,7 +68,7 @@
 // The global config for (R)DMA
 //
 //
-typedef {
+typedef struct {
     struct rdma_event_channel *CmChannel;
     struct rdma_cm_id *CmId;
 } DMAConfig;
