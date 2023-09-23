@@ -11,8 +11,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "ControlPlaneHandler.h"
-#include "DataPlaneHandlers.h"
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
 
@@ -1338,7 +1336,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
@@ -1372,7 +1370,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_REMOVE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckRemoveDirectory);
@@ -1405,7 +1403,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateFile);
@@ -1438,7 +1436,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_DELETE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckDeleteFile);
@@ -1471,7 +1469,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckChangeFileSize);
@@ -1504,7 +1502,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileSize);
@@ -1537,7 +1535,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_INFO;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileInfo);
@@ -1570,7 +1568,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_ATTR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileAttr);
@@ -1603,7 +1601,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFreeSpace);
@@ -1636,7 +1634,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_MOVE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckMoveFile);
@@ -2208,7 +2206,7 @@ ProcessBuffCqEvents(
                             // Execute all the requests
                             //
                             //
-                            ExecuteRequests(buffConn);
+                            ExecuteRequests(buffConn, Config->FS);
                         }
                         else {
                             buffConn->RequestDMAReadDataSplitState++;
@@ -2752,7 +2750,7 @@ int RunFileBackEnd(
     //
     //
     config.FS = AllocateFileService();
-    if (config.FS) {
+    if (!config.FS) {
         fprintf(stderr, "AllocateFileService failed\n");
         return ret;
     }
