@@ -4,7 +4,7 @@
 #include "MsgTypes.h"
 
 //
-// Context for a pending data plane request
+// Context for a pending data plane request from the host
 //
 //
 typedef struct {
@@ -23,12 +23,6 @@ typedef struct {
     BufferT Response;
 } ControlPlaneRequestContext;
 
-typedef struct {
-    RequestIdT RequestId;
-    ErrorCodeT Result;
-    FileIOSizeT BytesServiced;
-} B2BAckHeader;
-
 //
 // Check a few parameters at the compile time
 //
@@ -44,12 +38,11 @@ typedef struct {
 #pragma warning (disable: 4804)
 #endif
 //
-// Ring space is allocated at the |size of a request/response| + |header size|
-// The alignment is enforced once a request/response is inserted into the ring
+// Ring space is allocated at the |size of a response| + |header size|
+// The alignment is enforced once a response is inserted into the ring
 //
 //
-AssertStaticBackEndTypes(DDS_INTRA_BACKEND_REQUEST_RING_BYTES % sizeof(DataPlaneRequestContext) == 0, 0);
-AssertStaticBackEndTypes(DDS_RESPONSE_RING_BYTES % (sizeof(B2BAckHeader) + sizeof(FileIOSizeT)) == 0, 1);
+AssertStaticBackEndTypes(OFFLOAD_RESPONSE_RING_BYTES % (sizeof(OffloadWorkResponse) + sizeof(FileIOSizeT)) == 0, 0);
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #else

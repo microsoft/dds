@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DDSBackEndTypes.h"
+#include "BackEndTypes.h"
 #include "Protocol.h" 
 
 //
@@ -10,25 +10,25 @@
 // Tail[2] - TailC
 //
 //
-struct ResponseRingBuffer{
+typedef struct {
     int Tail[DDS_CACHE_LINE_SIZE_BY_INT];
-    char Buffer[DDS_INTRA_BACKEND_RESPONSE_RING_BYTES];
-};
+    char Buffer[OFFLOAD_RESPONSE_RING_BYTES];
+} OffloadResponseRingBuffer;
 
 //
 // Allocate a response buffer object
 //
 //
-ResponseRingBuffer*
-AllocateResponseBuffer(
+OffloadResponseRingBuffer*
+AllocateOffloadResponseBuffer(
     BufferT BufferAddress
 );
 
 //
-// Deallocate a response buffer object
+// Deallocate a response queue buffer object
 //
 //
 void
-DeallocateResponseBuffer(
-    ResponseRingBuffer* RingBuffer
+DellocateOffloadResponseBuffer(
+    OffloadResponseRingBuffer* RingBuffer
 );

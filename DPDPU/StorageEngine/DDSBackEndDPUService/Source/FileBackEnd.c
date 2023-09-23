@@ -55,7 +55,7 @@ int SetNonblocking(
 //
 static int
 InitDMA(
-    struct DMAConfig* Config,
+    DMAConfig* Config,
     uint32_t Ip,
     uint16_t Port
 ) {
@@ -119,7 +119,7 @@ InitDMA(
 //
 static void
 TermDMA(
-    struct DMAConfig* Config
+    DMAConfig* Config
 ) {
     if (Config->CmId) {
         rdma_destroy_id(Config->CmId);
@@ -135,13 +135,13 @@ TermDMA(
 //
 //
 static int
-AllocConns(struct BackEndConfig* Config) {
-    Config->CtrlConns = (struct CtrlConnConfig*)malloc(sizeof(struct CtrlConnConfig) * Config->MaxClients);
+AllocConns(BackEndConfig* Config) {
+    Config->CtrlConns = (CtrlConnConfig*)malloc(sizeof(CtrlConnConfig) * Config->MaxClients);
     if (!Config->CtrlConns) {
         fprintf(stderr, "Failed to allocate CtrlConns\n");
         return ENOMEM;
     }
-    memset(Config->CtrlConns, 0, sizeof(struct CtrlConnConfig) * Config->MaxClients);
+    memset(Config->CtrlConns, 0, sizeof(CtrlConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxClients; c++) {
         Config->CtrlConns[c].CtrlId = c;
         
@@ -154,13 +154,13 @@ AllocConns(struct BackEndConfig* Config) {
         Config->CtrlConns[c].PendingControlPlanRequest.Response = NULL;
     }
 
-    Config->BuffConns = (struct BuffConnConfig*)malloc(sizeof(struct BuffConnConfig) * Config->MaxClients);
+    Config->BuffConns = (BuffConnConfig*)malloc(sizeof(BuffConnConfig) * Config->MaxClients);
     if (!Config->BuffConns) {
         fprintf(stderr, "Failed to allocate BuffConns\n");
         free(Config->CtrlConns);
         return ENOMEM;
     }
-    memset(Config->BuffConns, 0, sizeof(struct BuffConnConfig) * Config->MaxClients);
+    memset(Config->BuffConns, 0, sizeof(BuffConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxBuffs; c++) {
         Config->BuffConns[c].BuffId = c;
     }
@@ -173,7 +173,7 @@ AllocConns(struct BackEndConfig* Config) {
 //
 //
 static void
-DeallocConns(struct BackEndConfig* Config) {
+DeallocConns(BackEndConfig* Config) {
     if (Config->CtrlConns) {
         free(Config->CtrlConns);
     }
@@ -203,7 +203,7 @@ SignalHandler(
 //
 static int
 SetUpCtrlQPair(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     int ret = 0;
     struct ibv_qp_init_attr initAttr;
@@ -281,7 +281,7 @@ SetUpCtrlQPairReturn:
 //
 static void
 DestroyCtrlQPair(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     rdma_destroy_qp(CtrlConn->RemoteCmId);
     ibv_destroy_cq(CtrlConn->CompQ);
@@ -295,7 +295,7 @@ DestroyCtrlQPair(
 //
 static int
 SetUpCtrlRegionsAndBuffers(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     int ret = 0;
     CtrlConn->RecvMr = ibv_reg_mr(
@@ -357,7 +357,7 @@ SetUpCtrlRegionsAndBuffersReturn:
 //
 static void
 DestroyCtrlRegionsAndBuffers(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     ibv_dereg_mr(CtrlConn->SendMr);
     ibv_dereg_mr(CtrlConn->RecvMr);
@@ -373,7 +373,7 @@ DestroyCtrlRegionsAndBuffers(
 //
 static int
 SetUpBuffQPair(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
     struct ibv_qp_init_attr initAttr;
@@ -451,7 +451,7 @@ SetUpBuffQPairReturn:
 //
 static void
 DestroyBuffQPair(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     rdma_destroy_qp(BuffConn->RemoteCmId);
     ibv_destroy_cq(BuffConn->CompQ);
@@ -465,7 +465,7 @@ DestroyBuffQPair(
 //
 static int
 SetUpForCtrlMsgs(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
 
@@ -536,7 +536,7 @@ SetUpForCtrlMsgsReturn:
 //
 static void
 DestroyForCtrlMsgs(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     ibv_dereg_mr(BuffConn->SendMr);
     ibv_dereg_mr(BuffConn->RecvMr);
@@ -552,7 +552,7 @@ DestroyForCtrlMsgs(
 //
 static int
 SetUpForRequests(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
 
@@ -673,7 +673,7 @@ SetUpForRequestsReturn:
 //
 static void
 DestroyForRequests(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     free(BuffConn->RequestDMAReadDataBuff);
 
@@ -700,7 +700,7 @@ DestroyForRequests(
 //
 static int
 SetUpForResponses(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
 
@@ -825,7 +825,7 @@ SetUpForResponsesReturn:
 //
 static void
 DestroyForResponses(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     free(BuffConn->ResponseDMAWriteDataBuff);
 
@@ -852,7 +852,7 @@ DestroyForResponses(
 //
 static int
 SetUpBuffRegionsAndBuffers(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
 
@@ -904,7 +904,7 @@ SetUpBuffRegionsAndBuffersReturn:
 //
 static void
 DestroyBuffRegionsAndBuffers(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     DestroyForCtrlMsgs(BuffConn);
     DestroyForRequests(BuffConn);
@@ -917,7 +917,7 @@ DestroyBuffRegionsAndBuffers(
 //
 static int
 FindConnId(
-    struct BackEndConfig *Config,
+    BackEndConfig *Config,
     struct rdma_cm_id *CmId,
     uint8_t *IsCtrl
 ) {
@@ -944,7 +944,7 @@ FindConnId(
 //
 static inline int
 ProcessCmEvents(
-    struct BackEndConfig *Config,
+    BackEndConfig *Config,
     struct rdma_cm_event *Event
 ) {
     int ret = 0;
@@ -980,7 +980,7 @@ ProcessCmEvents(
             switch (privData) {
                 case CTRL_CONN_PRIV_DATA:
                 {
-                    struct CtrlConnConfig *ctrlConn = NULL;
+                    CtrlConnConfig *ctrlConn = NULL;
 
                     for (int index = 0; index < Config->MaxClients; index++) {
                         if (Config->CtrlConns[index].State == CONN_STATE_AVAILABLE) {
@@ -1059,7 +1059,7 @@ ProcessCmEvents(
                 }
                 case BUFF_CONN_PRIV_DATA:
                 {
-                    struct BuffConnConfig *buffConn = NULL;
+                    BuffConnConfig *buffConn = NULL;
                     int index;
 
                     for (index = 0; index < Config->MaxClients; index++) {
@@ -1154,7 +1154,7 @@ ProcessCmEvents(
                 if (isCtrl) {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                     fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Control Conn#%d\n", connId);
-                    struct CtrlConnConfig* ctrlConn = &Config->CtrlConns[connId];
+                    CtrlConnConfig* ctrlConn = &Config->CtrlConns[connId];
                     ctrlConn->State = CONN_STATE_CONNECTED;
 #endif
                 }
@@ -1162,7 +1162,7 @@ ProcessCmEvents(
                 {
 #ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
                     fprintf(stdout, "CM: RDMA_CM_EVENT_ESTABLISHED for Buffer Conn#%d\n", connId);
-                    struct BuffConnConfig* buffConn = &Config->BuffConns[connId];
+                    BuffConnConfig* buffConn = &Config->BuffConns[connId];
                     buffConn->State = CONN_STATE_CONNECTED;
                 }
 #endif
@@ -1195,7 +1195,7 @@ ProcessCmEvents(
             if (connId >= 0) {
                 if (isCtrl) {
                         if (Config->CtrlConns[connId].State != CONN_STATE_AVAILABLE) {
-                            struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
+                            CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
                             ctrlConn->State = CONN_STATE_AVAILABLE;
@@ -1206,7 +1206,7 @@ ProcessCmEvents(
                 }
                 else {
                         if (Config->BuffConns[connId].State != CONN_STATE_AVAILABLE) {
-                            struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
+                            BuffConnConfig *buffConn = &Config->BuffConns[connId];
                             DestroyBuffRegionsAndBuffers(buffConn);
                             DestroyBuffQPair(buffConn);
                             buffConn->State = CONN_STATE_AVAILABLE;
@@ -1250,7 +1250,8 @@ ProcessCmEvents(
 //
 static inline int
 CtrlMsgHandler(
-    struct CtrlConnConfig *CtrlConn
+    CtrlConnConfig *CtrlConn,
+    FileService* FS
 ) {
     int ret = 0;
     MsgHeader* msgIn = (MsgHeader*)CtrlConn->RecvBuff;
@@ -1337,7 +1338,8 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
+
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateDirectory);
@@ -1370,7 +1372,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_REMOVE_DIR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckRemoveDirectory);
@@ -1403,7 +1405,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CREATE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckCreateFile);
@@ -1436,7 +1438,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_DELETE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckDeleteFile);
@@ -1469,7 +1471,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_CHANGE_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckChangeFileSize);
@@ -1502,7 +1504,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_SIZE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileSize);
@@ -1535,7 +1537,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_INFO;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileInfo);
@@ -1568,7 +1570,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FILE_ATTR;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFileAttr);
@@ -1601,7 +1603,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_GET_FREE_SPACE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckGetFreeSpace);
@@ -1634,7 +1636,7 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
-            ControlPlaneHandler(&CtrlConn->PendingControlPlanRequest);
+            SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest)
 
             msgOut->MsgId = CTRL_MSG_B2F_ACK_MOVE_FILE;
             CtrlConn->SendWr.sg_list->length = sizeof(MsgHeader) + sizeof(CtrlMsgB2FAckMoveFile);
@@ -1655,10 +1657,10 @@ CtrlMsgHandler(
 //
 static int inline
 ProcessCtrlCqEvents(
-    struct BackEndConfig *Config
+    BackEndConfig *Config
 ) {
     int ret = 0;
-    struct CtrlConnConfig *ctrlConn = NULL;
+    CtrlConnConfig *ctrlConn = NULL;
     struct ibv_wc wc;
 
     for (int i = 0; i != Config->MaxClients; i++) {
@@ -1681,7 +1683,7 @@ ProcessCtrlCqEvents(
             //
             switch(wc.opcode) {
                 case IBV_WC_RECV: {
-                    ret = CtrlMsgHandler(ctrlConn);
+                    ret = CtrlMsgHandler(ctrlConn, Config->FS);
                     if (ret) {
                         fprintf(stderr, "%s [error]: CtrlMsgHandler failed\n", __func__);
                         goto ProcessCtrlCqEventsReturn;
@@ -1711,7 +1713,7 @@ ProcessCtrlCqEventsReturn:
 //
 static inline int
 BuffMsgHandler(
-    struct BuffConnConfig *BuffConn
+    BuffConnConfig *BuffConn
 ) {
     int ret = 0;
     MsgHeader* msgIn = (MsgHeader*)BuffConn->RecvBuff;
@@ -1820,7 +1822,8 @@ BuffMsgHandler(
 //
 static inline void
 ExecuteRequests(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn,
+    FileService* FS
 ) {
     char* buffReq;
     char* buffResp;
@@ -1843,6 +1846,8 @@ ExecuteRequests(
     FileIOSizeT totalRespSize = 0;
     int progressReq = headReq;
     int progressResp = tailResp;
+    
+    DataPlaneRequestContext ctxt;
 
 
     buffReq = BuffConn->RequestDMAReadDataBuff;
@@ -1927,10 +1932,13 @@ ExecuteRequests(
             }
 
             //
-            // Inovke write handler 
+            // Submit this request
             //
             //
-            WriteHandler(curReqObj, resp, &dataBuff);
+            ctxt.Request = curReqObj;
+            ctxt.Response = resp;
+            ctxt.DataBuffer = &dataBuff;
+            SubmitDataPlaneRequest(FS, &ctxt);
         }
         else {
             //
@@ -1990,7 +1998,10 @@ ExecuteRequests(
             // Inovke read handler 
             //
             //
-            ReadHandler(curReqObj, resp, &dataBuff);
+            ctxt.Request = curReqObj;
+            ctxt.Response = resp;
+            ctxt.DataBuffer = &dataBuff;
+            SubmitDataPlaneRequest(FS, &ctxt);
         }
     }
 
@@ -2041,10 +2052,10 @@ DistanceBetweenPointers(
 //
 static inline int
 ProcessBuffCqEvents(
-    struct BackEndConfig *Config
+    BackEndConfig *Config
 ) {
     int ret = 0;
-    struct BuffConnConfig *buffConn = NULL;
+    BuffConnConfig *buffConn = NULL;
     struct ibv_send_wr *badSendWr = NULL;
     struct ibv_wc wc;
 
@@ -2180,7 +2191,7 @@ ProcessBuffCqEvents(
                             // Execute all the requests
                             //
                             //
-                            ExecuteRequests(buffConn);
+                            ExecuteRequests(buffConn, Config->FS);
                         }
                         else {
                             buffConn->RequestDMAReadDataSplitState++;
@@ -2437,10 +2448,10 @@ ProcessBuffCqEventsReturn:
 //
 static inline int
 CheckAndProcessIOCompletions(
-    struct BackEndConfig *Config
+    BackEndConfig *Config
 ) {
     int ret = 0;
-    struct BuffConnConfig *buffConn = NULL;
+    BuffConnConfig *buffConn = NULL;
 
     for (int i = 0; i != Config->MaxBuffs; i++) {
         buffConn = &Config->BuffConns[i];
@@ -2591,10 +2602,10 @@ CheckAndProcessIOCompletions(
 //
 static inline int
 CheckAndProcessControlPlaneCompletions(
-    struct BackEndConfig *Config
+    BackEndConfig *Config
 ) {
     int ret = 0;
-    struct CtrlConnConfig *ctrlConn = NULL;
+    CtrlConnConfig *ctrlConn = NULL;
     struct ibv_send_wr *badSendWr = NULL;
 
     for (int i = 0; i != Config->MaxClients; i++) {
@@ -2717,7 +2728,7 @@ int RunFileBackEnd(
     const uint32_t MaxClients,
     const uint32_t MaxBuffs
 ) {
-    struct BackEndConfig config;
+    BackEndConfig config;
     struct rdma_cm_event *event;
     int ret = 0;
     int dataPlaneCounter = 0;
@@ -2734,6 +2745,17 @@ int RunFileBackEnd(
     config.BuffConns = NULL;
     config.DMAConf.CmChannel = NULL;
     config.DMAConf.CmId = NULL;
+    config.FS = NULL;
+
+    //
+    // Allocate the file service object
+    //
+    //
+    config.FS = AllocateFileService();
+    if (config.FS) {
+        fprintf(stderr, "AllocateFileService failed\n");
+        return ret;
+    }
 
     //
     // Initialize DMA
@@ -2849,6 +2871,7 @@ int RunFileBackEnd(
     //
     DeallocConns(&config);
     TermDMA(&config.DMAConf);
+    DeallocateFileService(config.FS);
 
     return ret;
 }

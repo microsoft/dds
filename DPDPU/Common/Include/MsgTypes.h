@@ -177,6 +177,9 @@ typedef struct {
     FileIOSizeT BytesServiced;
 } BuffMsgB2FAckHeader;
 
+typedef BuffMsgF2BReqHeader OffloadWorkRequest;
+typedef BuffMsgB2FAckHeader OffloadWorkResponse;
+
 //
 // Check a few parameters at the compile time
 //

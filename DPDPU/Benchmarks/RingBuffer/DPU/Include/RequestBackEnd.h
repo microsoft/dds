@@ -68,16 +68,16 @@
 // The global config for (R)DMA
 //
 //
-struct DMAConfig {
+typedef {
     struct rdma_event_channel *CmChannel;
     struct rdma_cm_id *CmId;
-};
+} DMAConfig;
 
 //
 // The configuration for a control connection
 //
 //
-struct CtrlConnConfig {
+typedef struct {
     uint32_t CtrlId;
     uint8_t InUse;
 
@@ -104,13 +104,13 @@ struct CtrlConnConfig {
     struct ibv_sge SendSgl;
     struct ibv_mr *SendMr;
     char SendBuff[CTRL_MSG_SIZE];
-};
+} CtrlConnConfig;
 
 //
 // The configuration for a buffer connection
 //
 //
-struct BuffConnConfig {
+typedef struct {
     uint32_t BuffId;
     uint32_t CtrlId;
     uint8_t InUse;
@@ -200,22 +200,22 @@ struct BuffConnConfig {
     //
     //
     struct RequestRingBufferBackEnd RequestRing;
-};
+} BuffConnConfig;
 
 //
 // Back end configuration
 //
 //
-struct BackEndConfig {
+typedef struct {
     uint32_t ServerIp;
     uint16_t ServerPort;
     uint32_t MaxClients;
     uint32_t MaxBuffs;
-    struct DMAConfig DMAConf;
-    struct CtrlConnConfig* CtrlConns;
-    struct BuffConnConfig* BuffConns;
+    DMAConfig DMAConf;
+    CtrlConnConfig* CtrlConns;
+    BuffConnConfig* BuffConns;
     uint8_t Prefetching;
-};
+} BackEndConfig;
 
 //
 // The entry point for the back end
