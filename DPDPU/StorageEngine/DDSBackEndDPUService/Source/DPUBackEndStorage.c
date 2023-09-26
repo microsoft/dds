@@ -390,13 +390,184 @@ void ReturnSegments(
     }
 }
 
+void LoadFilesCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+) {
+    struct LoadDirectoriesAndFilesCtx *Ctx = Context;
+
+
+    if (Ctx->FileOnDisk->Id != DDS_DIR_INVALID) {
+        SPDK_NOTICELOG("Initializing file with ID %hu\n", Ctx->FileOnDisk->Id);
+        Sto->AllFiles[Ctx->FileLoopIndex] =
+            BackEndFileI(Ctx->FileOnDisk->Id, Ctx->FileOnDisk->FProperties.FileName, Ctx->FileOnDisk->FProperties.FileAttributes);
+        if (Sto->AllFiles[Ctx->FileLoopIndex]) {
+            memcpy(GetFileProperties(Sto->AllFiles[Ctx->FileLoopIndex]), Ctx->FileOnDisk, sizeof(DPUFilePropertiesT));
+            SetNumAllocatedSegments(Sto->AllFiles[Ctx->FileLoopIndex]);
+        }
+        else {
+            // return DDS_ERROR_CODE_OUT_OF_MEMORY;
+            Ctx->FailureStatus->HasFailed = true;
+            Ctx->FailureStatus->HasAborted = true;
+            // TODO: call FS app stop func
+        }
+
+        *(Ctx->LoadedFiles)++;
+        if (*(Ctx->LoadedFiles) == Sto->TotalFiles) {
+            // break;
+            SPDK_NOTICELOG("Loaded all files, total: %d\n", Sto->TotalFiles);
+        }
+    }
+    free(Ctx->FileOnDisk);
+    free(Ctx);
+
+    // XXX TODO: we are done Initialize(), continue work
+    if (Ctx->FileLoopIndex == DDS_MAX_FILES - 1) {
+        // continue work
+    }
+}
+
+void LoadDirectoriesCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+) {
+    struct LoadDirectoriesAndFilesCtx *Ctx = Context;
+
+    if (Ctx->DirOnDisk->Id != DDS_DIR_INVALID) {
+        SPDK_NOTICELOG("Initializing Dir with ID: %hu\n", Ctx->DirOnDisk->Id);
+        Sto->AllDirs[Ctx->DirLoopIndex] = BackEndDirI(Ctx->DirOnDisk->Id, DDS_DIR_ROOT, Ctx->DirOnDisk->Name);
+        if (Sto->AllDirs[Ctx->DirLoopIndex]) {
+            memcpy(GetDirProperties(Sto->AllDirs[Ctx->DirLoopIndex]), Ctx->DirOnDisk, sizeof(DPUDirPropertiesT));
+        }
+        else {  // this should be very unlikely
+            // return DDS_ERROR_CODE_OUT_OF_MEMORY;
+            // TODO: call app stop func
+        }
+
+        *(Ctx->LoadedDirs) += 1;
+        if (*(Ctx->LoadedDirs) == Sto->TotalDirs) {
+            // really not much to do
+            SPDK_NOTICELOG("Loaded all directories, total: %d\n", Sto->TotalDirs);
+        }
+    }
+    free(Ctx->DirOnDisk);
+    free(Ctx);
+
+    //
+    // this is the last callback
+    //
+    //
+    if (Ctx->DirLoopIndex == DDS_MAX_DIRS - 1) {
+        //
+        // Load the files
+        //
+        //
+        int result;
+        DPUFilePropertiesT *fileOnDisk = malloc(sizeof(*fileOnDisk));
+        SegmentSizeT nextAddress = DDS_BACKEND_SEGMENT_SIZE - sizeof(DPUFilePropertiesT);
+        // int loadedFiles = 0;
+        Ctx->FileOnDisk = fileOnDisk;
+        Ctx->LoadedFiles = 0;
+        for (size_t f = 0; f != DDS_MAX_FILES; f++) {
+            struct LoadDirectoriesAndFilesCtx *CallbackCtx = malloc(sizeof(*CallbackCtx));
+            memcpy(CallbackCtx, Ctx, sizeof(Ctx));
+            CallbackCtx->FileLoopIndex = f;
+            CallbackCtx->FileOnDisk = malloc(sizeof(*CallbackCtx->FileOnDisk));
+
+            result = ReadFromDiskAsync(
+                (BufferT) fileOnDisk,
+                DDS_BACKEND_RESERVED_SEGMENT,
+                nextAddress,
+                sizeof(DPUFilePropertiesT),
+                LoadFilesCallback,
+                CallbackCtx,
+                Sto,
+                SPDKContext,
+                true
+            );
+
+            if (result != DDS_ERROR_CODE_SUCCESS) {
+                // return result;
+                Ctx->FailureStatus->HasFailed = true;
+                Ctx->FailureStatus->HasAborted = true;
+                // TODO: call FS app stop func
+            }
+
+            nextAddress -= sizeof(DPUFilePropertiesT);
+        }
+    }
+}
+
+//
+// Load the directories, in other future callbacks will then load the files
+//
+//
+void LoadDirectoriesAndFilesCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+) {
+    struct LoadDirectoriesAndFilesCtx *Ctx = Context;
+
+    Sto->TotalDirs = *((int*)(Ctx->TmpSectorBuffer + DDS_BACKEND_INITIALIZATION_MARK_LENGTH));
+    Sto->TotalFiles = *((int*)(Ctx->TmpSectorBuffer + DDS_BACKEND_INITIALIZATION_MARK_LENGTH + sizeof(int)));
+    SPDK_NOTICELOG("Got Sto->TotalDirs: %d, Sto->TotalFiles: %d\n", Sto->TotalDirs, Sto->TotalFiles);
+
+    //
+    // Load the directories
+    //
+    //
+
+    // DPUDirPropertiesT dirOnDisk;
+    // DPUDirPropertiesT *dirOnDisk = malloc(sizeof(*dirOnDisk));
+    ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
+
+    SegmentSizeT nextAddress = DDS_BACKEND_SECTOR_SIZE;
+
+    Ctx->LoadedDirs = malloc(sizeof(Ctx->LoadedDirs));
+    *(Ctx->LoadedDirs) = 0;
+    for (size_t d = 0; d != DDS_MAX_DIRS; d++) {
+        struct LoadDirectoriesAndFilesCtx *CallbackCtx = malloc(sizeof(*CallbackCtx));
+        memcpy(CallbackCtx, Ctx, sizeof(Ctx));
+        CallbackCtx->DirLoopIndex = d;
+        // CallbackCtx->NextAddress = nextAddress;
+        CallbackCtx->DirOnDisk = malloc(sizeof(*CallbackCtx->DirOnDisk));
+        result = ReadFromDiskAsync(
+            (BufferT) CallbackCtx->DirOnDisk,
+            DDS_BACKEND_RESERVED_SEGMENT,
+            nextAddress,
+            sizeof(DPUDirPropertiesT),
+            LoadDirectoriesCallback,
+            CallbackCtx,
+            Sto,
+            SPDKContext,
+            true
+        );
+
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            // return result;
+            Ctx->FailureStatus->HasFailed = true;
+            Ctx->FailureStatus->HasAborted = true;
+            // TODO: call FS app stop func
+        }
+       
+        nextAddress += sizeof(DPUDirPropertiesT);
+    }
+    
+
+    // return result;
+}
+
 //
 // Load all directories and files from the reserved segment
 //
 //
 ErrorCodeT LoadDirectoriesAndFiles(
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    struct InitializeCtx *InitializeCtx
 ){
     if (!Sto->AllSegments || Sto->TotalSegments == 0) {
         return DDS_ERROR_CODE_RESERVED_SEGMENT_ERROR;
@@ -409,104 +580,28 @@ ErrorCodeT LoadDirectoriesAndFiles(
     //
     //
     char tmpSectorBuffer[DDS_BACKEND_SECTOR_SIZE];
-    result = ReadFromDiskSync(
+    struct LoadDirectoriesAndFilesCtx *Ctx = malloc(sizeof(*Ctx));
+    Ctx->TmpSectorBuffer = tmpSectorBuffer;
+    Ctx->FailureStatus = InitializeCtx->FailureStatus;
+    result = ReadFromDiskAsync(
         tmpSectorBuffer,
         DDS_BACKEND_RESERVED_SEGMENT,
         0,
         DDS_BACKEND_SECTOR_SIZE,
+        LoadDirectoriesAndFilesCallback,
+        Ctx,
         Sto,
         arg,
         true
     );
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
+        Ctx->FailureStatus->HasFailed = true;
+        Ctx->FailureStatus->HasAborted = true;
+        // TODO: call FS app stop func
         return result;
     }
-    Sto->TotalDirs = *((int*)(tmpSectorBuffer + DDS_BACKEND_INITIALIZATION_MARK_LENGTH));
-    Sto->TotalFiles = *((int*)(tmpSectorBuffer + DDS_BACKEND_INITIALIZATION_MARK_LENGTH + sizeof(int)));
-
-    //
-    // Load the directories
-    //
-    //
-    DPUDirPropertiesT dirOnDisk;
-    SegmentSizeT nextAddress = DDS_BACKEND_SECTOR_SIZE;
-    int loadedDirs = 0;
-    for (size_t d = 0; d != DDS_MAX_DIRS; d++) {
-        result = ReadFromDiskSync(
-            (BufferT)&dirOnDisk,
-            DDS_BACKEND_RESERVED_SEGMENT,
-            nextAddress,
-            sizeof(DPUDirPropertiesT),
-            Sto,
-            arg,
-            true
-        );
-
-        if (result != DDS_ERROR_CODE_SUCCESS) {
-            return result;
-        }
-
-        if (dirOnDisk.Id != DDS_DIR_INVALID) {
-            Sto->AllDirs[d] = BackEndDirI(dirOnDisk.Id, DDS_DIR_ROOT, dirOnDisk.Name);
-            if (Sto->AllDirs[d]) {
-                //why do we have 2 sizeof() here
-                memcpy(GetDirProperties(Sto->AllDirs[d]), &dirOnDisk, sizeof(DPUDirPropertiesT));
-            }
-            else {
-                return DDS_ERROR_CODE_OUT_OF_MEMORY;
-            }
-
-            loadedDirs++;
-            if (loadedDirs == Sto->TotalDirs) {
-                break;
-            }
-        }
-        
-        nextAddress += sizeof(DPUDirPropertiesT);
-    }
-    //
-    // Load the files
-    //
-    //
-    DPUFilePropertiesT fileOnDisk;
-    nextAddress = DDS_BACKEND_SEGMENT_SIZE - sizeof(DPUFilePropertiesT);
-    int loadedFiles = 0;
-    for (size_t f = 0; f != DDS_MAX_FILES; f++) {
-        result = ReadFromDiskSync(
-            (BufferT)&fileOnDisk,
-            DDS_BACKEND_RESERVED_SEGMENT,
-            nextAddress,
-            sizeof(DPUFilePropertiesT),
-            Sto,
-            arg,
-            true
-        );
-
-        if (result != DDS_ERROR_CODE_SUCCESS) {
-            return result;
-        }
-
-        if (fileOnDisk.Id != DDS_DIR_INVALID) {
-            Sto->AllFiles[f] = BackEndFileI(fileOnDisk.Id, fileOnDisk.FProperties.FileName, fileOnDisk.FProperties.FileAttributes);
-            if (Sto->AllFiles[f]) {
-                memcpy(GetFileProperties(Sto->AllFiles[f]), &fileOnDisk, sizeof(DPUFilePropertiesT));
-                SetNumAllocatedSegments(Sto->AllFiles[f]);
-            }
-            else {
-                return DDS_ERROR_CODE_OUT_OF_MEMORY;
-            }
-
-            loadedFiles++;
-            if (loadedFiles == Sto->TotalFiles) {
-                break;
-            }
-        }
-        
-        nextAddress -= sizeof(DPUFilePropertiesT);
-    }
-
-    return result;
+    return DDS_ERROR_CODE_SUCCESS;
 }
 
 //
@@ -616,10 +711,11 @@ void InitializeSyncReservedInfoCallback(
     free(bdev_io);
     struct InitializeCtx *Ctx = Context;
     if (!Success) {
-        SPDK_NOTICELOG("Initialize() SyncReservedInformationToDisk IO failed...\n");
+        SPDK_ERRLOG("Initialize() SyncReservedInformationToDisk IO failed...\n");
+        // TODO: call FS app stop func
         return;
     }
-    // TODO: success, Initialize() done, continue work
+    // XXX TODO: success, Initialize() done, continue work
 }
 
 void InitializeSyncDirToDiskCallback(
@@ -631,7 +727,8 @@ void InitializeSyncDirToDiskCallback(
     struct InitializeCtx *Ctx = Context;
     if (!Success) {
         SPDK_NOTICELOG("Initialize() SyncDirToDisk IO failed...\n");
-        return;
+        // return;
+        // TODO: call FS app stop func
     }
 
     Sto->AllDirs[DDS_DIR_ROOT] = Ctx->RootDir;
@@ -659,18 +756,19 @@ void RemainingPagesProgressCallback(
 ) {
     free(bdev_io);
     struct InitializeCtx *Ctx = Context;
-    if (Ctx->HasAborted) {
+    if (Ctx->FailureStatus->HasAborted) {
         return;
     }
     if (!Success) {
-        Ctx->HasFailed = true;
+        Ctx->FailureStatus->HasFailed = true;
     }
 
     if (Ctx->CurrentProgress == Ctx->TargetProgress) {
         SPDK_NOTICELOG("Initialize() RemainingPagesProgressCallback last one running\n");
-        if (Ctx->HasFailed) {
+        if (Ctx->FailureStatus->HasFailed) {
             // TODO: something went wrong, can't continue to do work
             SPDK_ERRLOG("Initialize() RemainingPagesProgressCallback has failed IO, stopping...\n");
+            // TODO: call FS app stop func
             return;
         }
         else {  // we can do the rest of the work
@@ -684,11 +782,12 @@ void RemainingPagesProgressCallback(
             result = SyncDirToDisk(rootDir, Sto, Ctx->SPDKContext, InitializeSyncDirToDiskCallback, Ctx);
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
+                Ctx->FailureStatus->HasFailed = true;
+                Ctx->FailureStatus->HasAborted = true;
                 SPDK_ERRLOG("Initialize() SyncDirToDisk early fail!!\n");
+                // TODO: call FS app stop func
                 return;
             }
-
-            
         }
     }
 }
@@ -705,20 +804,26 @@ IncrementProgressCallback(
 {
     free(bdev_io);
     struct InitializeCtx *Ctx = Context;
-    if (Ctx->HasAborted) {
+    if (Ctx->FailureStatus->HasAborted) {
+        if (Ctx->FailureStatus->HasStopped) {
+            return;
+        }
+        // TODO: fatal, call func to stop FS spdk app
+        //
+        Ctx->FailureStatus->HasStopped = true;
         return;
     }
 
     if (!Success) {
-        Ctx->HasFailed = true;
+        Ctx->FailureStatus->HasFailed = true;
     }
 
     // this is the last of looped IO callbacks
     if (Ctx->CurrentProgress == Ctx->TargetProgress) {
         SPDK_NOTICELOG("Initialize() IncrementProgressCallback last one running\n");
-        if (Ctx->HasFailed) {
-            // TODO: something went wrong, can't continue to do work
+        if (Ctx->FailureStatus->HasFailed) {
             SPDK_ERRLOG("Initialize() IncrementProgressCallback has failed IO, stopping...\n");
+            // TODO: maybe spdk_app_stop() or dedicated FS exit function call here?
             return;
         }
         else {  // we can do the rest of the work
@@ -748,7 +853,8 @@ IncrementProgressCallback(
                 );
 
                 if (result != DDS_ERROR_CODE_SUCCESS) {
-                    Ctx->HasAborted = true;  // don't need to run callbacks anymore
+                    Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
+                    Ctx->FailureStatus->HasFailed = true;
                     return;
                 }
             }
@@ -761,9 +867,8 @@ IncrementProgressCallback(
             
         }
     }
-    else {  // not last, wait until it's the last callback
-        // TODO: finish the part where it's already initialized
-    }
+    // else not last, wait until it's the last callback
+
 
     /* atomic_size_t* progress = (atomic_size_t*)Context;
     (*progress) += 1;
@@ -793,20 +898,24 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         Ctx->TargetProgress = pagesPerSegment;
         
         while (numPagesWritten < pagesPerSegment) {
+            struct InitializeCtx *CallbackCtx = malloc(sizeof(*CallbackCtx));
+            memcpy(CallbackCtx, Ctx, sizeof(Ctx));
+            CallbackCtx->CurrentProgress = numPagesWritten + 1;
             result = WriteToDiskAsync(
                 tmpPageBuf,
                 0,
                 (SegmentSizeT)(numPagesWritten * DDS_BACKEND_PAGE_SIZE),
                 DDS_BACKEND_PAGE_SIZE,
                 IncrementProgressCallback,
-                Ctx,
+                CallbackCtx,
                 Sto,
                 Ctx->SPDKContext,
                 true
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
-                Ctx->HasAborted = true;  // don't need to run callbacks anymore
+                Ctx->FailureStatus->HasFailed = true;
+                Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
                 return result;
             }
 
@@ -817,7 +926,6 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
                 sched_yield();
             } */
             
-            Ctx->CurrentProgress = numPagesWritten + 1;
             numPagesWritten += 1;
         }
         Ctx->NumPagesWritten = numPagesWritten;
@@ -828,7 +936,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         // Load directories and files
         //
         //
-        result = LoadDirectoriesAndFiles(Sto, arg);
+        result = LoadDirectoriesAndFiles(Sto, SPDKContext, Ctx);
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             return result;
@@ -893,7 +1001,14 @@ ErrorCodeT Initialize(
 
     // read reserved sector
     struct InitializeCtx *InitializeCtx = malloc(sizeof(*InitializeCtx));
-    InitializeCtx->HasFailed = false;
+    struct InitializeFailureStatus *FailureStatus = malloc(sizeof(*FailureStatus));
+    InitializeCtx->FailureStatus = FailureStatus;  // this is the master
+    // InitializeCtx->HasFailed = false;
+    InitializeCtx->FailureStatus->HasFailed = false;
+    // InitializeCtx->HasStopped = malloc(sizeof(InitializeCtx->HasStopped));
+    InitializeCtx->FailureStatus->HasStopped = false;
+    // *(InitializeCtx->HasStopped) = false;
+    InitializeCtx->FailureStatus->HasStopped = false;
     InitializeCtx->CurrentProgress = 0;
     InitializeCtx->TargetProgress = 0;
     InitializeCtx->SPDKContext = SPDKContext;
@@ -1213,12 +1328,12 @@ void DeleteFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
         if (result != 0) {  // fatal, can't continue, and the callback won't run
             SPDK_ERRLOG("DeleteFileCallback2() returned %hu\n", result);
             pthread_mutex_unlock(&Sto->SectorModificationMutex);
-            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
         }  // else, the callback passed to it should be guaranteed to run
     }
     else {
         SPDK_ERRLOG("DeleteFileCallback2() failed\n");
-        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
 }
 
@@ -1238,12 +1353,12 @@ void DeleteFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
         if (result != 0) {  // fatal, can't continue, and the callback won't run
             SPDK_ERRLOG("DeleteFileCallback1() returned %hu\n", result);
             Unlock(HandlerCtx->dir);
-            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+            *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
         }  // else, the callback passed to it should be guaranteed to run
     }
     else {
         SPDK_ERRLOG("DeleteFileCallback1() failed, can't create directory\n");
-        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE
+        *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
 }
 
@@ -1284,7 +1399,7 @@ ErrorCodeT DeleteFileOnSto(
     if (result != DDS_ERROR_CODE_SUCCESS) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
-    return result
+    return result;
 }
 
 //

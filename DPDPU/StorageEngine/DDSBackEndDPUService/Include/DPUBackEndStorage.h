@@ -183,7 +183,8 @@ void ReturnSegments(struct DPUStorage* Sto);
 //
 ErrorCodeT LoadDirectoriesAndFiles(
     struct DPUStorage* Sto,
-    void *arg
+    void *arg,
+    struct InitializeCtx *InitializeCtx
 );
 
 //
@@ -231,7 +232,25 @@ ErrorCodeT Initialize(
     void *arg
 );
 
+struct InitializeFailureStatus {
+    atomic_bool HasFailed;
+    atomic_bool HasAborted;
+    atomic_bool HasStopped;
+};
+
+//
+// Context used when Initializing Storage
+//
+//
 struct InitializeCtx {
+    //
+    // This is the master, which holds the definitive HasFailed/Aborted/Stopped values, and have Master = NULL
+    // When there is looped IO, copies (with some different values) will be created, but they should have ptr to Master
+    // and set HasFailed in Master etc.
+    //
+    //
+    // struct InitializeCtx *Master;
+
     SPDKContextT *SPDKContext;
     char *tmpSectorBuf;  // actually the buff that stores the reserved segment
     atomic_size_t TargetProgress;
@@ -239,12 +258,42 @@ struct InitializeCtx {
     size_t PagesLeft;
     size_t NumPagesWritten;
     struct DPUDir* RootDir;
+    struct InitializeFailureStatus *FailureStatus;
     //
     // this will be set if some callback during the progress has callbacks run with failed param
     //
     //
-    atomic_bool HasFailed;
-    atomic_bool HasAborted;  // already fatal, some callback won't run, don't need to run other callbacks anymore
+    // atomic_bool HasFailed;
+    //
+    // already fatal, some callback won't run, don't need to run other callbacks anymore; will stop spdk app
+    //
+    //
+    // atomic_bool HasAborted;
+    //
+    // The first callback to find HasAborted == true will stop SPDK app, and set HasStopped = true;
+    // other callbacks should check this so they don't stop again
+    //
+    //
+    // atomic_bool HasStopped;
+};
+
+//
+// Ctx used during LoadDirectoriesAndFiles(), which is during Initialize()
+//
+//
+struct LoadDirectoriesAndFilesCtx {
+    // SegmentSizeT NextAddress;
+    char *TmpSectorBuffer;  // the reserved segment is read into this
+    size_t DirLoopIndex;
+    size_t FileLoopIndex;
+    DPUDirPropertiesT *DirOnDisk;
+    DPUFilePropertiesT *FileOnDisk;
+    atomic_int *LoadedDirs;
+    atomic_int *LoadedFiles;
+    struct InitializeFailureStatus *FailureStatus;  // points to the member in struct InitializeCtx
+    /* atomic_bool HasFailed;
+    atomic_bool HasAborted;
+    atomic_bool *HasStopped; */
 };
 
 //
