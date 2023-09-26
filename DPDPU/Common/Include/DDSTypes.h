@@ -83,8 +83,8 @@ typedef struct {
 // Check a few parameters at the compile time
 //
 //
-#define assert_static_ddstypes(e, num) \
-    enum { assert_static_ddstypes__##num = 1/(e) }
+#define AssertStaticDDSTypes(e, num) \
+    enum { AssertStaticDDSTypes__##num = 1/(e) }
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -94,9 +94,9 @@ typedef struct {
 #pragma warning (disable: 4804)
 #endif
 
-assert_static_ddstypes((1 << sizeof(FileIdT) * 8) - 1 == DDS_FILE_INVALID, 0);
-assert_static_ddstypes((1 << sizeof(DirIdT) * 8) - 1 == DDS_DIR_INVALID, 1);
-assert_static_ddstypes((1 << sizeof(RequestIdT) * 8) - 1 == DDS_REQUEST_INVALID, 2);
+AssertStaticDDSTypes((1 << sizeof(FileIdT) * 8) - 1 == DDS_FILE_INVALID, 0);
+AssertStaticDDSTypes((1 << sizeof(DirIdT) * 8) - 1 == DDS_DIR_INVALID, 1);
+AssertStaticDDSTypes((1 << sizeof(RequestIdT) * 8) - 1 == DDS_REQUEST_INVALID, 2);
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop

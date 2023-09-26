@@ -67,7 +67,7 @@ static int SetNonblocking(
 //
 static int
 InitDMA(
-    struct DMAConfig* Config,
+    DMAConfig* Config,
     uint32_t Ip,
     uint16_t Port
 ) {
@@ -131,7 +131,7 @@ InitDMA(
 //
 static void
 TermDMA(
-    struct DMAConfig* Config
+    DMAConfig* Config
 ) {
     if (Config->CmId) {
         rdma_destroy_id(Config->CmId);
@@ -147,24 +147,24 @@ TermDMA(
 //
 //
 static int
-AllocConns(struct BackEndConfig* Config) {
-    Config->CtrlConns = (struct CtrlConnConfig*)malloc(sizeof(struct CtrlConnConfig) * Config->MaxClients);
+AllocConns(BackEndConfig* Config) {
+    Config->CtrlConns = (CtrlConnConfig*)malloc(sizeof(CtrlConnConfig) * Config->MaxClients);
     if (!Config->CtrlConns) {
         fprintf(stderr, "Failed to allocate CtrlConns\n");
         return ENOMEM;
     }
-    memset(Config->CtrlConns, 0, sizeof(struct CtrlConnConfig) * Config->MaxClients);
+    memset(Config->CtrlConns, 0, sizeof(CtrlConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxClients; c++) {
         Config->CtrlConns[c].CtrlId = c;
     }
 
-    Config->BuffConns = (struct BuffConnConfig*)malloc(sizeof(struct BuffConnConfig) * Config->MaxClients);
+    Config->BuffConns = (BuffConnConfig*)malloc(sizeof(BuffConnConfig) * Config->MaxClients);
     if (!Config->BuffConns) {
         fprintf(stderr, "Failed to allocate BuffConns\n");
         free(Config->CtrlConns);
         return ENOMEM;
     }
-    memset(Config->BuffConns, 0, sizeof(struct BuffConnConfig) * Config->MaxClients);
+    memset(Config->BuffConns, 0, sizeof(BuffConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxBuffs; c++) {
         Config->BuffConns[c].BuffId = c;
     }
@@ -177,7 +177,7 @@ AllocConns(struct BackEndConfig* Config) {
 //
 //
 static void
-DeallocConns(struct BackEndConfig* Config) {
+DeallocConns(BackEndConfig* Config) {
     if (Config->CtrlConns) {
         free(Config->CtrlConns);
     }
@@ -207,7 +207,7 @@ SignalHandler(
 //
 static int
 SetUpCtrlQPair(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     int ret = 0;
     struct ibv_qp_init_attr initAttr;
@@ -285,7 +285,7 @@ SetUpCtrlQPairReturn:
 //
 static void
 DestroyCtrlQPair(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     rdma_destroy_qp(CtrlConn->RemoteCmId);
     ibv_destroy_cq(CtrlConn->CompQ);
@@ -299,7 +299,7 @@ DestroyCtrlQPair(
 //
 static int
 SetUpCtrlRegionsAndBuffers(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     int ret = 0;
     CtrlConn->RecvMr = ibv_reg_mr(
@@ -361,7 +361,7 @@ SetUpCtrlRegionsAndBuffersReturn:
 //
 static void
 DestroyCtrlRegionsAndBuffers(
-    struct CtrlConnConfig* CtrlConn
+    CtrlConnConfig* CtrlConn
 ) {
     ibv_dereg_mr(CtrlConn->SendMr);
     ibv_dereg_mr(CtrlConn->RecvMr);
@@ -377,7 +377,7 @@ DestroyCtrlRegionsAndBuffers(
 //
 static int
 SetUpBuffQPair(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
     struct ibv_qp_init_attr initAttr;
@@ -455,7 +455,7 @@ SetUpBuffQPairReturn:
 //
 static void
 DestroyBuffQPair(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     rdma_destroy_qp(BuffConn->RemoteCmId);
     ibv_destroy_cq(BuffConn->CompQ);
@@ -469,7 +469,7 @@ DestroyBuffQPair(
 //
 static int
 SetUpBuffRegionsAndBuffers(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     int ret = 0;
 
@@ -643,7 +643,7 @@ SetUpBuffRegionsAndBuffersReturn:
 //
 static void
 DestroyBuffRegionsAndBuffers(
-    struct BuffConnConfig* BuffConn
+    BuffConnConfig* BuffConn
 ) {
     ibv_dereg_mr(BuffConn->DMAWriteMetaMr);
     ibv_dereg_mr(BuffConn->DMAReadMetaMr);
@@ -674,7 +674,7 @@ DestroyBuffRegionsAndBuffers(
 //
 static int
 FindConnId(
-    struct BackEndConfig *Config,
+    BackEndConfig *Config,
     struct rdma_cm_id *CmId,
     uint8_t *IsCtrl
 ) {
@@ -701,7 +701,7 @@ FindConnId(
 //
 static int inline
 ProcessCmEvents(
-    struct BackEndConfig *Config,
+    BackEndConfig *Config,
     struct rdma_cm_event *Event
 ) {
     int ret = 0;
@@ -737,7 +737,7 @@ ProcessCmEvents(
             switch (privData) {
                 case CTRL_CONN_PRIV_DATA:
                 {
-                    struct CtrlConnConfig *ctrlConn = NULL;
+                    CtrlConnConfig *ctrlConn = NULL;
 
                     for (int index = 0; index < Config->MaxClients; index++) {
                         if (!Config->CtrlConns[index].InUse) {
@@ -816,7 +816,7 @@ ProcessCmEvents(
                 }
                 case BUFF_CONN_PRIV_DATA:
                 {
-                    struct BuffConnConfig *buffConn = NULL;
+                    BuffConnConfig *buffConn = NULL;
                     int index;
 
                     for (index = 0; index < Config->MaxClients; index++) {
@@ -944,7 +944,7 @@ ProcessCmEvents(
             if (connId >= 0) {
                 if (privData) {
                         if (Config->CtrlConns[connId].InUse) {
-                            struct CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
+                            CtrlConnConfig *ctrlConn = &Config->CtrlConns[connId];
                             DestroyCtrlRegionsAndBuffers(ctrlConn);
                             DestroyCtrlQPair(ctrlConn);
                             ctrlConn->InUse = 0;
@@ -955,7 +955,7 @@ ProcessCmEvents(
                 }
                 else {
                         if (Config->BuffConns[connId].InUse) {
-                            struct BuffConnConfig *buffConn = &Config->BuffConns[connId];
+                            BuffConnConfig *buffConn = &Config->BuffConns[connId];
                             DestroyBuffRegionsAndBuffers(buffConn);
                             DestroyBuffQPair(buffConn);
                             buffConn->InUse = 0;
@@ -999,7 +999,7 @@ ProcessCmEvents(
 //
 static inline int
 CtrlMsgHandler(
-    struct CtrlConnConfig *CtrlConn
+    CtrlConnConfig *CtrlConn
 ) {
     int ret = 0;
     MsgHeader* msgIn = (MsgHeader*)CtrlConn->RecvBuff;
@@ -1066,10 +1066,10 @@ CtrlMsgHandler(
 //
 static int inline
 ProcessCtrlCqEvents(
-    struct BackEndConfig *Config
+    BackEndConfig *Config
 ) {
     int ret = 0;
-    struct CtrlConnConfig *ctrlConn = NULL;
+    CtrlConnConfig *ctrlConn = NULL;
     struct ibv_wc wc;
 
     for (int i = 0; i != Config->MaxClients; i++) {
@@ -1122,7 +1122,7 @@ ProcessCtrlCqEventsReturn:
 //
 static inline int
 BuffMsgHandler(
-    struct BuffConnConfig *BuffConn
+    BuffConnConfig *BuffConn
 ) {
     int ret = 0;
     MsgHeader* msgIn = (MsgHeader*)BuffConn->RecvBuff;
@@ -1243,10 +1243,10 @@ BuffMsgHandler(
 //
 static int inline
 ProcessBuffCqEvents(
-    struct BackEndConfig *Config
+    BackEndConfig *Config
 ) {
     int ret = 0;
-    struct BuffConnConfig *buffConn = NULL;
+    BuffConnConfig *buffConn = NULL;
     struct ibv_send_wr *badSendWr = NULL;
     struct ibv_wc wc;
 
@@ -1593,7 +1593,7 @@ int RunBenchmarkResponseBackEnd(
     const uint32_t MaxBuffs,
     const uint8_t Prefetching
 ) {
-    struct BackEndConfig config;
+    BackEndConfig config;
     struct rdma_cm_event *event;
     int ret = 0;
 

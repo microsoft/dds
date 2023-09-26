@@ -6,7 +6,8 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
-#include "FileBackEndTypes.h"
+#include "BackEndTypes.h"
+#include "FileService.h"
 #include "ControlPlaneHandler.h"
 #include "DataPlaneHandlers.h"
 #include "DDSTypes.h"
@@ -63,16 +64,16 @@
 // The global config for (R)DMA
 //
 //
-struct DMAConfig {
+typedef struct {
     struct rdma_event_channel *CmChannel;
     struct rdma_cm_id *CmId;
-};
+} DMAConfig;
 
 //
 // The configuration for a control connection
 //
 //
-struct CtrlConnConfig {
+typedef struct {
     uint32_t CtrlId;
     uint8_t State;
 
@@ -105,13 +106,13 @@ struct CtrlConnConfig {
     //
     //
     ControlPlaneRequestContext PendingControlPlanRequest;
-};
+} CtrlConnConfig;
 
 //
 // The configuration for a buffer connection
 //
 //
-struct BuffConnConfig {
+typedef struct {
     uint32_t BuffId;
     uint32_t CtrlId;
     uint8_t State;
@@ -188,27 +189,23 @@ struct BuffConnConfig {
     //
     struct RequestRingBufferBackEnd RequestRing;
     struct ResponseRingBufferBackEnd ResponseRing;
-};
+} BuffConnConfig;
 
 //
 // Back end configuration
 //
 //
-struct BackEndConfig {
+typedef struct {
     uint32_t ServerIp;
     uint16_t ServerPort;
     uint32_t MaxClients;
     uint32_t MaxBuffs;
-    struct DMAConfig DMAConf;
-    struct CtrlConnConfig* CtrlConns;
-    struct BuffConnConfig* BuffConns;
-};
+    DMAConfig DMAConf;
+    CtrlConnConfig* CtrlConns;
+    BuffConnConfig* BuffConns;
 
-void FSAppStartEntryPoint(void *args);
-
-struct FSAppStartEntryPointCtx {
-    // TODO
-};
+    FileService* FS;
+} BackEndConfig;
 
 //
 // The entry point for the back end,
