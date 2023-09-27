@@ -161,6 +161,7 @@ AllocConns(BackEndConfig* Config) {
     memset(Config->BuffConns, 0, sizeof(BuffConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxBuffs; c++) {
         Config->BuffConns[c].BuffId = c;
+        Config->BuffConns[c].NextRequestContext = 0;
     }
 
     return 0;
@@ -1837,7 +1838,6 @@ ExecuteRequests(
     int headResp = BuffConn->ResponseRing.TailB;
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
-    SplittableBufferT dataBuff;
     int progressReqForParsing;
     FileIOSizeT reqSize;
     FileIOSizeT respSize = 0;
@@ -1845,8 +1845,8 @@ ExecuteRequests(
     int progressReq = headReq;
     int progressResp = tailResp;
     
-    DataPlaneRequestContext ctxt;
-
+    DataPlaneRequestContext* ctxt = NULL;
+    SplittableBufferT* dataBuff = NULL;
 
     buffReq = BuffConn->RequestDMAReadDataBuff;
     buffResp = BuffConn->ResponseDMAWriteDataBuff;
@@ -1901,16 +1901,23 @@ ExecuteRequests(
             // Extract write source buffer from the request ring
             //
             //
+            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            BuffConn->NextRequestContext++;
+            if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
+                BuffConn->NextRequestContext = 0;
+            }
+            dataBuff = &ctxt->DataBuffer;
+
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
-            dataBuff.TotalSize = curReqObj->Bytes;
-            dataBuff.FirstAddr = buffReq + progressReqForParsing;
-            if (progressReq + dataBuff.TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
-                dataBuff.FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
-                dataBuff.SecondAddr = buffReq;
+            dataBuff->TotalSize = curReqObj->Bytes;
+            dataBuff->FirstAddr = buffReq + progressReqForParsing;
+            if (progressReq + dataBuff->TotalSize >= BACKEND_REQUEST_BUFFER_SIZE) {
+                dataBuff->FirstSize = BACKEND_REQUEST_BUFFER_SIZE - progressReq;
+                dataBuff->SecondAddr = buffReq;
             }
             else {
-                dataBuff.FirstSize = curReqObj->Bytes;
-                dataBuff.SecondAddr = NULL;
+                dataBuff->FirstSize = curReqObj->Bytes;
+                dataBuff->SecondAddr = NULL;
             }
 
             //
@@ -1933,10 +1940,9 @@ ExecuteRequests(
             // Submit this request
             //
             //
-            ctxt.Request = curReqObj;
-            ctxt.Response = resp;
-            ctxt.DataBuffer = &dataBuff;
-            SubmitDataPlaneRequest(FS, &ctxt);
+            ctxt->Request = curReqObj;
+            ctxt->Response = resp;
+            SubmitDataPlaneRequest(FS, ctxt);
         }
         else {
             //
@@ -1967,22 +1973,29 @@ ExecuteRequests(
             // Extract read destination buffer from the response ring
             //
             //
-            dataBuff.TotalSize = curReqObj->Bytes;
+            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            BuffConn->NextRequestContext++;
+            if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
+                BuffConn->NextRequestContext = 0;
+            }
+            dataBuff = &ctxt->DataBuffer;
+
+            dataBuff->TotalSize = curReqObj->Bytes;
             if (progressResp + respSize <= BACKEND_RESPONSE_BUFFER_SIZE) {
-                dataBuff.FirstAddr = buffResp + (progressResp + alignment);
-                dataBuff.FirstSize = dataBuff.TotalSize;
-                dataBuff.SecondAddr = NULL;
+                dataBuff->FirstAddr = buffResp + (progressResp + alignment);
+                dataBuff->FirstSize = dataBuff->TotalSize;
+                dataBuff->SecondAddr = NULL;
             }
             else {
                 if (progressResp + alignment < BACKEND_RESPONSE_BUFFER_SIZE) {
-                    dataBuff.FirstAddr = buffResp + (progressResp + alignment);
-                    dataBuff.FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
-                    dataBuff.SecondAddr = buffResp + (dataBuff.TotalSize - dataBuff.FirstSize);
+                    dataBuff->FirstAddr = buffResp + (progressResp + alignment);
+                    dataBuff->FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
+                    dataBuff->SecondAddr = buffResp + (dataBuff->TotalSize - dataBuff->FirstSize);
                 }
                 else {
-                    dataBuff.FirstAddr = buffResp;
-                    dataBuff.FirstSize = dataBuff.TotalSize;
-                    dataBuff.SecondAddr = NULL;
+                    dataBuff->FirstAddr = buffResp;
+                    dataBuff->FirstSize = dataBuff->TotalSize;
+                    dataBuff->SecondAddr = NULL;
                 }
             }
             
@@ -1996,10 +2009,9 @@ ExecuteRequests(
             // Inovke read handler 
             //
             //
-            ctxt.Request = curReqObj;
-            ctxt.Response = resp;
-            ctxt.DataBuffer = &dataBuff;
-            SubmitDataPlaneRequest(FS, &ctxt);
+            ctxt->Request = curReqObj;
+            ctxt->Response = resp;
+            SubmitDataPlaneRequest(FS, ctxt);
         }
     }
 

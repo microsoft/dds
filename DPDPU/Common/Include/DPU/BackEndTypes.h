@@ -10,7 +10,7 @@
 typedef struct {
     BuffMsgF2BReqHeader* Request;
     BuffMsgB2FAckHeader* Response;
-    SplittableBufferT* DataBuffer;
+    SplittableBufferT DataBuffer;
 } DataPlaneRequestContext;
 
 //

@@ -179,6 +179,19 @@ typedef struct {
     //
     struct RequestRingBufferBackEnd RequestRing;
     struct ResponseRingBufferBackEnd ResponseRing;
+
+    //
+    // Pending data-plane requests
+    //
+    //
+    DataPlaneRequestContext PendingDataPlaneRequests[DDS_MAX_OUTSTANDING_IO];
+
+    //
+    // Next available context for the incoming request
+    // Note: we don't check the availability of the context since it's guaranteed on the host
+    //
+    //
+    RequestIdT NextRequestContext;
 } BuffConnConfig;
 
 //
