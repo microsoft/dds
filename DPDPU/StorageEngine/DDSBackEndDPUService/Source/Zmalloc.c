@@ -12,6 +12,7 @@ void AllocateSpace(void *arg){
 		spdk_app_stop(-1);
 		return;
 	}
+    // TODO: sizeof(BackEndIOContextT)
     SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(bool));
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
         SPDKContext->SPDKSpace[i] = true;

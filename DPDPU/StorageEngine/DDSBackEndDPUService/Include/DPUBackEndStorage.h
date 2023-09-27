@@ -23,7 +23,22 @@
 // TODO: instead of tracking bytes all completed, might as well just track no. of writes all completed
 //
 //
+
 typedef struct BackEndIOContext {
+    /* DataPlaneRequestContext* RequestContext;  // now in request context */
+    // per slot info
+    int Position;
+    bool IsAvailable;
+    
+    // callback specific info
+    atomic_ushort CallbacksToRun;
+    atomic_ushort CallbacksRan;
+    FileIOSizeT BytesIssued; // equals request's no. of bytes
+    /* SplittableBufferT *SplittableBuffer;  // free this in last callback, but now in request context */
+    bool IsRead;
+    /* BuffMsgB2FAckHeader *Resp  // the actual response, mutated in the callback, but now in RequestContext */
+} BackEndIOContextT;
+/* typedef struct BackEndIOContext {
     ContextT FrontEndBufferContext;
     ContextT BackEndBufferContext;
     atomic_ushort CallbacksToRun;
@@ -35,7 +50,7 @@ typedef struct BackEndIOContext {
     // ErrorCodeT ErrorCode;  // TODO: do we need this? resp has result anyway
     bool IsRead;
     BuffMsgB2FAckHeader *Resp  // the actual response, mutated in the callback
-} BackEndIOContextT;
+} BackEndIOContextT; */
 
 //
 // Callback for async disk operations
