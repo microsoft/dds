@@ -1920,7 +1920,7 @@ ExecuteRequests(
             *(FileIOSizeT*)(buffResp + progressResp) = respSize;
 
             BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
-	    resp->RequestId = curReqObj->RequestId;
+            resp->RequestId = curReqObj->RequestId;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             
             progressResp += respSize;
@@ -1960,7 +1960,7 @@ ExecuteRequests(
             *(FileIOSizeT*)(buffResp + progressResp) = respSize;
 
             BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
-	    resp->RequestId = curReqObj->RequestId;
+            resp->RequestId = curReqObj->RequestId;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
 
             //
@@ -2243,7 +2243,7 @@ ProcessBuffCqEvents(
                             // Not ready to write, poll again
                             //
                             //
-			    DebugPrint("progress %d != head %d, keep polling\n", progress, head);
+                            DebugPrint("progress %d != head %d, keep polling\n", progress, head);
                             ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -2395,7 +2395,7 @@ ProcessBuffCqEvents(
                             // There is nothing to do here because response completions are checked in the big loop
                             //
                             //
-			    DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
+                            DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
                         }
                         else {
                             buffConn->ResponseDMAWriteDataSplitState++;
@@ -2412,7 +2412,7 @@ ProcessBuffCqEvents(
                             // There is nothing to do here because response completions are checked in the big loop
                             //
                             //
-			    DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
+                            DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
                         }
                         else {
                             buffConn->ResponseDMAWriteDataSplitState++;
@@ -2514,7 +2514,7 @@ CheckAndProcessIOCompletions(
                 // Send the response back to the host
                 //
                 //
-		DebugPrint("A response batch of %d bytes have finished. Polling host response progress\n", totalRespSize);
+                DebugPrint("A response batch of %d bytes have finished. Polling host response progress\n", totalRespSize);
                 struct ibv_send_wr *badSendWr = NULL;
                 
                 //
