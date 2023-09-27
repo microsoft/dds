@@ -2,6 +2,7 @@
 
 #include "DPUBackEnd.h"
 #include <stdint.h>
+#include "Zmalloc.h"
 //
 // We'll use this struct to gather housekeeping hello_context to pass between
 // our events and callbacks.
@@ -28,7 +29,7 @@ typedef struct SPDKContext {
 	char *bdev_name;
 	struct spdk_bdev_io_wait_entry bdev_io_wait;
     void *cookie;  // just in case, a completion cookie that could be anything
-    bool *SPDKSpace; // a bool array to record the status of each block memory inside buff. true = free, false = in use
+    struct PerSlotContext *SPDKSpace; // an array to record the status of each slot memory inside buff.
 } SPDKContextT;
 
 //

@@ -13,9 +13,10 @@ void AllocateSpace(void *arg){
 		return;
 	}
     // TODO: sizeof(BackEndIOContextT)
-    SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(bool));
+    SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(struct PerSlotContext));
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
-        SPDKContext->SPDKSpace[i] = true;
+        SPDKContext->SPDKSpace[i].Available = true;
+        SPDKContext->SPDKSpace[i].Position = i;
     }
     if(spdk_bdev_is_zoned(SPDKContext->bdev)){
         bdev_reset_zone(arg);
@@ -26,12 +27,10 @@ void AllocateSpace(void *arg){
 
 
 void FreeSingleSpace(
-    void *arg, 
-    int Position
+    void *arg
 ){
-    SPDKContextT *SPDKContext = arg;
-    memset(SPDKContext->buff[Position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 0, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
-    SPDKContext->SPDKSpace[Position] = true;
+    struct PerSlotContext *SlotCtx = arg;
+    SlotCtx->Available = true;
 
 }
 
@@ -44,7 +43,7 @@ void FreeAllSpace(void *arg){
 int FindFreeSpace(void *arg){
     SPDKContextT *SPDKContext = arg;
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
-        if(SPDKContext->SPDKSpace[i]){
+        if(SPDKContext->SPDKSpace[i].Available){
             SPDKContext->SPDKSpace[i] = false;
             return i;
         }
