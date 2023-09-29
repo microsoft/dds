@@ -10,9 +10,7 @@
 //
 //
 void ReadHandler(
-    BuffMsgF2BReqHeader* Req,
-    BuffMsgB2FAckHeader* Resp,
-    SplittableBufferT* DestBuffer
+    DataPlaneRequestContext* Context
 );
 
 //
@@ -30,9 +28,7 @@ void ReadHandlerCallback(
 //
 //
 void WriteHandler(
-    BuffMsgF2BReqHeader* Req,
-    BuffMsgB2FAckHeader* Resp,
-    SplittableBufferT* SourceBuffer
+    DataPlaneRequestContext* Context
 );
 
 //

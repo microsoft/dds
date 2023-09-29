@@ -238,15 +238,11 @@ ErrorCodeT ReadFromDiskAsync(
         Callback, Context);
     }
     else{
-        int position = FindFreeSpace(SPDKContext);
-        if(position == -1){
-            return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
-        }
-        else{
-            SPDKContextT *arg = SPDKContext;
-            rc = bdev_read(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
-            seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
-        }
+        struct PerSlotContext* SlotContext = (struct PerSlotContext*) Context;
+        int position = SlotContext->Position;
+        SPDKContextT *arg = SPDKContext;
+        rc = bdev_read(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+        seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
     }
     
     //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
@@ -284,19 +280,15 @@ ErrorCodeT WriteToDiskAsync(
         Callback, Context);
     }
     else{
-        int position = FindFreeSpace(SPDKContext);
-        if(position == -1){
-            return DDS_ERROR_CODE_FAILED_BUFFER_ALLOCATION;
+        struct PerSlotContext* SlotContext = (struct PerSlotContext*) Context;
+        int position = SlotContext->Position;
+        SPDKContextT *arg = SPDKContext;
+        if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
+            SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
         }
-        else{
-            SPDKContextT *arg = SPDKContext;
-            if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
-                SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
-            }
-            memcpy(arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], SrcBuffer, Bytes);
-            rc = bdev_write(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
-            seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
-        }
+        memcpy(arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], SrcBuffer, Bytes);
+        rc = bdev_write(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+        seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
     }
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
 
@@ -1538,7 +1530,7 @@ ErrorCodeT ReadFile(
 ){
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
     struct DPUFile* file = Sto->AllFiles[FileId];
-    BackEndIOContextT* ioContext = (BackEndIOContextT*)Context;
+    struct PerSlotContext* SlotContext = (struct PerSlotContext*)Context;
     FileSizeT remainingBytes = GetSize(file) - Offset;
 
     FileIOSizeT bytesLeftToRead = DestBuffer->TotalSize;
@@ -1546,7 +1538,7 @@ ErrorCodeT ReadFile(
         bytesLeftToRead = (FileIOSizeT)remainingBytes;
     }
 
-    ioContext->BytesIssued = bytesLeftToRead;
+    SlotContext->BytesIssued = bytesLeftToRead;
 
     FileSizeT curOffset = Offset;
     SegmentIdT curSegment;
@@ -1607,19 +1599,19 @@ ErrorCodeT ReadFile(
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             SPDK_WARNLOG("ReadFromDiskAsync() failed with ret: %d\n", result);
-            ioContext->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
-            ioContext->Resp->BytesServiced = 0;
+            SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
+            SlotContext->Ctx->Response->BytesServiced = 0;
             return result;
         }
         else {
-            ioContext->CallbacksToRun += 1;
+            SlotContext->CallbacksToRun += 1;
         }
 
         curOffset += bytesToIssue;
         bytesLeftToRead -= bytesToIssue;
     }
 
-    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", ioContext->Resp->RequestId, ioContext->CallbacksToRun);
+    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", SlotContext->Ctx->Response->RequestId, SlotContext->CallbacksToRun);
     return result;
 }
 
@@ -1640,7 +1632,7 @@ ErrorCodeT WriteFile(
     struct DPUFile* file = Sto->AllFiles[FileId];
     FileSizeT newSize = Offset + SourceBuffer->TotalSize;
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
-    BackEndIOContextT* ioContext = (BackEndIOContextT*)Context;
+    struct PerSlotContext* SlotContext = (struct PerSlotContext*)Context;
 
     //
     // Check if allocation is needed
@@ -1694,7 +1686,7 @@ ErrorCodeT WriteFile(
     }
 
     FileIOSizeT bytesLeftToWrite = SourceBuffer->TotalSize;
-    ioContext->BytesIssued = bytesLeftToWrite;
+    SlotContext->BytesIssued = bytesLeftToWrite;
 
     FileSizeT curOffset = Offset;
     SegmentIdT curSegment;
@@ -1754,7 +1746,7 @@ ErrorCodeT WriteFile(
             offsetOnSegment,
             bytesToIssue,
             Callback,
-            ioContext,
+            SlotContext,
             Sto,
             SPDKContext,
             true
@@ -1762,19 +1754,19 @@ ErrorCodeT WriteFile(
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             SPDK_WARNLOG("WriteToDiskAsync() failed with ret: %d\n", result);
-            ioContext->Resp->Result = DDS_ERROR_CODE_IO_FAILURE;
-            ioContext->Resp->BytesServiced = 0;
+            SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
+            SlotContext->Ctx->Response->BytesServiced = 0;
             return result;
         }
         else {
-            ioContext->CallbacksToRun += 1;
+            SlotContext->CallbacksToRun += 1;
         }
 
         curOffset += bytesToIssue;
         bytesLeftToWrite -= bytesToIssue;
     }
 
-    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", ioContext->Resp->RequestId, ioContext->CallbacksToRun);
+    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", SlotContext->Ctx->Response->RequestId, SlotContext->CallbacksToRun);
     return result;
 }
 

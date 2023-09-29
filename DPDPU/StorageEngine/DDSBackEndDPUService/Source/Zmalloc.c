@@ -27,10 +27,9 @@ void AllocateSpace(void *arg){
 
 
 void FreeSingleSpace(
-    void *arg
+    struct PerSlotContext* Ctx
 ){
-    struct PerSlotContext *SlotCtx = arg;
-    SlotCtx->Available = true;
+    Ctx->Available = true;
 
 }
 
@@ -40,13 +39,16 @@ void FreeAllSpace(void *arg){
     free(SPDKContext->SPDKSpace);
 }
 
-int FindFreeSpace(void *arg){
-    SPDKContextT *SPDKContext = arg;
+struct PerSlotContext* FindFreeSpace(
+    SPDKContextT *SPDKContext,
+    DataPlaneRequestContext* Context
+){
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
         if(SPDKContext->SPDKSpace[i].Available){
             SPDKContext->SPDKSpace[i] = false;
-            return i;
+            SPDKContext->SPDKSpace[i].Ctx = Context;
+            return &SPDKContext->SPDKSpace[i];
         }
     }
-    return -1;
+    return NULL;
 }

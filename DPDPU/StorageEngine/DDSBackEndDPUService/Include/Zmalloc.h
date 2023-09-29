@@ -9,14 +9,20 @@
 typedef struct PerSlotContext{
     int Position;
     bool Available;
-    void *Ctx;//put the needed ctx pointer here
-    //add more if you need more info
+    DataPlaneRequestContext *Ctx;
+    atomic_ushort CallbacksToRun;
+    atomic_ushort CallbacksRan;
+    FileIOSizeT BytesIssued;
+    bool IsRead;
 };
 
 void AllocateSpace(void *arg);
 
-void FreeSingleSpace(void *arg);
+void FreeSingleSpace(struct PerSlotContext* Ctx);
 
 void FreeAllSpace(void *arg);
 
-int FindFreeSpace(void *arg);
+struct PerSlotContext* FindFreeSpace(
+    SPDKContextT *SPDKContext,
+    DataPlaneRequestContext* Context
+);
