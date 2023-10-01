@@ -26,6 +26,7 @@ base_app_dependencies = []
 base_app_dependencies += dependency('threads')
 
 base_app_inc_dirs = [
+        include_directories('../../../Common/Include/'),
         include_directories('../../../Common/Include/DPU/'),
 ]
 

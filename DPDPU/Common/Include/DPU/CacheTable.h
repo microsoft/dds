@@ -120,7 +120,7 @@ DestroyCacheTable();
 
 AssertStaticCacheTable(CACHE_TABLE_CAPACITY == CACHE_TABLE_BUCKET_SIZE * CACHE_TABLE_BUCKET_COUNT, 0);
 AssertStaticCacheTable((CACHE_TABLE_BUCKET_SIZE & (CACHE_TABLE_BUCKET_SIZE - 1)) == 0, 1);
-AssertStaticCacheTable(1 << CACHE_TABLE_BUCKET_COUNT_POWER == CACHE_TABLE_BUCKET_COUNT, 1);
+AssertStaticCacheTable(1 << CACHE_TABLE_BUCKET_COUNT_POWER == CACHE_TABLE_BUCKET_COUNT, 2);
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -37,52 +38,6 @@ InitCacheTable() {
 }
 
 //
-// Fail to insert the item, so undo its effect
-//
-//
-static void
-UndoInsert(
-    CacheElementT *Carrier,
-    CacheElementT *Victim,
-    size_t MaxDepth,
-    uint32_t Offset
-) {
-    uint32_t mask = CACHE_TABLE_BUCKET_COUNT - 1;
-    uint32_t bucketPos;
-    CacheElementT* tmp;
-
-    for (size_t depth = 0; depth < MaxDepth; ++depth) {
-        if (depth % 2) {
-            bucketPos = Carrier->Hash1 & mask;
-        }
-        else {
-            bucketPos = Carrier->Hash2 & mask;
-        }
-
-        if (Offset-- == 0) {
-            Offset = CACHE_TABLE_BUCKET_SIZE - 1;
-        }
-
-        CacheElementT *begin = CacheTable->Table[bucketPos];
-
-        //
-        // Swap the elements
-        //
-        //
-        memcpy(Victim, &begin[Offset], sizeof(CacheElementT));
-        memcpy(&begin[Offset], Carrier, sizeof(CacheElementT));
-
-        //
-        // Victim becomes the carrier
-        //
-        //
-        tmp = Carrier;
-        Carrier = Victim;
-        Victim = tmp;
-    }
-}
-
-//
 // Add an item to the cache table
 //
 //
@@ -90,16 +45,9 @@ int
 AddToCacheTable(
     CacheItemT* Item
 ) {
-    size_t maxDepth = (size_t) CACHE_TABLE_BUCKET_COUNT_POWER << 5;
+    size_t maxDepth = (size_t) CACHE_TABLE_BUCKET_COUNT_POWER << 2;
     if (maxDepth > CACHE_TABLE_CAPACITY) {
         maxDepth = CACHE_TABLE_CAPACITY;
-    }
-
-    HashValueT hash1, hash2;
-    HASH_FUNCTION1(Item->Key, sizeof(KeyT), hash1);
-    HASH_FUNCTION2(Item->Key, sizeof(KeyT), hash2);
-    if (hash1 == hash2) {
-        hash1 = ~hash2;
     }
 
     uint32_t mask = CACHE_TABLE_BUCKET_COUNT - 1;
@@ -107,43 +55,40 @@ AddToCacheTable(
     CacheElementT ele1, ele2;
     CacheElementT *carrier = &ele1, *victim = &ele2;
     memcpy(&carrier->Item, Item, sizeof(CacheItemT));
-    carrier->Hash1 = hash1;
-    carrier->Hash2 = hash2;
-    uint32_t bucketPos = 0;
+    
+    HASH_FUNCTION1(&Item->Key, sizeof(KeyT), carrier->Hash1);
+    HASH_FUNCTION2(&Item->Key, sizeof(KeyT), carrier->Hash2);
+    if (carrier->Hash1 == carrier->Hash2) {
+        carrier->Hash1 = ~carrier->Hash2;
+    }
+
+    uint32_t bucketPos;
+    CacheElementT *begin;
+    CacheElementT *end;
+    CacheElementT *tmp;
+    HashValueT tmpV;
     
     for (size_t depth = 0; depth < maxDepth; ++depth) {
-        if (depth % 2) {
-            bucketPos = carrier->Hash2 & mask;
-        }
-        else {
-            bucketPos = carrier->Hash1 & mask;
-        }
+        bucketPos = carrier->Hash1 & mask;
 
-        CacheElementT *begin = CacheTable->Table[bucketPos];
-        CacheElementT *end = begin + CACHE_TABLE_BUCKET_SIZE;
+        begin = CacheTable->Table[bucketPos];
+        end = begin + CACHE_TABLE_BUCKET_SIZE;
         for (CacheElementT *elem = begin; elem != end; ++elem) {
-            if (elem->Hash1 == elem->Hash2 || (elem->Hash1 & mask) != bucketPos) {
+            if (elem->Hash1 == elem->Hash2) {
                 //
                 // This slot is available
                 //
                 //
-                memcpy(&elem->Item, Item, sizeof(CacheItemT));
-                elem->Hash1 = hash1;
-                elem->Hash2 = hash2;
-
+                memcpy(elem, carrier, sizeof(CacheElementT));
                 return 0;
             }
-            else if(elem->Hash1 == hash1 &&
-                    elem->Hash2 == hash2 &&
-                    (memcmp(&(elem->Item.Key), &(Item->Key), sizeof(KeyT)) == 0)
-            ) {
+            else if(memcmp(&(elem->Item.Key), &(carrier->Item.Key), sizeof(KeyT)) == 0) {
                 //
                 // Key already exists
                 // Update the value
                 //
                 //
-                memcpy(&elem->Item, Item, sizeof(CacheItemT));
-
+                memcpy(&elem->Item, &carrier->Item, sizeof(CacheItemT));
                 return 0;
             }
         }
@@ -154,12 +99,15 @@ AddToCacheTable(
         //
         memcpy(victim, &begin[offset], sizeof(CacheElementT));
         memcpy(&begin[offset], carrier, sizeof(CacheElementT));
+	tmpV = victim->Hash1;
+	victim->Hash1 = victim->Hash2;
+	victim->Hash2 = tmpV;
 
         //
         // Victim becomes the carrier
         //
         //
-        CacheElementT* tmp = carrier;
+        tmp = carrier;
         carrier = victim;
         victim = tmp;
 
@@ -170,12 +118,39 @@ AddToCacheTable(
 
     //
     // Slot not found
+    // Undo the insertion
     //
     //
-    UndoInsert(carrier, victim, maxDepth, offset);
-    if (memcmp(&carrier->Item, Item, sizeof(CacheItemT)) != 0) {
-        printf("Error: failed to undo insertion\n");
+    for (size_t depth = 0; depth < maxDepth; ++depth) {
+        bucketPos = carrier->Hash2 & mask;
+
+        if (offset-- == 0) {
+            offset = CACHE_TABLE_BUCKET_SIZE - 1;
+        }
+
+        begin = CacheTable->Table[bucketPos];
+
+        //
+        // Swap the elements
+        //
+        //
+	tmpV = carrier->Hash1;
+        carrier->Hash1 = carrier->Hash2;
+	carrier->Hash2 = tmpV;
+        memcpy(victim, &begin[offset], sizeof(CacheElementT));
+        memcpy(&begin[offset], carrier, sizeof(CacheElementT));
+
+        //
+        // Victim becomes the carrier
+        //
+        //
+        tmp = carrier;
+        carrier = victim;
+        victim = tmp;
     }
+
+    assert(memcmp(&carrier->Item, Item, sizeof(CacheItemT)) == 0);
+
     return -1;
 }
 
@@ -192,10 +167,6 @@ DeleteFromCacheTable(
     CacheElementT *elem, *end;
     HashValueT hash1, hash2;
     HASH_FUNCTION1(Key, sizeof(KeyT), hash1);
-    HASH_FUNCTION2(Key, sizeof(KeyT), hash2);
-    if (hash1 == hash2) {
-        hash1 = ~hash2;
-    }
 
     //
     // Check the first hash function
@@ -205,9 +176,8 @@ DeleteFromCacheTable(
     end = elem + CACHE_TABLE_BUCKET_SIZE;
     while (elem != end) {
         if (elem->Hash1 == hash1 &&
-            elem->Hash2 == hash2 &&
             (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
-            memset(ele, 0, sizeof(CacheElementT));
+            memset(elem, 0, sizeof(CacheElementT));
             return;
         }
 
@@ -218,20 +188,22 @@ DeleteFromCacheTable(
     // Check the second hash function
     //
     //
+    HASH_FUNCTION2(Key, sizeof(KeyT), hash2);
+    if (hash1 == hash2) {
+        hash1 = ~hash2;
+    }
     elem = CacheTable->Table[hash2 & mask];
     end = elem + CACHE_TABLE_BUCKET_SIZE;
     while (elem != end) {
         if (elem->Hash1 == hash1 &&
             elem->Hash2 == hash2 &&
             (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
-            memset(ele, 0, sizeof(CacheElementT));
+            memset(elem, 0, sizeof(CacheElementT));
             return;
         }
 
         ++elem;
     }
-
-    return NULL;
 }
 
 //
@@ -246,11 +218,7 @@ LookUpCacheTable(
 
     CacheElementT *elem, *end;
     HashValueT hash1, hash2;
-    HASH_FUNCTION1(*Key, sizeof(KeyT), hash1);
-    HASH_FUNCTION2(*Key, sizeof(KeyT), hash2);
-    if (hash1 == hash2) {
-        hash1 = ~hash2;
-    }
+    HASH_FUNCTION1(Key, sizeof(KeyT), hash1);
 
     //
     // Check the first hash function
@@ -260,7 +228,6 @@ LookUpCacheTable(
     end = elem + CACHE_TABLE_BUCKET_SIZE;
     while (elem != end) {
         if (elem->Hash1 == hash1 &&
-            elem->Hash2 == hash2 &&
             (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
             return &elem->Item;
         }
@@ -272,11 +239,14 @@ LookUpCacheTable(
     // Check the second hash function
     //
     //
+    HASH_FUNCTION2(Key, sizeof(KeyT), hash2);
+    if (hash1 == hash2) {
+        hash1 = ~hash2;
+    }
     elem = CacheTable->Table[hash2 & mask];
     end = elem + CACHE_TABLE_BUCKET_SIZE;
     while (elem != end) {
-        if (elem->Hash1 == hash1 &&
-            elem->Hash2 == hash2 &&
+        if (elem->Hash1 == hash2 &&
             (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
             return &elem->Item;
         }
@@ -284,7 +254,7 @@ LookUpCacheTable(
         ++elem;
     }
 
-    return NULL;
+    return (CacheItemT*)NULL;
 }
 
 //

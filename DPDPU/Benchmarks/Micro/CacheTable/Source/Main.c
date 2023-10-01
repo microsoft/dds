@@ -6,7 +6,7 @@
 
 int main() {
     int result = 0;
-    const size_t totalItems = 2000000;
+    const size_t totalItems = 20000000;
 
     fprintf(stdout, "Allocating test items...\n");
     CacheItemT* items = malloc(totalItems * sizeof(CacheItemT));
@@ -34,37 +34,45 @@ int main() {
     InitProfiler(&profiler, totalItems);
 
     StartProfiler(&profiler);
-    while (!result && itemCount <= totalItems) {
-        result = AddToCacheTable(&items[itemCount]);
-        itemCount++;
+    for (size_t i = 0; i != totalItems; i++) {
+        result = AddToCacheTable(&items[i]);
+	if (!result) {
+            itemCount++;
+	    // printf("itemCount = %ld\n", itemCount);
+	}
     }
     StopProfiler(&profiler);
     profiler.Operations = itemCount;
     
-    fprintf(stdout, "%ld items added before failure\n");
+    fprintf(stdout, "%ld / %ld items added to the cache table\n", itemCount, totalItems);
     ReportProfiler(&profiler);
 
-    fprintf(stdout, "Testing if added items are correct");
     CacheItemT* itemQueried;
+    fprintf(stdout, "Testing if added items are correct\n");
     for (size_t i = 0; i != itemCount; i++) {
-        itemQueried = LookUpCacheTable(&items[i].Key)->Offset;
+        itemQueried = LookUpCacheTable(&items[i].Key);
+	if (!itemQueried) {
+            fprintf(stderr, "Test failed: Key %ld doesn't exist\n", items[i].Key);
+	}
         if (itemQueried->Offset != items[i].Offset) {
-            fprintf(stderr, "Test failed: key = %ld (%ld -> %ld)\n", items[i].Key, items[i].Offset, itemQueried->Offset);
+            fprintf(stderr, "Test failed: Key %ld (%ld -> %ld)\n", items[i].Key, items[i].Offset, itemQueried->Offset);
         }
     }
 
     fprintf(stdout, "Looking up from the cache table...\n");
     itemCount = 0;
     StartProfiler(&profiler);
-    while (itemCount <= totalItems) {
-        result = LookUpCacheTable(&items[itemCount].Key);
+    while (itemCount != totalItems) {
+        itemQueried = LookUpCacheTable(&items[itemCount].Key);
         itemCount++;
     }
     StopProfiler(&profiler);
     profiler.Operations = itemCount;
     
-    fprintf(stdout, "%ld items looked up\n");
+    fprintf(stdout, "%ld items looked up\n", itemCount);
     ReportProfiler(&profiler);
+
+    DestroyCacheTable();
 
     return 0;
 }

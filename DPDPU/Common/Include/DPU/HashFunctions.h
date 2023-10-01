@@ -6,7 +6,7 @@
 //
 
 #ifndef HASH_FUNCTION1
-#define HASH_FUNCTION1(keyptr,keylen,hashv) HASH_SAX(keyptr, keylen, hashv)
+#define HASH_FUNCTION1(keyptr,keylen,hashv) HASH_SFH(keyptr, keylen, hashv)
 #endif
 
 #ifndef HASH_FUNCTION2
@@ -166,3 +166,4 @@ do {                                                                            
   hashv ^= hashv << 25;                                                          \
   hashv += hashv >> 6;                                                           \
 } while (0)
+
