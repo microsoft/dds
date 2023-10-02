@@ -50,6 +50,7 @@ typedef struct {
 
 //
 // Define cache table type
+// TODO: C++ unordered_map is faster than this on DPU
 //
 //
 typedef struct {
