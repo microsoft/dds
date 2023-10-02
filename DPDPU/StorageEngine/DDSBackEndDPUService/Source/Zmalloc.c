@@ -22,6 +22,7 @@ void AllocateSpace(void *arg){
         bdev_reset_zone(arg);
         return;
     }
+    pthread_mutex_init(&SPDKContext->SpaceMutex, NULL);
 
 }
 
@@ -43,6 +44,7 @@ struct PerSlotContext* FindFreeSpace(
     SPDKContextT *SPDKContext,
     DataPlaneRequestContext* Context
 ){
+    pthread_mutex_lock(&SPDKContext->SpaceMutex);
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
         if(SPDKContext->SPDKSpace[i].Available){
             SPDKContext->SPDKSpace[i] = false;
@@ -50,5 +52,6 @@ struct PerSlotContext* FindFreeSpace(
             return &SPDKContext->SPDKSpace[i];
         }
     }
+    pthread_mutex_unlock(&SPDKContext->SpaceMutex)
     return NULL;
 }
