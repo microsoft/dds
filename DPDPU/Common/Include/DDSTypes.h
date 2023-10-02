@@ -1,16 +1,16 @@
 #pragma once
 
-#ifdef __GNUC__
-#include <stdatomic.h>
-#elif defined (_MSC_VER)
+#if defined (_MSC_VER) || defined (__cplusplus)
 #include <atomic>
+#else
+#include <stdatomic.h>
 #endif
 #include <stdint.h>
 #include <time.h>
 
 #include "Protocol.h"
 
-#if defined (_MSC_VER)
+#if defined (_MSC_VER) || defined (__cplusplus)
 template <class C>
 using Atomic=std::atomic<C>;
 #endif
@@ -58,10 +58,10 @@ typedef struct FileProperties {
   time_t LastWriteTime;
   FileSizeT FileSize;
   FileAccessT Access;
-#ifdef __GNUC__
-  _Atomic PositionInFileT Position;
-#elif defined (_MSC_VER)
+#if defined (_MSC_VER) || defined (__cplusplus)
   Atomic<PositionInFileT> Position;
+#else
+  _Atomic PositionInFileT Position;
 #endif
   FileShareModeT ShareMode;
   char FileName[DDS_MAX_FILE_PATH];
