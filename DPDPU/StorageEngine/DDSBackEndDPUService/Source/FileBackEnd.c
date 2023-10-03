@@ -166,6 +166,7 @@ AllocConns(BackEndConfig* Config) {
     memset(Config->BuffConns, 0, sizeof(BuffConnConfig) * Config->MaxClients);
     for (int c = 0; c < Config->MaxBuffs; c++) {
         Config->BuffConns[c].BuffId = c;
+        Config->BuffConns[c].NextRequestContext = 0;
     }
 
     return 0;
@@ -1842,12 +1843,6 @@ ExecuteRequests(
     int headResp = BuffConn->ResponseRing.TailB;
     int respRingCapacity = tailResp >= headResp ? (BACKEND_RESPONSE_BUFFER_SIZE - tailResp + headResp) : (headResp - tailResp);
     
-    //
-    // should use malloc, this stack would be destroyed by the time callbacks are fired and access dataBuff
-    // Callbacks will free this dataBuff at the end; previously it was just a struct on the stack and passed as &dataBuff
-    //
-    //
-    SplittableBufferT *dataBuff = malloc(sizeof(*dataBuff));
     int progressReqForParsing;
     FileIOSizeT reqSize;
     FileIOSizeT respSize = 0;
@@ -1855,8 +1850,8 @@ ExecuteRequests(
     int progressReq = headReq;
     int progressResp = tailResp;
     
-    DataPlaneRequestContext ctxt;
-
+    DataPlaneRequestContext* ctxt = NULL;
+    SplittableBufferT* dataBuff = NULL;
 
     buffReq = BuffConn->RequestDMAReadDataBuff;
     buffResp = BuffConn->ResponseDMAWriteDataBuff;
@@ -1911,6 +1906,13 @@ ExecuteRequests(
             // Extract write source buffer from the request ring
             //
             //
+            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            BuffConn->NextRequestContext++;
+            if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
+                BuffConn->NextRequestContext = 0;
+            }
+            dataBuff = &ctxt->DataBuffer;
+
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
             dataBuff->TotalSize = curReqObj->Bytes;
             dataBuff->FirstAddr = buffReq + progressReqForParsing;
@@ -1930,7 +1932,7 @@ ExecuteRequests(
             *(FileIOSizeT*)(buffResp + progressResp) = respSize;
 
             BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
-	    resp->RequestId = curReqObj->RequestId;
+            resp->RequestId = curReqObj->RequestId;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
             
             progressResp += respSize;
@@ -1943,10 +1945,9 @@ ExecuteRequests(
             // Submit this request
             //
             //
-            ctxt.Request = curReqObj;
-            ctxt.Response = resp;
-            ctxt.DataBuffer = &dataBuff;
-            SubmitDataPlaneRequest(FS, &ctxt, false);
+            ctxt->Request = curReqObj;
+            ctxt->Response = resp;
+            SubmitDataPlaneRequest(FS, ctxt, false);
         }
         else {
             //
@@ -1970,13 +1971,20 @@ ExecuteRequests(
             *(FileIOSizeT*)(buffResp + progressResp) = respSize;
 
             BuffMsgB2FAckHeader *resp = (BuffMsgB2FAckHeader *)(buffResp + progressResp + sizeof(FileIOSizeT));
-	    resp->RequestId = curReqObj->RequestId;
+            resp->RequestId = curReqObj->RequestId;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
 
             //
             // Extract read destination buffer from the response ring
             //
             //
+            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            BuffConn->NextRequestContext++;
+            if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
+                BuffConn->NextRequestContext = 0;
+            }
+            dataBuff = &ctxt->DataBuffer;
+
             dataBuff->TotalSize = curReqObj->Bytes;
             if (progressResp + respSize <= BACKEND_RESPONSE_BUFFER_SIZE) {
                 dataBuff->FirstAddr = buffResp + (progressResp + alignment);
@@ -2006,10 +2014,9 @@ ExecuteRequests(
             // Invoke read handler 
             //
             //
-            ctxt.Request = curReqObj;
-            ctxt.Response = resp;
-            ctxt.DataBuffer = &dataBuff;
-            SubmitDataPlaneRequest(FS, &ctxt.DataBuffer, true);
+            ctxt->Request = curReqObj;
+            ctxt->Response = resp;
+            SubmitDataPlaneRequest(FS, ctxt, true);
         }
     }
 
@@ -2253,7 +2260,7 @@ ProcessBuffCqEvents(
                             // Not ready to write, poll again
                             //
                             //
-			    DebugPrint("progress %d != head %d, keep polling\n", progress, head);
+                            DebugPrint("progress %d != head %d, keep polling\n", progress, head);
                             ret = ibv_post_send(buffConn->QPair, &buffConn->ResponseDMAReadMetaWr, &badSendWr);
                             if (ret) {
                                 fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
@@ -2405,7 +2412,7 @@ ProcessBuffCqEvents(
                             // There is nothing to do here because response completions are checked in the big loop
                             //
                             //
-			    DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
+                            DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
                         }
                         else {
                             buffConn->ResponseDMAWriteDataSplitState++;
@@ -2422,7 +2429,7 @@ ProcessBuffCqEvents(
                             // There is nothing to do here because response completions are checked in the big loop
                             //
                             //
-			    DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
+                            DebugPrint("Responses have been written back: TailA = %d, TailB = %d, TailC = %d\n", buffConn->ResponseRing.TailA, buffConn->ResponseRing.TailB, buffConn->ResponseRing.TailC);
                         }
                         else {
                             buffConn->ResponseDMAWriteDataSplitState++;
@@ -2533,7 +2540,7 @@ CheckAndProcessIOCompletions(
                 // Send the response back to the host
                 //
                 //
-		DebugPrint("A response batch of %d bytes have finished. Polling host response progress\n", totalRespSize);
+                DebugPrint("A response batch of %d bytes have finished. Polling host response progress\n", totalRespSize);
                 struct ibv_send_wr *badSendWr = NULL;
                 
                 //

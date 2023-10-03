@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "Profiler.h"
+#include "ProfilerCC.h"
 
 using std::cout;
 using std::endl;

@@ -11,7 +11,6 @@ typedef struct {
     BuffMsgF2BReqHeader* Request;
     BuffMsgB2FAckHeader* Response;
     SplittableBufferT* DataBuffer;
-    SPDKContextT *SPDKContext;  // thread specific SPDK ctx
 } DataPlaneRequestContext;
 
 //

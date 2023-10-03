@@ -1,0 +1,59 @@
+project('DDSFileBackEnd', 'C', 'CPP',
+        version: '0.1',
+        license: 'Proprietary',
+        default_options: ['buildtype=release'],
+        meson_version: '>= 0.61.2'
+)
+
+languages = ['c', 'cpp']
+
+install_apps = false
+
+base_cpp_args = [
+        '-std=c++11',
+]
+
+base_c_args = [
+        '-flax-vector-conversions',
+]
+
+# Resolve irrelevant compiler warnings
+add_project_arguments('-Wno-format-zero-length', language: languages)
+add_project_arguments('-Wno-address-of-packed-member', language: languages)
+add_project_arguments('-Wno-deprecated-declarations', language: languages)
+
+base_app_dependencies = []
+base_app_dependencies += dependency('threads')
+
+base_app_inc_dirs = [
+        include_directories('../../../Common/Include/'),
+        include_directories('../../../Common/Include/DPU/'),
+]
+
+app_link_args = []
+app_link_args += ['-libverbs']
+app_link_args += ['-lrdmacm']
+
+APP_NAME = 'CacheTableBenchmark'
+
+app_dependencies = base_app_dependencies
+app_inc_dirs = base_app_inc_dirs
+app_srcs = []
+
+src = 'Source/'
+
+app_srcs += [
+        src + 'Main.c',
+        '../../../Common/Source/DPU/CacheTable.c',
+        '../../../Common/Source/DPU/Profiler.c',
+]
+
+executable(APP_NAME,
+        app_srcs,
+        c_args : base_c_args,
+        cpp_args : base_cpp_args,
+        dependencies : [app_dependencies],
+        include_directories : app_inc_dirs,
+	link_args : app_link_args,
+        install: install_apps
+)
