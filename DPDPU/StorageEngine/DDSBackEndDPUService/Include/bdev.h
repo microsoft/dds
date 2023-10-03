@@ -4,22 +4,8 @@
 #include <stdint.h>
 #include "Zmalloc.h"
 #include <pthread.h>
-//
-// We'll use this struct to gather housekeeping hello_context to pass between
-// our events and callbacks.
-//
-//
-struct hello_context_t {
-	struct spdk_bdev *bdev;
-	struct spdk_bdev_desc *bdev_desc;
-	struct spdk_io_channel *bdev_io_channel;
-	char *buff;
-	uint32_t buff_size;
-	char *bdev_name;
-	struct spdk_bdev_io_wait_entry bdev_io_wait;
-};
 
-// char *G_BDEV_NAME;
+extern char *G_BDEV_NAME;
 
 typedef struct SPDKContext {
 	struct spdk_bdev *bdev;
@@ -46,16 +32,6 @@ typedef struct CallBackContext{
 // TODO: this is single thread context, will need to use per thread context later
 //
 extern SPDKContextT *SPDKContext;
-
-//
-// Dummy Callback function for read io completion.
-//
-//
-void read_complete_dummy(
-    struct spdk_bdev_io *bdev_io, 
-    bool success, 
-    void *cb_arg
-);
 
 //
 // Bdev read function, zeroCopy is used to provide different buffer
@@ -87,7 +63,7 @@ void write_complete(
 //
 // Bdev write function
 // position is used for async only and should between belongs
-// [0, ONE_GB). But the acutal position will be added ONE_GB to 
+// [0, ONE_GB). But the actual position will be added ONE_GB to 
 // separate space from read.
 // Sync write should set position = 0
 //

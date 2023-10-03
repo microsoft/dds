@@ -212,7 +212,7 @@ typedef struct {
 // but SPDK requires all the parameters be in just one struct, like the following
 //
 //
-/* int RunFileBackEnd(
+int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,

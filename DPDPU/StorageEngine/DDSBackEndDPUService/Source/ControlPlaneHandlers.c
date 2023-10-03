@@ -4,7 +4,7 @@
 #include "ControlPlaneHandler.h"
 
 struct DPUStorage *Sto;
-SPDKContextT *SPDKContext;
+FileService* FS;
 
 //
 // Handler for a control plane request
@@ -14,7 +14,6 @@ void ControlPlaneHandler(
     ControlPlaneRequestContext *Context
 ) {
     //
-    // TODO: send this request to the file service
     // Upon completion, set Context->Response->Result as DDS_ERROR_CODE_SUCCESS
     //
     //
@@ -27,15 +26,15 @@ void ControlPlaneHandler(
             // we should free handler ctx in the last callback for every case
             ControlPlaneHandlerCtx *HandlerCtx = malloc(sizeof(*HandlerCtx));
             HandlerCtx->Result = &Resp->Result;
-            CreateDirectory(Req->PathName, Req->DirId, Req->ParentDirId, Sto, SPDKContext, HandlerCtx);
+            CreateDirectory(Req->PathName, Req->DirId, Req->ParentDirId, Sto, Context->SPDKContext, HandlerCtx);
         }
             break;
         case CTRL_MSG_F2B_REQ_REMOVE_DIR: {
-            CtrlMsgF2BReqRemoveDirectory *Rep = Context->Request;
+            CtrlMsgF2BReqRemoveDirectory *Req = Context->Request;
             CtrlMsgB2FAckRemoveDirectory *Resp = Context->Response;
             ControlPlaneHandlerCtx *HandlerCtx = malloc(sizeof(*HandlerCtx));
             HandlerCtx->Result = &Resp->Result;
-            RemoveDirectory(Req->DirId, Sto, SPDKContext, HandlerCtx);
+            RemoveDirectory(Req->DirId, Sto, Context->SPDKContext, HandlerCtx);
 
         }
             break;
@@ -45,7 +44,7 @@ void ControlPlaneHandler(
             ControlPlaneHandlerCtx *HandlerCtx = malloc(sizeof(*HandlerCtx));
             HandlerCtx->Result = &Resp->Result;
             CreateFile(Req->FileName, Req->FileAttributes, Req->FileId, 
-            Req->DirId, Sto, SPDKContext, HandlerCtx);
+            Req->DirId, Sto, Context->SPDKContext, HandlerCtx);
         }
             break;
         case CTRL_MSG_F2B_REQ_DELETE_FILE: {
@@ -53,7 +52,7 @@ void ControlPlaneHandler(
             CtrlMsgB2FAckDeleteFile *Resp = Context->Response;
             ControlPlaneHandlerCtx *HandlerCtx = malloc(sizeof(*HandlerCtx));
             HandlerCtx->Result = &Resp->Result;
-            DeleteFileOnSto(Req->FileId, Req->DirId, Sto, SPDKContext, HandlerCtx);
+            DeleteFileOnSto(Req->FileId, Req->DirId, Sto, Context->SPDKContext, HandlerCtx);
         }
             break;
         case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE: {
@@ -91,7 +90,7 @@ void ControlPlaneHandler(
             CtrlMsgB2FAckMoveFile *Resp = Context->Response;
             ControlPlaneHandlerCtx *HandlerCtx = malloc(sizeof(*HandlerCtx));
             HandlerCtx->Result = &Resp->Result;
-            MoveFile(Req->FileId, Req->OldDirId, Req->NewDirId, Req->NewFileName, Sto, SPDKContext, HandlerCtx);
+            MoveFile(Req->FileId, Req->OldDirId, Req->NewDirId, Req->NewFileName, Sto, Context->SPDKContext, HandlerCtx);
         }
             break;
         default: {

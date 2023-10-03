@@ -2798,7 +2798,7 @@ int RunFileBackEnd(
     ret = InitDMA(&config.DMAConf, config.ServerIp, config.ServerPort);
     if (ret) {
         fprintf(stderr, "InitDMA failed with %d\n", ret);
-        return;
+        return ret;
     }
 
     //
@@ -2809,7 +2809,7 @@ int RunFileBackEnd(
     if (ret) {
         fprintf(stderr, "AllocConns failed with %d\n", ret);
         TermDMA(&config.DMAConf);
-        return;
+        return ret;
     }
 
     //
@@ -2820,9 +2820,8 @@ int RunFileBackEnd(
     if (ret) {
         ret = errno;
         fprintf(stderr, "rdma_listen error %d\n", ret);
-        return;
+        return ret;
     }
-
 
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
@@ -2908,10 +2907,7 @@ int RunFileBackEnd(
     TermDMA(&config.DMAConf);
     DeallocateFileService(config.FS);
 
-    spdk_app_stop(ret);
-    printf("spdk_app_stop returned with: %d\n", ret);
-
-    return;
+    return ret;
 }
 
 

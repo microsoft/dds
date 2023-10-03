@@ -9,7 +9,7 @@ static inline void DebugPrint(const char* Fmt, ...) { }
 #endif
 
 struct DPUStorage *Sto;
-SPDKContextT *SPDKContext;
+// SPDKContextT *SPDKContext;
 //
 // Handler for a read request
 //
@@ -24,7 +24,7 @@ void ReadHandler(
     //
     //
     // BackEndIOContextT *IOContext = malloc(sizeof(*IOContext));
-    struct PerSlotContext* SlotContext= FindFreeSpace(SPDKContext, Context);
+    struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
     //
     // in case there is no available space, set result to failure
     //
@@ -34,14 +34,15 @@ void ReadHandler(
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
         return;
     }
-    SlotContext->IsRead = false;
+    // SlotContext->IsRead = false;  // unused?
     // IOContext->Resp = Resp;
     // IOContext->Resp->RequestId = Req->RequestId;
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in ReadFile when async writes are issued successfully
     // IOContext->SplittableBuffer = DestBuffer;
 
-    ErrorCodeT ret = ReadFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer, ReadHandlerCallback, SlotContext, Sto, SPDKContext);
+    ErrorCodeT ret = ReadFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer,
+        ReadHandlerCallback, SlotContext, Sto, Context->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
@@ -93,7 +94,7 @@ void ReadHandlerCallback(
 
     if (SlotContext->Ctx->Response->Result != DDS_ERROR_CODE_IO_FAILURE) {  // did not previously fail, should actually == IO_PENDING here
         if (Success) {
-            if (SlotContext->CallbacksRan == IOContext->CallbacksToRun) {  // all callbacks done and successful, mark resp success
+            if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {  // all callbacks done and successful, mark resp success
                 SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_SUCCESS;
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
                 SPDK_NOTICELOG("ReadHandler for RequestId %hu successful, BytesServiced: %d with %hu writes\n",
@@ -127,7 +128,7 @@ void WriteHandler(
     printf("Executing a write request: %u@%lu#%u, splittable buffer total size: %d\n", Context->Request->FileId,
     Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer->TotalSize);
 
-    struct PerSlotContext* SlotContext= FindFreeSpace(SPDKContext, Context);
+    struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
     //
     // in case there is no available space, set result to failure
     //
@@ -138,14 +139,15 @@ void WriteHandler(
         return;
     }
     // BackEndIOContextT *IOContext = malloc(sizeof(*IOContext));
-    SlotContext->IsRead = false;
+    // SlotContext->IsRead = false;  // unused??
     // IOContext->Resp = Resp;
     // IOContext->Resp->RequestId = Req->RequestId;
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in WriteFile when async writes are issued successfully
     // IOContext->SplittableBuffer = SourceBuffer;
 
-    ErrorCodeT ret = WriteFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer, WriteHandlerCallback, SlotContext, Sto, SPDKContext);
+    ErrorCodeT ret = WriteFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer,
+        WriteHandlerCallback, SlotContext, Sto, Context->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
@@ -211,6 +213,11 @@ void WriteHandlerCallback(
     }  // else previously failed, no useful work to do
 
     // finally if we are the last callback, free the context and buffer, no matter if it failed or not
+    /* if (IOContext->CallbacksRan == IOContext->CallbacksToRun) {
+        SPDK_NOTICELOG("last write handler callback run, total: %hu\n", IOContext->CallbacksToRun);
+        free(IOContext->SplittableBuffer);
+        free(IOContext);
+    } */
     if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {
         SPDK_NOTICELOG("last write handler callback run, total: %hu\n", SlotContext->CallbacksToRun);
         // free(IOContext->SplittableBuffer);

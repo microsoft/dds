@@ -61,31 +61,6 @@ int bdev_read(
 		return 0;  // success
 }
 
-/*
- * Callback function for write io completion.
- */
-void write_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
-{
-	struct hello_context_t *hello_context = cb_arg;
-
-	/* Complete the I/O */
-	spdk_bdev_free_io(bdev_io);
-
-	if (success) {
-		SPDK_NOTICELOG("bdev io write completed successfully\n");
-	} else {
-		SPDK_ERRLOG("bdev io write error: %d\n", EIO);
-		spdk_put_io_channel(hello_context->bdev_io_channel);
-		spdk_bdev_close(hello_context->bdev_desc);
-		spdk_app_stop(-1);
-		return;
-	}
-
-	/* Zero the buffer so that we can use it for reading */
-	//memset(hello_context->buff, 0, hello_context->buff_size);
-
-	//hello_read(hello_context);
-}
 
 int bdev_write(
     void *arg,
@@ -135,15 +110,15 @@ hello_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
 void
 reset_zone_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
-	struct hello_context_t *hello_context = cb_arg;
+	SPDKContextT *SPDKContext = cb_arg;
 
 	/* Complete the I/O */
 	spdk_bdev_free_io(bdev_io);
 
 	if (!success) {
 		SPDK_ERRLOG("bdev io reset zone error: %d\n", EIO);
-		spdk_put_io_channel(hello_context->bdev_io_channel);
-		spdk_bdev_close(hello_context->bdev_desc);
+		spdk_put_io_channel(SPDKContext->bdev_io_channel);
+		spdk_bdev_close(SPDKContext->bdev_desc);
 		spdk_app_stop(-1);
 		return;
 	}
@@ -154,24 +129,24 @@ reset_zone_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 void
 bdev_reset_zone(void *arg)
 {
-	struct hello_context_t *hello_context = arg;
+	SPDKContextT *SPDKContext = arg;
 	int rc = 0;
 
-	rc = spdk_bdev_zone_management(hello_context->bdev_desc, hello_context->bdev_io_channel,
-				       0, SPDK_BDEV_ZONE_RESET, reset_zone_complete, hello_context);
+	rc = spdk_bdev_zone_management(SPDKContext->bdev_desc, SPDKContext->bdev_io_channel,
+				       0, SPDK_BDEV_ZONE_RESET, reset_zone_complete, SPDKContext);
 
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
-		hello_context->bdev_io_wait.bdev = hello_context->bdev;
-		hello_context->bdev_io_wait.cb_fn = bdev_reset_zone;
-		hello_context->bdev_io_wait.cb_arg = hello_context;
-		spdk_bdev_queue_io_wait(hello_context->bdev, hello_context->bdev_io_channel,
-					&hello_context->bdev_io_wait);
+		SPDKContext->bdev_io_wait.bdev = SPDKContext->bdev;
+		SPDKContext->bdev_io_wait.cb_fn = bdev_reset_zone;
+		SPDKContext->bdev_io_wait.cb_arg = SPDKContext;
+		spdk_bdev_queue_io_wait(SPDKContext->bdev, SPDKContext->bdev_io_channel,
+					&SPDKContext->bdev_io_wait);
 	} else if (rc) {
 		SPDK_ERRLOG("%s error while resetting zone: %d\n", spdk_strerror(-rc), rc);
-		spdk_put_io_channel(hello_context->bdev_io_channel);
-		spdk_bdev_close(hello_context->bdev_desc);
+		spdk_put_io_channel(SPDKContext->bdev_io_channel);
+		spdk_bdev_close(SPDKContext->bdev_desc);
 		spdk_app_stop(-1);
 	}
 }

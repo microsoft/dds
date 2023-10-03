@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #include "MsgTypes.h"
-#include "FileBackEnd.h"
+// #include "FileBackEnd.h"  // circular include here: FileService - DPUBackEndStorage - FileBackEnd - FileService
 #include "DPUBackEndDir.h"
 #include "ControlPlaneHandler.h"
 #include "DPUBackEndFile.h"
@@ -306,6 +306,7 @@ struct LoadDirectoriesAndFilesCtx {
     atomic_int *LoadedDirs;
     atomic_int *LoadedFiles;
     struct InitializeFailureStatus *FailureStatus;  // points to the member in struct InitializeCtx
+    SPDKContextT *SPDKContext;
     /* atomic_bool HasFailed;
     atomic_bool HasAborted;
     atomic_bool *HasStopped; */
