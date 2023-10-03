@@ -7,12 +7,12 @@ void AllocateSpace(void *arg){
 	SPDKContext->buff = spdk_dma_zmalloc(SPDKContext->buff_size, buf_align, NULL);
 	if (!SPDKContext->buff) {
 		SPDK_ERRLOG("Failed to allocate buffer\n");
-		spdk_put_io_channel(SPDKContext->bdev_io_channel);
+		/* spdk_put_io_channel(SPDKContext->bdev_io_channel);
 		spdk_bdev_close(SPDKContext->bdev_desc);
-		spdk_app_stop(-1);
+		spdk_app_stop(-1); */
+        exit(-1);
 		return;
 	}
-    // TODO: sizeof(BackEndIOContextT)
     SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(struct PerSlotContext));
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
         SPDKContext->SPDKSpace[i].Available = true;
@@ -47,11 +47,12 @@ struct PerSlotContext* FindFreeSpace(
     pthread_mutex_lock(&SPDKContext->SpaceMutex);
     for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
         if(SPDKContext->SPDKSpace[i].Available){
-            SPDKContext->SPDKSpace[i] = false;
+            SPDKContext->SPDKSpace[i].Available = false;
             SPDKContext->SPDKSpace[i].Ctx = Context;
+            pthread_mutex_unlock(&SPDKContext->SpaceMutex);
             return &SPDKContext->SPDKSpace[i];
         }
     }
-    pthread_mutex_unlock(&SPDKContext->SpaceMutex)
+    pthread_mutex_unlock(&SPDKContext->SpaceMutex);
     return NULL;
 }
