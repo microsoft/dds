@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <pthread.h>
 
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
@@ -27,7 +28,7 @@ static inline void DebugPrint(const char* Fmt, ...) { }
 static volatile int ForceQuitFileBackEnd = 0;
 
 struct DPUStorage *Sto;
-SPDKContextT *SPDKContext;
+// SPDKContextT *SPDKContext;
 pthread_t FSAppThread;
 
 //
@@ -1945,7 +1946,7 @@ ExecuteRequests(
             ctxt.Request = curReqObj;
             ctxt.Response = resp;
             ctxt.DataBuffer = &dataBuff;
-            SubmitDataPlaneRequest(FS, &ctxt);
+            SubmitDataPlaneRequest(FS, &ctxt, false);
         }
         else {
             //
@@ -2008,7 +2009,7 @@ ExecuteRequests(
             ctxt.Request = curReqObj;
             ctxt.Response = resp;
             ctxt.DataBuffer = &dataBuff;
-            SubmitDataPlaneRequest(FS, &ctxt);
+            SubmitDataPlaneRequest(FS, &ctxt.DataBuffer, true);
         }
     }
 
@@ -2738,18 +2739,17 @@ CheckAndProcessControlPlaneCompletions(
 // The entry point for the back end
 //
 // Jason: this is the mainloop, so it needs to be supplied to SPDK's `spdk_app_start`, which will call it
-// `spdk_app_start` itself will block until spdk_app_stop() is called, or an error occured during start
+// `spdk_app_start` itself will block until spdk_app_stop() is called, or an error occurred during start
 //
 //
-void RunFileBackEnd(
-    void *args
+int RunFileBackEnd(
+    const char* ServerIpStr,
+    const int ServerPort,
+    const uint32_t MaxClients,
+    const uint32_t MaxBuffs,
+    int argc,
+    char **argv
 ) {
-    struct runFileBackEndArgs *thisArgs = (struct runFileBackEndArgs *) args;
-    const char* ServerIpStr = thisArgs->ServerIpStr;
-    const int ServerPort = thisArgs->ServerPort;
-    const uint32_t MaxClients = thisArgs->MaxClients;
-    const uint32_t MaxBuffs = thisArgs->MaxBuffs;
-
     BackEndConfig config;
     struct rdma_cm_event *event;
     int ret = 0;
@@ -2780,38 +2780,16 @@ void RunFileBackEnd(
     }
 
     //
-    // Initialize SPDK stuff
+    // Initialize and start file service, this will be completed async, assume it finishes before we actually use FS
     //
     //
-    SPDKContext = malloc(sizeof(SPDKContextT));
-    char* G_BDEV_NAME = "Malloc0";
-    SPDKContext->bdev_name = G_BDEV_NAME;
-
-    SPDK_NOTICELOG("Successfully started the application\n");
-    ret = spdk_bdev_open_ext(SPDKContext->bdev_name, true, dds_bdev_event_cb, NULL,
-				SPDKContext->bdev_desc);
-	if (ret) {
-		SPDK_ERRLOG("Could not open bdev: %s\n", SPDKContext->bdev_name);
-		spdk_app_stop(-1);
-		return;
-	}
-
-    /* A bdev pointer is valid while the bdev is opened. */
-	SPDKContext->bdev = spdk_bdev_desc_get_bdev(SPDKContext->bdev_desc);
-    SPDK_NOTICELOG("Opening io channel\n");
-	/* Open I/O channel */
-	SPDKContext->bdev_io_channel = spdk_bdev_get_io_channel(SPDKContext->bdev_desc);
-	if (SPDKContext->bdev_io_channel == NULL) {
-		SPDK_ERRLOG("Could not create bdev I/O channel!!\n");
-		spdk_bdev_close(SPDKContext->bdev_desc);
-		spdk_app_stop(-1);
-		return;
-	}
-
-    /* Allocate memory for the write buffer.
-	 * Initialize the write buffer with the string "Hello World!"
-	 */
-	AllocateSpace(SPDKContext);
+    pthread_t AppPthread;
+    struct StartFileServiceCtx StartCtx = {
+        .argc = argc,
+        .argv = argv,
+        .FS = config.FS
+    };
+    pthread_create(&AppPthread, NULL, StartFileService, &StartCtx);
 
     //
     // Initialize DMA
@@ -2844,27 +2822,7 @@ void RunFileBackEnd(
         fprintf(stderr, "rdma_listen error %d\n", ret);
         return;
     }
-        
-    //
-    // We call this thread agent thread, we now create an app thread, in which we `Initialize()`, and creates some worker threads,
-    // and then calls spdk_app_start() which blocks
-    // TODO: init SPDK (threads, as well as storage?)
-    //
-    // TODO: need what ctx?
-    struct FSAppStartEntryPointCtx *entryPointCtx = malloc(sizeof(*entryPointCtx));
-    pthread_create(&FSAppThread, NULL, FSAppStartEntryPoint, entryPointCtx);
-    
-    //
-    // Initialize Storage, we are now using a global DPUStorage *, potentially cross thread
-    //
-    //
-    // TODO: see the above TODO
-    Sto = BackEndStorage();
-    ErrorCodeT result = Initialize(Sto, SPDKContext);
-    if (result != DDS_ERROR_CODE_SUCCESS){
-        fprintf(stderr, "InitStorage failed with %d\n", result);
-        return;
-    }
+
 
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
@@ -2956,55 +2914,21 @@ void RunFileBackEnd(
     return;
 }
 
-void FSAppStartEntryPoint(void *args) {
-    // TODO
-}
-
-//
-// Usage function for printing parameters that are specific to this application, needed for SPDK app start
-//
-//
-static void
-dds_custom_args_usage(void)
-{
-	printf("if there is any custom cmdline params, add a description for it here\n");
-}
-
-//
-// This function is called to parse the parameters that are specific to this application
-//
-//
-static int
-dds_parse_arg(int ch, char *arg)
-{
-	printf("parse custom arg func called, currently doing nothing...\n");
-}
 
 int main(int argc, char **argv) {
-    int rc;
-    struct spdk_app_opts opts = {};
-    /* Set default values in opts structure. */
-	spdk_app_opts_init(&opts, sizeof(opts));
-	opts.name = "hello_bdev";
-    /*
-	 * Parse built-in SPDK command line parameters as well
-	 * as our custom one(s).
-	 */
-	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, dds_parse_arg,
-				      dds_custom_args_usage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
-        printf("spdk_app_parse_args() failed with: %d\n", rc);
-		exit(rc);
-	}
+    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1, argc, argv);
+
     /* int ret = RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1); */
     
-    struct runFileBackEndArgs args = {
+    /* struct runFileBackEndArgs args = {
         .ServerIpStr = DDS_BACKEND_ADDR,
         .ServerPort = DDS_BACKEND_PORT,
         .MaxClients = 1,
         .MaxBuffs = 1
-    };
+    }; */
     
-    rc = spdk_app_start(&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
+    // TODO: spdk stuff goes into initialization func, 
+    /* rc = spdk_app_start(&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
     printf("spdk_app_start returned with: %d\n", rc);
-    spdk_app_fini();
+    spdk_app_fini(); */
 }

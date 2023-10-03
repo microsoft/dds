@@ -216,6 +216,15 @@ typedef struct {
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
-    const uint32_t MaxBuffs
-); */
-void RunFileBackEnd(void *args);
+    const uint32_t MaxBuffs,
+    int argc,
+    char **argv
+);
+/* void RunFileBackEnd(void *args); */
+
+
+//
+// the main loop where we submit requests and check for completions, happens after all initializations
+//
+//
+void RunAgentLoop(void *Ctx);
