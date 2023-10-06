@@ -44,7 +44,13 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
     {
         struct spdk_thread *worker = FS->WorkerThreads[i];
         SPDKContextT *ctx = &FS->WorkerSPDKContexts[i];
-        spdk_thread_send_msg(worker, GetIOChannel, ctx);
+        int result = spdk_thread_send_msg(worker, GetIOChannel, ctx);
+        if (result) {
+            SPDK_ERRLOG("failed for i %d, result: %s\n", i, spdk_strerror(-result));
+        }
+        else {
+            SPDK_NOTICELOG("sent GetIOChannel() to thread no. %d, ptr: %p\n", i, worker);
+        }
     }
 
     // TODO: does this work?? wait for all workers to finish
@@ -108,8 +114,8 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
     }
     struct spdk_bdev *bdev = spdk_bdev_desc_get_bdev(bdev_desc);
 
-    FS->MasterSPDKContext->bdev_io_channel = NULL;
     FS->MasterSPDKContext = malloc(sizeof(*FS->MasterSPDKContext));
+    FS->MasterSPDKContext->bdev_io_channel = NULL;
     FS->MasterSPDKContext->bdev_name = G_BDEV_NAME;
     FS->MasterSPDKContext->bdev_desc = bdev_desc;
     FS->MasterSPDKContext->bdev = bdev;
@@ -130,6 +136,7 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
             DebugPrint("CANNOT CREATE WORKER THREAD!!! FATAL, EXITING...\n");
             exit(-1);  // TODO: FS app stop
         }
+        SPDK_NOTICELOG("thread id: %llu, thread ptr: %p\n", spdk_thread_get_id(FS->WorkerThreads[i]), FS->WorkerThreads[i]);
         
         SPDKContextT *SPDKContext = &FS->WorkerSPDKContexts[i];
         memcpy(SPDKContext, FS->MasterSPDKContext, sizeof(*SPDKContext));
@@ -171,10 +178,11 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
 // On the top level, this will call spdk_app_start(), supplying the func `StartSPDKFileService`
 // which will initialize threads and storage
 //
-void
+void *
 StartFileServiceWrapper(
     void *Ctx
 ) {
+    printf("StartFileServiceWrapper() running...\n");
     struct StartFileServiceCtx *StartCtx = Ctx;
 
     FileService *FS = StartCtx->FS;
@@ -215,6 +223,7 @@ StartFileService(
     StartCtx->argc = argc;
     StartCtx->argv = argv;
     StartCtx->FS = FS;
+    printf("calling pthread_create()\n");
     pthread_create(AppPthread, NULL, StartFileServiceWrapper, StartCtx);
 }
 
@@ -296,7 +305,7 @@ SubmitControlPlaneRequest(
 
     // TODO: thread selection?
     struct spdk_thread *worker = FS->WorkerThreads[1];
-    Context->SPDKContext = FS->WorkerSPDKContexts[1];
+    Context->SPDKContext = &FS->WorkerSPDKContexts[1];
 
     int ret = spdk_thread_send_msg(worker, ControlPlaneHandler, Context);
 

@@ -4,6 +4,7 @@
 #include "bdev.h"
 #include "DPUBackEndStorage.h"
 #include <stdbool.h>
+#include "Zmalloc.h"
 
 //
 // Handler for a read request

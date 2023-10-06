@@ -19,7 +19,7 @@ typedef struct DPUFileProperties {
 // DPU file, highly similar with DDSBackEndFile
 //
 //
-typedef struct DPUFile {
+struct DPUFile {
     DPUFilePropertiesT Properties;
     SegmentIdT NumSegments;
     //remove const before SegmentIdT
@@ -76,7 +76,7 @@ void SetNumAllocatedSegments(struct DPUFile* File);
 // Not thread-safe
 //
 //
-inline void AllocateSegment(
+void AllocateSegment(
     SegmentIdT NewSegment,
     struct DPUFile* File
 );
@@ -87,4 +87,4 @@ inline void AllocateSegment(
 // Not thread-safe
 //
 //
-inline void DeallocateSegment(struct DPUFile* File);
+void DeallocateSegment(struct DPUFile* File);

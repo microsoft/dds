@@ -8,8 +8,9 @@
 static inline void DebugPrint(const char* Fmt, ...) { }
 #endif
 
-struct DPUStorage *Sto;
+// struct DPUStorage *Sto;
 // SPDKContextT *SPDKContext;
+
 //
 // Handler for a read request
 //

@@ -27,7 +27,7 @@ static inline void DebugPrint(const char* Fmt, ...) { }
 
 static volatile int ForceQuitFileBackEnd = 0;
 
-struct DPUStorage *Sto;
+// struct DPUStorage *Sto;
 
 //
 // the pthread on which spdk_app_start() is called, might wanna join?
@@ -1916,7 +1916,7 @@ ExecuteRequests(
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
             }
-            dataBuff = &ctxt->DataBuffer;
+            dataBuff = ctxt->DataBuffer;
 
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
             dataBuff->TotalSize = curReqObj->Bytes;
@@ -1989,7 +1989,7 @@ ExecuteRequests(
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
             }
-            dataBuff = &ctxt->DataBuffer;
+            dataBuff = ctxt->DataBuffer;
 
             dataBuff->TotalSize = curReqObj->Bytes;
             if (progressResp + respSize <= BACKEND_RESPONSE_BUFFER_SIZE) {
@@ -2958,6 +2958,7 @@ int RunFileBackEnd(
         return ret;
     }
 
+    SPDK_NOTICELOG("Starting file service... StartFileService()\n");
     StartFileService(argc, argv, config.FS, &AppPthread);
     printf("Sleeping 5s so Initialize() can finish...\n");
     sleep(5);
@@ -3016,7 +3017,7 @@ int RunFileBackEnd(
 
 
 
-    SubmitDataPlaneRequest(FS, Context, false, 0);  // do a write
+    // SubmitDataPlaneRequest(FS, Context, false, 0);  // do a write
 
 
 

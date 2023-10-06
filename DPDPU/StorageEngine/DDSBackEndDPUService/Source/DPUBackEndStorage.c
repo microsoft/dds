@@ -1,12 +1,10 @@
-#include <string.h>
-#include <stdlib.h>
-
 #include "DPUBackEndStorage.h"
-#include "bdev.h"
 
 
-struct DPUStorage* Sto;
+
+// struct DPUStorage* Sto;
 // SPDKContextT *SPDKContext;
+
 //
 // Constructor
 // 
@@ -240,7 +238,7 @@ ErrorCodeT ReadFromDiskAsync(
         if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
             SPDK_WARNLOG("A read with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
         }
-        rc = bdev_read(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+        rc = bdev_read(SPDKContext, &arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
         seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
     }
     
@@ -283,8 +281,8 @@ ErrorCodeT WriteToDiskAsync(
         if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
             SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
         }
-        memcpy(arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], SrcBuffer, Bytes);
-        rc = bdev_write(SPDKContext, arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
+        memcpy(&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], SrcBuffer, Bytes);
+        rc = bdev_write(SPDKContext, &arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
         seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
     }
     //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
@@ -913,7 +911,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
                 Ctx->FailureStatus->HasFailed = true;
                 Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
                 SPDK_ERRLOG("Clearing backend pages failed with %d\n", result);
-                return result;
+                return;
             }
 
             /* while (Sto->CurrentProgress != Sto->TargetProgress) {
@@ -936,7 +934,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         result = LoadDirectoriesAndFiles(Sto, Ctx->SPDKContext, Ctx);
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
-            return result;
+            return;
         }
 
         //
@@ -1036,7 +1034,7 @@ ErrorCodeT Initialize(
 // }
 
 void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         // this is basically the last line of the original CreateDirectory()
@@ -1056,7 +1054,7 @@ void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *b
 }
 
 void CreateDirectorySyncDirToDiskCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  // continue to do work
         Sto->AllDirs[HandlerCtx->DirId] = HandlerCtx->dir;
@@ -1091,7 +1089,7 @@ ErrorCodeT CreateDirectory(
     DirIdT ParentId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 ){
     HandlerCtx->SPDKContext = SPDKContext;
 
@@ -1115,7 +1113,7 @@ ErrorCodeT CreateDirectory(
 }
 
 void RemoveDirectoryCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -1132,7 +1130,7 @@ void RemoveDirectoryCallback2(struct spdk_bdev_io *bdev_io, bool Success, Contex
 }
 
 void RemoveDirectoryCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  
         // continue to do work
@@ -1164,7 +1162,7 @@ ErrorCodeT RemoveDirectory(
     DirIdT DirId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 ){
     HandlerCtx->SPDKContext = SPDKContext;
     if (!Sto->AllDirs[DirId]) {
@@ -1184,7 +1182,7 @@ ErrorCodeT RemoveDirectory(
 }
 
 void CreateFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -1201,7 +1199,7 @@ void CreateFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
 }
 
 void CreateFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         Unlock(HandlerCtx->dir);
@@ -1229,7 +1227,7 @@ void CreateFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
 }
 
 void CreateFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  // continue to do work
         //
@@ -1263,7 +1261,7 @@ ErrorCodeT CreateFile(
     DirIdT DirId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 ){
     HandlerCtx->SPDKContext = SPDKContext;
     struct DPUDir* dir = Sto->AllDirs[DirId];
@@ -1294,7 +1292,7 @@ ErrorCodeT CreateFile(
     return result;
 }
 void DeleteFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
@@ -1311,7 +1309,7 @@ void DeleteFileCallback3(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
 }
 
 void DeleteFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         Unlock(HandlerCtx->dir);
@@ -1340,7 +1338,7 @@ void DeleteFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Co
 }
 
 void DeleteFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  // continue to do work
         //
@@ -1373,7 +1371,7 @@ ErrorCodeT DeleteFileOnSto(
     DirIdT DirId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 ){
     HandlerCtx->SPDKContext = SPDKContext;
     struct DPUFile* file = Sto->AllFiles[FileId];
@@ -1847,7 +1845,7 @@ ErrorCodeT GetStorageFreeSpace(
 }
 
 void MoveFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {
         Unlock(HandlerCtx->NewDir);
@@ -1865,7 +1863,7 @@ void MoveFileCallback2(struct spdk_bdev_io *bdev_io, bool Success, ContextT Cont
 }
 
 void MoveFileCallback1(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    struct ControlPlaneHandlerCtx *HandlerCtx = Context;
+    ControlPlaneHandlerCtx *HandlerCtx = Context;
     spdk_bdev_free_io(bdev_io);
     if (Success) {  
         Unlock(HandlerCtx->dir);
@@ -1908,7 +1906,7 @@ ErrorCodeT MoveFile(
     const char* NewFileName,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 ){
     HandlerCtx->SPDKContext = SPDKContext;
     struct DPUFile* file = Sto->AllFiles[FileId];
@@ -1941,7 +1939,7 @@ ErrorCodeT MoveFile(
     HandlerCtx->FileId = FileId;
     HandlerCtx->File = file;
     HandlerCtx->NewFileName = NewFileName;
-    ErrorCodeT result = SyncDirToDisk(OldDir, Sto, SPDKContext, MoveFileCallback1, HandlerCtx);
+    result = SyncDirToDisk(OldDir, Sto, SPDKContext, MoveFileCallback1, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;

@@ -5,9 +5,10 @@ SPDK_HEADER_DIR=$(SPDK_DIR)/include
 SPDK_LIB_DIR=$(SPDK_DIR)/build/lib
 DPDK_LIB_DIR=$(SPDK_DIR)/dpdk/build/lib
 
-Include=-I$(SPDK_HEADER_DIR) -I../../Common/Include -I../../Common/Include/DPU -I../../StorageEngine/DDSBackEndDPUService/Include
+Include=-I../../Common/Include -I../../Common/Include/DPU -I../../StorageEngine/DDSBackEndDPUService/Include
 
 COMMON_CFLAGS=-I$(SPDK_HEADER_DIR)
+COMMON_CFLAGS+=$(Include)
 COMMON_CFLAGS+=-L$(SPDK_LIB_DIR)
 COMMON_CFLAGS+=-L$(DPDK_LIB_DIR)
 
@@ -38,11 +39,11 @@ LDLIBS=-pthread -Wl,--no-as-needed -lspdk -lspdk_env_dpdk $(SPDK_LIB) $(DPDK_LIB
 
 CFLAGS=-std=gnu11 -O3
 
-PROG=TestProg
+PROG=TestDDS
 BUILD_DIR=./build
 SRC_COMMON=../../Common/Source
 
-SRC_DIR = ./Source
+SRC_DIR = Source
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 SRCS += $(SRC_COMMON)/DPU/FileService.c
 $(info SRCS: $(SRCS))

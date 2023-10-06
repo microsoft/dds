@@ -2,6 +2,7 @@
 
 #include "DDSTypes.h"
 #include "MsgTypes.h"
+#include "bdev.h"
 
 //
 // Context for a pending data plane request from the host

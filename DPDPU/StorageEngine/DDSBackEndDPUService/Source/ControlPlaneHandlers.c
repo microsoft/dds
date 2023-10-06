@@ -3,8 +3,8 @@
 
 #include "ControlPlaneHandler.h"
 
-struct DPUStorage *Sto;
-FileService* FS;
+// struct DPUStorage *Sto;
+// FileService* FS;
 
 //
 // Handler for a control plane request

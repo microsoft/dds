@@ -25,7 +25,7 @@ typedef struct DPUDirProperties {
 // since C doesn't have package mutex, I used pthread_mutex_t to replace it
 //
 //
-typedef struct DPUDir {
+struct DPUDir {
     DPUDirPropertiesT Properties;
     pthread_mutex_t ModificationMutex;
     //remove const before SegmentSizeT
@@ -74,10 +74,10 @@ ErrorCodeT DeleteFile(
 // Lock the directory
 //
 //
-inline void Lock(struct DPUDir* Dir);
+void Lock(struct DPUDir* Dir);
 
 //
 // Unlock the directory
 //
 //
-inline void Unlock(struct DPUDir* Dir);
+void Unlock(struct DPUDir* Dir);

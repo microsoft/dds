@@ -2,9 +2,9 @@
 
 #include "BackEndTypes.h"
 #include "MsgTypes.h"
-#include "bdev.h"
-#include "DPUBackEndStorage.h"
-#include "FileService.h"
+// #include "bdev.h"
+// #include "DPUBackEndStorage.h"  // circular
+// #include "FileService.h"
 
 //
 // Handler for a control plane request
@@ -14,7 +14,7 @@ void ControlPlaneHandler(
     ControlPlaneRequestContext *Context
 );
 
-typedef struct ControlPlaneHandlerCtx {
+typedef struct ControlPlaneHandlerContext {
     ErrorCodeT *Result;  // it's from the request context's response
     DirIdT DirId;
     struct DPUDir* dir;

@@ -36,10 +36,10 @@
 // #define DDS_ERROR_CODE_WRITE_OVERFLOW 9
 // #define DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE 16
 // #define DDS_ERROR_CODE_INVALID_FILE_POSITION 17
-#define DDS_ERROR_CODE_SEGMENT_RETRIEVAL_FAILURE 24
-#define DDS_ERROR_CODE_RESERVED_SEGMENT_ERROR 25
-#define DDS_ERROR_CODE_OUT_OF_MEMORY 26
-#define DDS_ERROR_CODE_IO_WRONG 27 //this happened when SPDK failed with 
+// #define DDS_ERROR_CODE_SEGMENT_RETRIEVAL_FAILURE 24
+// #define DDS_ERROR_CODE_RESERVED_SEGMENT_ERROR 25
+// #define DDS_ERROR_CODE_OUT_OF_MEMORY 26
+// #define DDS_ERROR_CODE_IO_WRONG 27 //this happened when SPDK failed with 
                                    //I/O operation, will be used in different
                                    //callbacks in DPUBackEndStorage.c 
 
@@ -51,10 +51,18 @@
 #define DDS_BACKEND_PAGE_SIZE DDS_PAGE_SIZE
 #define DDS_BACKEND_SEGMENT_SIZE ONE_GB
 
+
+//
+// For testing without RDMA stuff
+//
+//
+#define TESTING_FS
+
+
 #ifndef TESTING_FS
 #define DDS_BACKEND_CAPACITY (ONE_GB * 130)
 #else
-#define DDS_BACKEND_CAPACITY (ONE_GB * 4)
+#define DDS_BACKEND_CAPACITY (ONE_GB * 2)
 #endif
 
 #define DDS_BACKEND_QUEUE_DEPTH_PAGE_IO_DEFAULT 1024
@@ -113,3 +121,37 @@ typedef struct DPUSegment {
     FileSizeT DiskAddress;
     bool Allocatable;
 } SegmentT;
+
+
+//
+// DPU storage, highly similar with BackEndStorage
+//
+//
+struct DPUStorage {
+    SegmentT* AllSegments;
+    //remove const before SegmentIdT
+    SegmentIdT TotalSegments;
+    SegmentIdT AvailableSegments;
+    
+    struct DPUDir* AllDirs[DDS_MAX_DIRS];
+    struct DPUFile* AllFiles[DDS_MAX_FILES];
+    int TotalDirs;
+    int TotalFiles;
+
+    pthread_mutex_t SectorModificationMutex;
+    pthread_mutex_t SegmentAllocationMutex;
+    
+    //
+    // these are used during `Initialize`, move them to their own context
+    //
+    //
+
+    // atomic_size_t TargetProgress;
+    // atomic_size_t CurrentProgress;
+};
+
+//
+// DPU Storage var should be a global singleton
+//
+//
+extern struct DPUStorage *Sto;

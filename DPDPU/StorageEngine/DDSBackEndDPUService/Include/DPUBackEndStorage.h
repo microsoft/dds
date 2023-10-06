@@ -1,6 +1,8 @@
 #pragma once
 
 // #include <atomic>
+#include <string.h>
+#include <stdlib.h>
 #include <stdatomic.h>
 // #include <mutex>
 #include <pthread.h>
@@ -13,7 +15,24 @@
 #include "ControlPlaneHandler.h"
 #include "DPUBackEndFile.h"
 #include "bdev.h"
-#include "Zmalloc.h"
+// #include "Zmalloc.h"
+
+
+
+//
+// Used to manage the status of each slot in SPDK buffer
+//
+//
+struct PerSlotContext{
+    int Position;
+    bool Available;  // should be unused now
+    SPDKContextT *SPDKContext;  // thread specific SPDKContext
+    DataPlaneRequestContext *Ctx;
+    atomic_ushort CallbacksToRun;
+    atomic_ushort CallbacksRan;
+    FileIOSizeT BytesIssued;
+    // bool IsRead;  // unused??
+};
 
 //
 // Context for each Write I/O operation in the back end, same with BackEndIOContext
@@ -62,12 +81,12 @@ typedef void (*DiskIOCallback)(
     ContextT Context
 );
 
-
+/* 
 //
 // DPU storage, highly similar with BackEndStorage
 //
 //
-typedef struct DPUStorage {
+struct DPUStorage {
     SegmentT* AllSegments;
     //remove const before SegmentIdT
     SegmentIdT TotalSegments;
@@ -94,18 +113,50 @@ typedef struct DPUStorage {
 // DPU Storage var should be a global singleton
 //
 //
-extern struct DPUStorage *Sto;
+extern struct DPUStorage *Sto; */
 
 struct DPUStorage* BackEndStorage();
 
 void DeBackEndStorage(struct DPUStorage* Sto);
 
-typedef atomic_ushort SyncRWCompletionStatus;
 
-enum SyncRWCompletion {
-    SyncRWCompletion_NOT_COMPLETED = 0,
-    SyncRWCompletionSUCCESS = 1,
-    SyncRWCompletionFAILED = 2
+//
+// Context used when Initializing Storage
+//
+//
+struct InitializeCtx {
+    //
+    // This is the master, which holds the definitive HasFailed/Aborted/Stopped values, and have Master = NULL
+    // When there is looped IO, copies (with some different values) will be created, but they should have ptr to Master
+    // and set HasFailed in Master etc.
+    //
+    //
+    // struct InitializeCtx *Master;
+
+    SPDKContextT *SPDKContext;
+    char *tmpSectorBuf;  // actually the buff that stores the reserved segment
+    atomic_size_t TargetProgress;
+    atomic_size_t CurrentProgress;
+    size_t PagesLeft;
+    size_t NumPagesWritten;
+    struct DPUDir* RootDir;
+    struct InitializeFailureStatus *FailureStatus;
+    //
+    // this will be set if some callback during the progress has callbacks run with failed param
+    //
+    //
+    // atomic_bool HasFailed;
+    //
+    // already fatal, some callback won't run, don't need to run other callbacks anymore; will stop spdk app
+    //
+    //
+    // atomic_bool HasAborted;
+    //
+    // The first callback to find HasAborted == true will stop SPDK app, and set HasStopped = true;
+    // other callbacks should check this so they don't stop again
+    //
+    //
+    // atomic_bool HasStopped;
 };
 
 //
@@ -218,7 +269,7 @@ ErrorCodeT SyncDirToDisk(
 // Synchronize a file to the disk
 //
 //
-inline ErrorCodeT SyncFileToDisk(
+ErrorCodeT SyncFileToDisk(
     struct DPUFile* File,
     struct DPUStorage* Sto,
     void *SPDKContext,
@@ -253,44 +304,6 @@ struct InitializeFailureStatus {
     atomic_bool HasStopped;
 };
 
-//
-// Context used when Initializing Storage
-//
-//
-struct InitializeCtx {
-    //
-    // This is the master, which holds the definitive HasFailed/Aborted/Stopped values, and have Master = NULL
-    // When there is looped IO, copies (with some different values) will be created, but they should have ptr to Master
-    // and set HasFailed in Master etc.
-    //
-    //
-    // struct InitializeCtx *Master;
-
-    SPDKContextT *SPDKContext;
-    char *tmpSectorBuf;  // actually the buff that stores the reserved segment
-    atomic_size_t TargetProgress;
-    atomic_size_t CurrentProgress;
-    size_t PagesLeft;
-    size_t NumPagesWritten;
-    struct DPUDir* RootDir;
-    struct InitializeFailureStatus *FailureStatus;
-    //
-    // this will be set if some callback during the progress has callbacks run with failed param
-    //
-    //
-    // atomic_bool HasFailed;
-    //
-    // already fatal, some callback won't run, don't need to run other callbacks anymore; will stop spdk app
-    //
-    //
-    // atomic_bool HasAborted;
-    //
-    // The first callback to find HasAborted == true will stop SPDK app, and set HasStopped = true;
-    // other callbacks should check this so they don't stop again
-    //
-    //
-    // atomic_bool HasStopped;
-};
 
 //
 // Ctx used during LoadDirectoriesAndFiles(), which is during Initialize()
@@ -323,7 +336,7 @@ ErrorCodeT CreateDirectory(
     DirIdT ParentId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -334,7 +347,7 @@ ErrorCodeT RemoveDirectory(
     DirIdT DirId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -348,7 +361,7 @@ ErrorCodeT CreateFile(
     DirIdT DirId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -360,7 +373,7 @@ ErrorCodeT DeleteFileOnSto(
     DirIdT DirId,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -459,7 +472,7 @@ ErrorCodeT MoveFile(
     const char* NewFileName,
     struct DPUStorage* Sto,
     void *SPDKContext,
-    struct ControlPlaneHandlerCtx *HandlerCtx
+    ControlPlaneHandlerCtx *HandlerCtx
 );
 
 //
@@ -468,7 +481,7 @@ ErrorCodeT MoveFile(
 //
 //
 ErrorCodeT RespondWithResult(
-    struct ControlPlaneHandlerCtx *HandlerCtx,
+    ControlPlaneHandlerCtx *HandlerCtx,
     int MsgId,
     ErrorCodeT Result
 );

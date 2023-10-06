@@ -2,7 +2,7 @@
 
 #include "DPUBackEnd.h"
 #include <stdint.h>
-#include "Zmalloc.h"
+// #include "Zmalloc.h"
 #include <pthread.h>
 
 extern char *G_BDEV_NAME;
@@ -20,16 +20,10 @@ typedef struct SPDKContext {
     pthread_mutex_t SpaceMutex; // used for SPDKSpace
 } SPDKContextT;
 
+
 //
-// context will be used as an arg in callback functions
+// this is already deprecated, DO NOT USE
 //
-//
-typedef struct CallBackContext{
-    int position;
-};
-//
-// Init this during RunFileBackEnd
-// TODO: this is single thread context, will need to use per thread context later
 //
 extern SPDKContextT *SPDKContext;
 

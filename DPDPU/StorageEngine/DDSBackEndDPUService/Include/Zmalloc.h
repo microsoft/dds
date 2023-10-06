@@ -1,12 +1,12 @@
 #include "DPUBackEnd.h"
-#include "bdev.h"
+// #include "bdev.h"  // circular
 #include "DPUBackEndStorage.h"  // circular include within FileService.h
-
+/* 
 //
 // Used to manage the status of each slot in SPDK buffer
 //
 //
-typedef struct PerSlotContext{
+struct PerSlotContext{
     int Position;
     bool Available;  // should be unused now
     SPDKContextT *SPDKContext;  // thread specific SPDKContext
@@ -15,7 +15,7 @@ typedef struct PerSlotContext{
     atomic_ushort CallbacksRan;
     FileIOSizeT BytesIssued;
     // bool IsRead;  // unused??
-};
+}; */
 
 void AllocateSpace(void *arg);
 
