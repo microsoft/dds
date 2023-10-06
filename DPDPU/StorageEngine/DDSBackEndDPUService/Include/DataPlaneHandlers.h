@@ -10,7 +10,7 @@
 //
 //
 void ReadHandler(
-    DataPlaneRequestContext* Context
+    struct PerSlotContext *SlotContext
 );
 
 //
@@ -28,7 +28,7 @@ void ReadHandlerCallback(
 //
 //
 void WriteHandler(
-    DataPlaneRequestContext* Context
+    struct PerSlotContext *SlotContext
 );
 
 //

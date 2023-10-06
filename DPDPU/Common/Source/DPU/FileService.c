@@ -56,6 +56,7 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
         for (size_t i = 0; i < FS->WorkerThreadCount; i++) {
             if (FS->WorkerSPDKContexts[i].bdev_io_channel == NULL) {
                 allDone = false;
+                SPDK_NOTICELOG("thread %d hasn't yet got io channel!\n", i);
                 break;
             }
         }
@@ -112,12 +113,16 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
     FS->MasterSPDKContext->bdev_name = G_BDEV_NAME;
     FS->MasterSPDKContext->bdev_desc = bdev_desc;
     FS->MasterSPDKContext->bdev = bdev;
+
+    SPDK_WARNLOG("bdev buf align = %d\n", spdk_bdev_get_buf_align(bdev));
+
+    SPDK_NOTICELOG("AllocateSpace() for Zmalloc...\n");
     AllocateSpace(FS->MasterSPDKContext);  // allocated SPDKSpace will be copied/shared to all worker contexts
 
 
     for (int i = 0; i < FS->WorkerThreadCount; i++)
     {
-        DebugPrint("creating worker thread %d\n", i);
+        SPDK_NOTICELOG("creating worker thread %d\n", i);
         char threadName[32];
         snprintf(threadName, 16, "worker_thread%d", i);
         FS->WorkerThreads[i] = spdk_thread_create(threadName, NULL);
@@ -163,15 +168,15 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
 }
 
 //
-// Start the file service, this is the routine passed to pthread_create.
 // On the top level, this will call spdk_app_start(), supplying the func `StartSPDKFileService`
-// and will initialize threads and storage
-//
+// which will initialize threads and storage
 //
 void
-StartFileService(
-    struct StartFileServiceCtx *StartCtx
+StartFileServiceWrapper(
+    void *Ctx
 ) {
+    struct StartFileServiceCtx *StartCtx = Ctx;
+
     FileService *FS = StartCtx->FS;
     int argc = StartCtx->argc;
     char **argv = StartCtx->argv;
@@ -191,20 +196,42 @@ StartFileService(
 		exit(rc);
 	}
 
+    printf("starting FS, StartSPDKFileService()...\n");
     spdk_app_start(&opts, StartSPDKFileService, StartCtx);
 }
 
 //
-// Call on app thread
+// Start the file service (called by main thread), this will then call pthread_create.
 //
 //
-void AppThreadExit() {
+void
+StartFileService(
+    int argc,
+    char **argv,
+    FileService *FS,
+    pthread_t *AppPthread
+) {
+    struct StartFileServiceCtx *StartCtx = malloc(sizeof(*StartCtx));
+    StartCtx->argc = argc;
+    StartCtx->argv = argv;
+    StartCtx->FS = FS;
+    pthread_create(AppPthread, NULL, StartFileServiceWrapper, StartCtx);
+}
+
+//
+// Call this on app thread
+//
+//
+void AppThreadExit(void *Ctx) {
+    FileService *FS = Ctx;
+    spdk_put_io_channel(FS->MasterSPDKContext->bdev_io_channel);
     spdk_bdev_close(FS->MasterSPDKContext->bdev_desc);
+    SPDK_NOTICELOG("calling spdk_app_stop(0);...\n");
     spdk_app_stop(0);
 }
 
 //
-// Call on worker threads
+// Call on each of all worker threads
 //
 //
 void WorkerThreadExit(void *Ctx) {
@@ -216,7 +243,7 @@ void WorkerThreadExit(void *Ctx) {
 }
 
 //
-// Stop the file service, called on agent thread
+// Stop the file service, called on agent thread; this will eventually make app thread call spdk_app_stop()
 //
 //
 void
@@ -257,7 +284,7 @@ DeallocateFileService(
 }
 
 //
-// Send a control plane request to the file service 
+// Send a control plane request to the file service, called from app thread
 //
 //
 void
@@ -287,25 +314,30 @@ SubmitControlPlaneRequest(
 }
 
 //
-// Send a data plane request to the file service 
-// TODO: maybe add another param to know if it's read or write?
+// Send a data plane request to the file service, called from app thread
+//
 //
 void
 SubmitDataPlaneRequest(
     FileService* FS,
     DataPlaneRequestContext* Context,
-    bool IsRead
+    bool IsRead,
+    RequestIdT Index
 ) {
     // note: FindFreeSpace within handlers
     DebugPrint("Submitting a data plane request, IsRead: %d\n", IsRead);
     
+    
     // TODO: do proper thread selection
     struct spdk_thread *worker = FS->WorkerThreads[0];
-    Context->SPDKContext = FS->WorkerSPDKContexts[0];
+    // Context->SPDKContext = FS->WorkerSPDKContexts[0];
+
+    struct PerSlotContext *SlotContext = GetFreeSpace(&FS->WorkerSPDKContexts[0], Context, Index); // TODO: no need for thread spdk ctx?
+    
 
     int ret;  // TODO: limited retries?
     if (IsRead) {
-        ret = spdk_thread_send_msg(worker, ReadHandler, Context);
+        ret = spdk_thread_send_msg(worker, ReadHandler, SlotContext);
         
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
@@ -319,7 +351,7 @@ SubmitDataPlaneRequest(
         }
     }
     else {
-        ret = spdk_thread_send_msg(worker, WriteHandler, Context);
+        ret = spdk_thread_send_msg(worker, WriteHandler, SlotContext);
 
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);

@@ -1,5 +1,11 @@
 #pragma once
 
+//
+// For testing without RDMA stuff
+//
+//
+#define TESTING_FS
+
 #include <infiniband/ib.h>
 #include <inttypes.h>
 #include <rdma/rdma_cma.h>

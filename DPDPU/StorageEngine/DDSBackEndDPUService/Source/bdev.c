@@ -52,9 +52,9 @@ int bdev_read(
 		return rc;
 	} else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
-		spdk_put_io_channel(spdkContext->bdev_io_channel);
+		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
-		spdk_app_stop(-1);
+		spdk_app_stop(-1); */
 		return rc;
 	}
 	else
@@ -91,9 +91,9 @@ int bdev_write(
 		return rc;
 	} else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while writing to bdev: %d\n", spdk_strerror(-rc), rc);
-		spdk_put_io_channel(spdkContext->bdev_io_channel);
+		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
-		spdk_app_stop(-1);
+		spdk_app_stop(-1); */
 		return rc;
 	}
 	else

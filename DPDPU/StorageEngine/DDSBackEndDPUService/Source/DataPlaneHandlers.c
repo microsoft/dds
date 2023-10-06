@@ -15,16 +15,18 @@ struct DPUStorage *Sto;
 //
 //
 void ReadHandler(
-    DataPlaneRequestContext* Context
+    struct PerSlotContext *SlotContext
 ) {
+    DataPlaneRequestContext* Context = SlotContext->Ctx;
     DebugPrint("Executing a read request: %u@%lu#%u\n", Context->Request->FileId, Context->Request->Offset, Context->Request->Bytes);
 
     //
-    // TODO: Execute the read asynchronously
+    // Execute the read asynchronously
     //
     //
-    // BackEndIOContextT *IOContext = malloc(sizeof(*IOContext));
-    struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
+    /* BackEndIOContextT *IOContext = malloc(sizeof(*IOContext)); */
+
+    /* struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
     //
     // in case there is no available space, set result to failure
     //
@@ -33,16 +35,13 @@ void ReadHandler(
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
         return;
-    }
-    // SlotContext->IsRead = false;  // unused?
-    // IOContext->Resp = Resp;
-    // IOContext->Resp->RequestId = Req->RequestId;
+    } */
+
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in ReadFile when async writes are issued successfully
-    // IOContext->SplittableBuffer = DestBuffer;
 
     ErrorCodeT ret = ReadFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer,
-        ReadHandlerCallback, SlotContext, Sto, Context->SPDKContext);
+        ReadHandlerCallback, SlotContext, Sto, SlotContext->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
@@ -80,7 +79,7 @@ void ReadHandler(
 }
 
 //
-// TODO: ReadHandler can share the same callback with WriteHandler
+// Similar to WriteHandler
 //
 //
 void ReadHandlerCallback(
@@ -99,6 +98,9 @@ void ReadHandlerCallback(
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
                 SPDK_NOTICELOG("ReadHandler for RequestId %hu successful, BytesServiced: %d with %hu writes\n",
                     SlotContext->Ctx->Response->RequestId, SlotContext->BytesIssued, SlotContext->CallbacksRan);
+            }  // else this isn't the last, nothing more to do
+            else {
+                SPDK_NOTICELOG("Intermediate ran, %hu / %hu\n", SlotContext->CallbacksRan, SlotContext->CallbacksToRun);
             }
         }
         else {  // unsuccessful, mark resp with failure
@@ -109,13 +111,13 @@ void ReadHandlerCallback(
         }
     }  // else previously failed, no useful work to do
 
-    // finally if we are the last callback, free the context and buffer, no matter if it failed or not
+    /* // finally if we are the last callback, free the context and buffer, no matter if it failed or not
     if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {
         SPDK_NOTICELOG("last read handler callback run, total: %hu\n", SlotContext->CallbacksToRun);
         // free(IOContext->SplittableBuffer);
         // free(IOContext);
         FreeSingleSpace(SlotContext);
-    }
+    } */
 }
 
 //
@@ -123,12 +125,13 @@ void ReadHandlerCallback(
 //
 //
 void WriteHandler(
-    DataPlaneRequestContext* Context
+    struct PerSlotContext *SlotContext
 ) {
+    DataPlaneRequestContext* Context = SlotContext->Ctx;
     printf("Executing a write request: %u@%lu#%u, splittable buffer total size: %d\n", Context->Request->FileId,
     Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer->TotalSize);
 
-    struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
+    /* struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
     //
     // in case there is no available space, set result to failure
     //
@@ -137,17 +140,16 @@ void WriteHandler(
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
         return;
-    }
+    } */
+
     // BackEndIOContextT *IOContext = malloc(sizeof(*IOContext));
     // SlotContext->IsRead = false;  // unused??
-    // IOContext->Resp = Resp;
-    // IOContext->Resp->RequestId = Req->RequestId;
+
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in WriteFile when async writes are issued successfully
-    // IOContext->SplittableBuffer = SourceBuffer;
 
     ErrorCodeT ret = WriteFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer,
-        WriteHandlerCallback, SlotContext, Sto, Context->SPDKContext);
+        WriteHandlerCallback, SlotContext, Sto, SlotContext->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
@@ -202,6 +204,9 @@ void WriteHandlerCallback(
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
                 SPDK_NOTICELOG("WriteHandler for RequestId %hu successful, BytesServiced: %d with %hu writes\n",
                     SlotContext->Ctx->Response->RequestId, SlotContext->BytesIssued, SlotContext->CallbacksRan);
+            }  // else this isn't the last, nothing more to do
+            else {
+                SPDK_NOTICELOG("Intermediate ran, %hu / %hu\n", SlotContext->CallbacksRan, SlotContext->CallbacksToRun);
             }
         }
         else {  // unsuccessful, mark resp with failure
@@ -218,10 +223,12 @@ void WriteHandlerCallback(
         free(IOContext->SplittableBuffer);
         free(IOContext);
     } */
-    if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {
+
+    // no need to free anymore, since we are using the request index
+    /* if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {
         SPDK_NOTICELOG("last write handler callback run, total: %hu\n", SlotContext->CallbacksToRun);
         // free(IOContext->SplittableBuffer);
         // free(IOContext);
         FreeSingleSpace(SlotContext);
-    }
+    } */
 }

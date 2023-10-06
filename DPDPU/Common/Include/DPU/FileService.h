@@ -52,7 +52,10 @@ struct StartFileServiceCtx {
 //
 void
 StartFileService(
-    struct StartFileServiceCtx *StartCtx
+    int argc,
+    char **argv,
+    FileService *FS,
+    pthread_t *AppPthread
 );
 
 struct WorkerThreadExitCtx {
@@ -96,7 +99,8 @@ void
 SubmitDataPlaneRequest(
     FileService* FS,
     DataPlaneRequestContext* Context,
-    bool IsRead
+    bool IsRead,
+    RequestIdT Index
 );
 
 

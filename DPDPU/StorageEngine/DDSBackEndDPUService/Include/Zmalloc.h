@@ -8,7 +8,8 @@
 //
 typedef struct PerSlotContext{
     int Position;
-    bool Available;
+    bool Available;  // should be unused now
+    SPDKContextT *SPDKContext;  // thread specific SPDKContext
     DataPlaneRequestContext *Ctx;
     atomic_ushort CallbacksToRun;
     atomic_ushort CallbacksRan;
@@ -25,4 +26,11 @@ void FreeAllSpace(void *arg);
 struct PerSlotContext* FindFreeSpace(
     SPDKContextT *SPDKContext,
     DataPlaneRequestContext* Context
+);
+
+
+struct PerSlotContext* GetFreeSpace(
+    SPDKContextT *SPDKContext,
+    DataPlaneRequestContext* Context,
+    RequestIdT index
 );

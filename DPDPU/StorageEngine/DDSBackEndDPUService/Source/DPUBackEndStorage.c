@@ -372,8 +372,6 @@ void ReturnSegments(
 
         //delete[] AllSegments;
         free(Sto->AllSegments);
-        // we call this function to stop spdk (Jason: this will stop the main event loop, do it outside)
-        // spdk_app_stop(0);
     }
 }
 
@@ -678,6 +676,8 @@ ErrorCodeT SyncReservedInformationToDisk(
     int* numFiles = numDirs + 1;
     *numFiles = Sto->TotalFiles;
 
+    SPDK_NOTICELOG("Sto->TotalDirs %d, Sto->TotalFiles: %d\n", Sto->TotalDirs, Sto->TotalFiles);
+
     return WriteToDiskAsync(
         tmpSectorBuf,
         DDS_BACKEND_RESERVED_SEGMENT,
@@ -703,7 +703,8 @@ void InitializeSyncReservedInfoCallback(
         // FS app stop
         exit(-1);
     }
-    // TODO: success, Initialize() done, continue work? FS would be started by now, nothing more to do
+    // else success, Initialize() done, continue work? FS would be started by now, nothing more to do
+    SPDK_NOTICELOG("Initialize() done!!!\n");
 }
 
 void InitializeSyncDirToDiskCallback(
@@ -745,10 +746,13 @@ void RemainingPagesProgressCallback(
     spdk_bdev_free_io(bdev_io);
     struct InitializeCtx *Ctx = Context;
     if (Ctx->FailureStatus->HasAborted) {
+        SPDK_ERRLOG("HasAborted, exiting\n");
+        exit(-1);
         return;
     }
     if (!Success) {
         Ctx->FailureStatus->HasFailed = true;
+        SPDK_ERRLOG("HasFailed!\n");
     }
 
     if (Ctx->CurrentProgress == Ctx->TargetProgress) {
@@ -799,10 +803,13 @@ IncrementProgressCallback(
         // TODO: fatal, call func to stop FS spdk app
         //
         Ctx->FailureStatus->HasStopped = true;
+        SPDK_ERRLOG("fatal, HasStopped and HasAborted, exiting...\n");
+        exit(-1);
         return;
     }
 
     if (!Success) {
+        SPDK_ERRLOG("HasFailed!\n");
         Ctx->FailureStatus->HasFailed = true;
     }
 
@@ -811,7 +818,7 @@ IncrementProgressCallback(
         SPDK_NOTICELOG("Initialize() IncrementProgressCallback last one running\n");
         if (Ctx->FailureStatus->HasFailed) {
             SPDK_ERRLOG("Initialize() IncrementProgressCallback has failed IO, stopping...\n");
-            // TODO: maybe spdk_app_stop() or dedicated FS exit function call here?
+            exit(-1);
             return;
         }
         else {  // we can do the rest of the work
@@ -869,6 +876,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
     ErrorCodeT result;
 
     if (strcmp(DDS_BACKEND_INITIALIZATION_MARK, Ctx->tmpSectorBuf)) {
+        SPDK_NOTICELOG("Backend is NOT initialized!\n");
         //
         // Empty every byte on the reserved segment
         //
@@ -904,6 +912,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
             if (result != DDS_ERROR_CODE_SUCCESS) {
                 Ctx->FailureStatus->HasFailed = true;
                 Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
+                SPDK_ERRLOG("Clearing backend pages failed with %d\n", result);
                 return result;
             }
 

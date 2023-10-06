@@ -2,7 +2,7 @@
 
 void AllocateSpace(void *arg){
     SPDKContextT *SPDKContext = arg;
-    SPDKContext->buff_size = DDS_FRONTEND_MAX_OUTSTANDING * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE;
+    SPDKContext->buff_size = DDS_MAX_OUTSTANDING_IO * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE;
 	uint32_t buf_align = spdk_bdev_get_buf_align(SPDKContext->bdev);
 	SPDKContext->buff = spdk_dma_zmalloc(SPDKContext->buff_size, buf_align, NULL);
 	if (!SPDKContext->buff) {
@@ -13,8 +13,8 @@ void AllocateSpace(void *arg){
         exit(-1);
 		return;
 	}
-    SPDKContext->SPDKSpace = malloc(DDS_FRONTEND_MAX_OUTSTANDING * sizeof(struct PerSlotContext));
-    for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
+    SPDKContext->SPDKSpace = malloc(DDS_MAX_OUTSTANDING_IO * sizeof(struct PerSlotContext));
+    for (int i = 0; i < DDS_MAX_OUTSTANDING_IO; i++){
         SPDKContext->SPDKSpace[i].Available = true;
         SPDKContext->SPDKSpace[i].Position = i;
     }
@@ -55,4 +55,28 @@ struct PerSlotContext* FindFreeSpace(
     }
     pthread_mutex_unlock(&SPDKContext->SpaceMutex);
     return NULL;
+}
+
+//
+// Puts the Request Context into a slot context, and returns the slot ctx ptr
+// Note: should be always called from app thread.
+// Due to the fact that we have `DDS_MAX_OUTSTANDING_IO`, the index of IO request can be used as the index
+// for per slot context, since they have a 1 to 1 relation, therefore no need for searching and freeing;
+//
+//
+struct PerSlotContext* GetFreeSpace(
+    SPDKContextT *SPDKContext,
+    DataPlaneRequestContext* Context,
+    RequestIdT index
+){
+    /* for (int i = 0; i < DDS_FRONTEND_MAX_OUTSTANDING; i++){
+        if(SPDKContext->SPDKSpace[i].Available){
+            SPDKContext->SPDKSpace[i].Available = false;
+            SPDKContext->SPDKSpace[i].Ctx = Context;
+            return &SPDKContext->SPDKSpace[i];
+        }
+    }
+    return NULL; */
+    SPDKContext->SPDKSpace[index].Ctx = Context;
+    return &SPDKContext->SPDKSpace[index];
 }

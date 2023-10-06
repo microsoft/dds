@@ -28,8 +28,12 @@ static inline void DebugPrint(const char* Fmt, ...) { }
 static volatile int ForceQuitFileBackEnd = 0;
 
 struct DPUStorage *Sto;
-// SPDKContextT *SPDKContext;
-pthread_t FSAppThread;
+
+//
+// the pthread on which spdk_app_start() is called, might wanna join?
+//
+//
+pthread_t AppPthread;
 
 //
 // Set a CM channel to be non-blocking
@@ -1906,7 +1910,8 @@ ExecuteRequests(
             // Extract write source buffer from the request ring
             //
             //
-            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            RequestIdT CurrIndex = BuffConn->NextRequestContext;
+            ctxt = &BuffConn->PendingDataPlaneRequests[CurrIndex];
             BuffConn->NextRequestContext++;
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
@@ -1947,7 +1952,7 @@ ExecuteRequests(
             //
             ctxt->Request = curReqObj;
             ctxt->Response = resp;
-            SubmitDataPlaneRequest(FS, ctxt, false);
+            SubmitDataPlaneRequest(FS, ctxt, false, CurrIndex);
         }
         else {
             //
@@ -1978,7 +1983,8 @@ ExecuteRequests(
             // Extract read destination buffer from the response ring
             //
             //
-            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            RequestIdT CurrIndex = BuffConn->NextRequestContext;
+            ctxt = &BuffConn->PendingDataPlaneRequests[CurrIndex];
             BuffConn->NextRequestContext++;
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
@@ -2016,7 +2022,7 @@ ExecuteRequests(
             //
             ctxt->Request = curReqObj;
             ctxt->Response = resp;
-            SubmitDataPlaneRequest(FS, ctxt, true);
+            SubmitDataPlaneRequest(FS, ctxt, true, CurrIndex);
         }
     }
 
@@ -2742,6 +2748,7 @@ CheckAndProcessControlPlaneCompletions(
     return ret;
 }
 
+#ifndef TESTING_FS
 //
 // The entry point for the back end
 //
@@ -2786,17 +2793,8 @@ int RunFileBackEnd(
         return ret;
     }
 
-    //
-    // Initialize and start file service, this will be completed async, assume it finishes before we actually use FS
-    //
-    //
-    pthread_t AppPthread;
-    struct StartFileServiceCtx StartCtx = {
-        .argc = argc,
-        .argv = argv,
-        .FS = config.FS
-    };
-    pthread_create(&AppPthread, NULL, StartFileService, &StartCtx);
+    StartFileService(argc, argv, config.FS, &AppPthread);
+
 
     //
     // Initialize DMA
@@ -2912,10 +2910,203 @@ int RunFileBackEnd(
     //
     DeallocConns(&config);
     TermDMA(&config.DMAConf);
+    StopFileService(config.FS);
     DeallocateFileService(config.FS);
 
     return ret;
 }
+
+#else
+//
+// The TESTING entry point for the back end, WITHOUT RDMA
+//
+//
+int RunFileBackEnd(
+    const char* ServerIpStr,
+    const int ServerPort,
+    const uint32_t MaxClients,
+    const uint32_t MaxBuffs,
+    int argc,
+    char **argv
+) {
+    BackEndConfig config;
+    struct rdma_cm_event *event;
+    int ret = 0;
+    int dataPlaneCounter = 0;
+
+    //
+    // Initialize the back end configuration
+    //
+    //
+    config.ServerIp = inet_addr(ServerIpStr);
+    config.ServerPort = htons(ServerPort);
+    config.MaxClients = MaxClients;
+    config.MaxBuffs = MaxBuffs;
+    config.CtrlConns = NULL;
+    config.BuffConns = NULL;
+    config.DMAConf.CmChannel = NULL;
+    config.DMAConf.CmId = NULL;
+    config.FS = NULL;
+
+    //
+    // Allocate the file service object
+    //
+    //
+    config.FS = AllocateFileService();
+    if (!config.FS) {
+        fprintf(stderr, "AllocateFileService failed\n");
+        return ret;
+    }
+
+    StartFileService(argc, argv, config.FS, &AppPthread);
+    printf("Sleeping 5s so Initialize() can finish...\n");
+    sleep(5);
+    printf("Initialize() should be finished now\n");
+    
+
+
+    //
+    // Initialize DMA
+    //
+    //
+    /* ret = InitDMA(&config.DMAConf, config.ServerIp, config.ServerPort);
+    if (ret) {
+        fprintf(stderr, "InitDMA failed with %d\n", ret);
+        return ret;
+    } */
+
+    //
+    // Allocate connections
+    //
+    //
+    /* ret = AllocConns(&config);
+    if (ret) {
+        fprintf(stderr, "AllocConns failed with %d\n", ret);
+        TermDMA(&config.DMAConf);
+        return ret;
+    }
+ */
+    //
+    // Listen for incoming connections
+    //
+    //
+    /* ret = rdma_listen(config.DMAConf.CmId, LISTEN_BACKLOG);
+    if (ret) {
+        ret = errno;
+        fprintf(stderr, "rdma_listen error %d\n", ret);
+        return ret;
+    } */
+
+    signal(SIGINT, SignalHandler);
+    signal(SIGTERM, SignalHandler);
+
+    
+    ControlPlaneRequestContext *CtrlReqCtx = malloc(sizeof(*CtrlReqCtx));
+    CtrlReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+    CtrlMsgF2BReqCreateFile *Req = malloc(sizeof(CtrlMsgF2BReqCreateFile));
+    Req->DirId = 0;//TODO
+    
+    
+    // TODO: test SubmitDataPlaneRequest isolated
+    DataPlaneRequestContext *Context = malloc(sizeof(*Context));
+    Context->DataBuffer = malloc(ONE_MB * 32);
+    Context->Request = malloc(sizeof(*Context->Request));
+    Context->Request->RequestId = 0;
+    Context->Request->FileId = 0;
+
+
+
+    SubmitDataPlaneRequest(FS, Context, false, 0);  // do a write
+
+
+
+/*     while (ForceQuitFileBackEnd == 0) {
+        if (dataPlaneCounter == 0) {
+            //
+            // Process connection events
+            //
+            //
+            ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
+            if (ret && errno != EAGAIN) {
+                ret = errno;
+                fprintf(stderr, "rdma_get_cm_event error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+            else if (!ret) {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stdout, "cma_event type %s cma_id %p (%s)\n",
+                    rdma_event_str(event->event), event->id,
+                    (event->id == config.DMAConf.CmId) ? "parent" : "child");
+#endif
+
+                ret = ProcessCmEvents(&config, event);
+                if (ret) {
+                    fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+                    SignalHandler(SIGTERM);
+                }
+            }
+
+            //
+            // Process RDMA events for control connections
+            //
+            //
+            ret = ProcessCtrlCqEvents(&config);
+            if (ret) {
+                fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+
+            //
+            // Check and process control plane completions
+            //
+            //
+            ret = CheckAndProcessControlPlaneCompletions(&config);
+            if (ret) {
+                fprintf(stderr, "CheckAndProcessControlPlaneCompletions error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+        }
+
+        //
+        // Process RDMA events for buffer connections
+        //
+        //
+        ret = ProcessBuffCqEvents(&config);
+        if (ret) {
+            fprintf(stderr, "ProcessBuffCqEvents error %d\n", ret);
+            SignalHandler(SIGTERM);
+        }
+
+        //
+        // Check and process I/O completions
+        //
+        //
+        ret = CheckAndProcessIOCompletions(&config);
+        if (ret) {
+            fprintf(stderr, "CheckAndProcessIOCompletions error %d\n", ret);
+            SignalHandler(SIGTERM);
+        }
+
+        dataPlaneCounter++;
+        if (dataPlaneCounter == DATA_PLANE_WEIGHT) {
+            dataPlaneCounter = 0;
+        }
+    }
+ */
+    
+    //
+    // Clean up
+    //
+    //
+    /* DeallocConns(&config);
+    TermDMA(&config.DMAConf); */
+    StopFileService(config.FS);
+    DeallocateFileService(config.FS);
+
+    return ret;
+}
+
+#endif
 
 
 int main(int argc, char **argv) {
