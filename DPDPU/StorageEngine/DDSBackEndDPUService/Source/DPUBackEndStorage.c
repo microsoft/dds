@@ -794,12 +794,11 @@ IncrementProgressCallback(
 {
     spdk_bdev_free_io(bdev_io);
     struct InitializeCtx *Ctx = Context;
+    SPDK_NOTICELOG("Ctx->CurrentProgress %d, Ctx->TargetProgress %d\n", Ctx->CurrentProgress, Ctx->TargetProgress);
     if (Ctx->FailureStatus->HasAborted) {
         if (Ctx->FailureStatus->HasStopped) {
             return;
         }
-        // TODO: fatal, call func to stop FS spdk app
-        //
         Ctx->FailureStatus->HasStopped = true;
         SPDK_ERRLOG("fatal, HasStopped and HasAborted, exiting...\n");
         exit(-1);
@@ -869,17 +868,21 @@ IncrementProgressCallback(
 }
 
 void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
-    spdk_bdev_free_io(bdev_io);
     struct InitializeCtx *Ctx = Context;
     ErrorCodeT result;
 
+    if (!Success) {
+        SPDK_ERRLOG("Failed!!! Exiting...\n");
+        exit(-1);
+    }
     if (strcmp(DDS_BACKEND_INITIALIZATION_MARK, Ctx->tmpSectorBuf)) {
         SPDK_NOTICELOG("Backend is NOT initialized!\n");
         //
         // Empty every byte on the reserved segment
         //
         //
-        char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
+        // char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
+        char *tmpPageBuf = malloc(DDS_BACKEND_PAGE_SIZE);
         memset(tmpPageBuf, 0, DDS_BACKEND_PAGE_SIZE);  // original: DDS_BACKEND_SECTOR_SIZE probably wrong
         
         size_t pagesPerSegment = DDS_BACKEND_SEGMENT_SIZE / DDS_BACKEND_PAGE_SIZE;
@@ -892,8 +895,9 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         Ctx->TargetProgress = pagesPerSegment;
         
         while (numPagesWritten < pagesPerSegment) {
+            SPDK_NOTICELOG("numPagesWritten %d, pagesPerSegment %d\n", numPagesWritten, pagesPerSegment);
             struct InitializeCtx *CallbackCtx = malloc(sizeof(*CallbackCtx));
-            memcpy(CallbackCtx, Ctx, sizeof(Ctx));
+            memcpy(CallbackCtx, Ctx, sizeof(*Ctx));
             CallbackCtx->CurrentProgress = numPagesWritten + 1;
             result = WriteToDiskAsync(
                 tmpPageBuf,
@@ -927,6 +931,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         Ctx->PagesLeft = pagesPerSegment - numPagesWritten;
     }
     else {
+        SPDK_NOTICELOG("Backend is initialized! Load directories and files...\n");
         //
         // Load directories and files
         //
@@ -963,7 +968,7 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
             }
         }
     }
-    
+    spdk_bdev_free_io(bdev_io);
 }
 
 //
@@ -992,11 +997,13 @@ ErrorCodeT Initialize(
     //
     bool diskInitialized = false;
     SegmentT* rSeg = &Sto->AllSegments[DDS_BACKEND_RESERVED_SEGMENT];
-    char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE + 1];
+    // char tmpSectorBuf[DDS_BACKEND_SECTOR_SIZE + 1];
+    char *tmpSectorBuf = malloc(DDS_BACKEND_SECTOR_SIZE + 1);
     memset(tmpSectorBuf, 0, DDS_BACKEND_SECTOR_SIZE + 1);  // probably better to make sure it's NUL terminated
 
     // read reserved sector
     struct InitializeCtx *InitializeCtx = malloc(sizeof(*InitializeCtx));
+    InitializeCtx->tmpSectorBuf = tmpSectorBuf;
     struct InitializeFailureStatus *FailureStatus = malloc(sizeof(*FailureStatus));
     InitializeCtx->FailureStatus = FailureStatus;  // this is the master
     // InitializeCtx->HasFailed = false;
@@ -1010,6 +1017,7 @@ ErrorCodeT Initialize(
     InitializeCtx->SPDKContext = SPDKContext;
     result = ReadFromDiskAsync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE,
         InitializeReadReservedSectorCallback, InitializeCtx, Sto, arg, true);
+    SPDK_NOTICELOG("read reserved segment\n");
     // result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg, true);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
