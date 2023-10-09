@@ -1916,7 +1916,7 @@ ExecuteRequests(
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
             }
-            dataBuff = ctxt->DataBuffer;
+            dataBuff = &ctxt->DataBuffer;
 
             curReqObj = (BuffMsgF2BReqHeader*)curReq;
             dataBuff->TotalSize = curReqObj->Bytes;
@@ -1989,7 +1989,7 @@ ExecuteRequests(
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
             }
-            dataBuff = ctxt->DataBuffer;
+            dataBuff = &ctxt->DataBuffer;
 
             dataBuff->TotalSize = curReqObj->Bytes;
             if (progressResp + respSize <= BACKEND_RESPONSE_BUFFER_SIZE) {
@@ -2751,9 +2751,7 @@ CheckAndProcessControlPlaneCompletions(
 #ifndef TESTING_FS
 //
 // The entry point for the back end
-//
-// Jason: this is the mainloop, so it needs to be supplied to SPDK's `spdk_app_start`, which will call it
-// `spdk_app_start` itself will block until spdk_app_stop() is called, or an error occurred during start
+// This is on the main thread not app thread, i.e. app start not called when entering this func
 //
 //
 int RunFileBackEnd(
@@ -3010,7 +3008,7 @@ int RunFileBackEnd(
     
     // TODO: test SubmitDataPlaneRequest isolated
     DataPlaneRequestContext *Context = malloc(sizeof(*Context));
-    Context->DataBuffer = malloc(ONE_MB * 32);
+    // Context->DataBuffer = malloc(ONE_MB * 32);
     Context->Request = malloc(sizeof(*Context->Request));
     Context->Request->RequestId = 0;
     Context->Request->FileId = 0;

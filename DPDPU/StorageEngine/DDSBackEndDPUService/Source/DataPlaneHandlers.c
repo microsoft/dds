@@ -41,7 +41,7 @@ void ReadHandler(
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in ReadFile when async writes are issued successfully
 
-    ErrorCodeT ret = ReadFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer,
+    ErrorCodeT ret = ReadFile(Context->Request->FileId, Context->Request->Offset, &Context->DataBuffer,
         ReadHandlerCallback, SlotContext, Sto, SlotContext->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
         Context->Response->BytesServiced = 0;
@@ -130,7 +130,7 @@ void WriteHandler(
 ) {
     DataPlaneRequestContext* Context = SlotContext->Ctx;
     printf("Executing a write request: %u@%lu#%u, splittable buffer total size: %d\n", Context->Request->FileId,
-    Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer->TotalSize);
+    Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer.TotalSize);
 
     /* struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
     //
@@ -149,7 +149,7 @@ void WriteHandler(
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in WriteFile when async writes are issued successfully
 
-    ErrorCodeT ret = WriteFile(Context->Request->FileId, Context->Request->Offset, Context->DataBuffer,
+    ErrorCodeT ret = WriteFile(Context->Request->FileId, Context->Request->Offset, &Context->DataBuffer,
         WriteHandlerCallback, SlotContext, Sto, SlotContext->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
         Context->Response->BytesServiced = 0;
