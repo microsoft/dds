@@ -13,12 +13,13 @@
 //
 //
 typedef struct DPUDirProperties {
-        DirIdT Id;
-        DirIdT Parent;
-        FileNumberT NumFiles;
-        char Name[DDS_MAX_FILE_PATH];
-        FileIdT Files[DDS_MAX_FILES_PER_DIR];
-}DPUDirPropertiesT;
+    DirIdT Id;
+    DirIdT Parent;
+    FileNumberT NumFiles;
+    char Name[DDS_MAX_FILE_PATH];
+    FileIdT Files[DDS_MAX_FILES_PER_DIR];
+    char __pad[488];
+} DPUDirPropertiesT;
 
 //
 // DPU dir, highly similar with DDSBackEndDir

@@ -39,6 +39,10 @@ void GetIOChannel(SPDKContextT *ctx) {
 	}
 }
 
+//
+// This is also on app thread, can we wait in here??
+//
+//
 void InitializeWorkerThreadIOChannel(FileService *FS) {
     for (size_t i = 0; i < FS->WorkerThreadCount; i++)
     {
@@ -54,7 +58,7 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
     }
 
     // TODO: does this work?? wait for all workers to finish
-    int i = 0;
+    /* int i = 0;
     bool allDone = true;
     while (i < 10) {
         SPDK_NOTICELOG("waiting for all worker threads...\n");
@@ -77,16 +81,7 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
         // TODO: FS app stop
         SPDK_ERRLOG("waiting for all worker threads timed out, EXITING...\n");
         exit(-1);
-    }
-    
-    /* SPDKContextT *SPDKContext = Ctx;
-    SPDK_NOTICELOG("Initializing per thread SPDKContext, thread %d...\n", spdk_thread_get_id(spdk_get_thread()));
-    SPDKContext->bdev_io_channel = spdk_bdev_get_io_channel(SPDKContext->bdev_desc);
-    if (SPDKContext->bdev_io_channel == NULL) {
-		SPDK_ERRLOG("Could not create bdev I/O channel!!\n");
-		// TODO: stop FS app
-		return;
-	} */
+    } */
 }
 
 
@@ -287,7 +282,7 @@ DeallocateFileService(
     FileService* FS
 ) {
     DebugPrint("File service stopping...\n");
-    StopFileService(FS);
+    // StopFileService(FS);
     free(FS);
     DebugPrint("File service object deallocated\n");
 }
@@ -342,6 +337,7 @@ SubmitDataPlaneRequest(
     // Context->SPDKContext = FS->WorkerSPDKContexts[0];
 
     struct PerSlotContext *SlotContext = GetFreeSpace(&FS->WorkerSPDKContexts[0], Context, Index); // TODO: no need for thread spdk ctx?
+    SlotContext->SPDKContext = &FS->WorkerSPDKContexts[0];
     
 
     int ret;  // TODO: limited retries?
@@ -350,8 +346,9 @@ SubmitDataPlaneRequest(
         
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
+            exit(-1);
             while (1) {
-                ret = spdk_thread_send_msg(worker, ReadHandler, Context);
+                ret = spdk_thread_send_msg(worker, ReadHandler, SlotContext);
                 if (ret == 0) {
                     fprintf(stderr, "SubmitDataPlaneRequest() read retry finished\n", ret);
                     return;
@@ -364,8 +361,9 @@ SubmitDataPlaneRequest(
 
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
+            exit(-1);
             while (1) {
-                ret = spdk_thread_send_msg(worker, WriteHandler, Context);
+                ret = spdk_thread_send_msg(worker, WriteHandler, SlotContext);
                 if (ret == 0) {
                     fprintf(stderr, "SubmitDataPlaneRequest() write retry finished\n", ret);
                     return;

@@ -13,6 +13,7 @@ typedef struct DPUFileProperties {
         DDSFilePropertiesT FProperties;
         //remove const before SegmentIdT
         SegmentIdT Segments[DDS_BACKEND_MAX_SEGMENTS_PER_FILE];
+        char __pad[8];
 } DPUFilePropertiesT;
 
 //

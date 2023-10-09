@@ -2958,64 +2958,114 @@ int RunFileBackEnd(
 
     SPDK_NOTICELOG("Starting file service... StartFileService()\n");
     StartFileService(argc, argv, config.FS, &AppPthread);
-    printf("Sleeping 5s so Initialize() can finish...\n");
-    sleep(5);
-    printf("Initialize() should be finished now\n");
-    
-
-
-    //
-    // Initialize DMA
-    //
-    //
-    /* ret = InitDMA(&config.DMAConf, config.ServerIp, config.ServerPort);
-    if (ret) {
-        fprintf(stderr, "InitDMA failed with %d\n", ret);
-        return ret;
-    } */
-
-    //
-    // Allocate connections
-    //
-    //
-    /* ret = AllocConns(&config);
-    if (ret) {
-        fprintf(stderr, "AllocConns failed with %d\n", ret);
-        TermDMA(&config.DMAConf);
-        return ret;
+    sleep(2);
+    // TODO: does this work?? wait for all workers to finish
+    int i = 0;
+    bool allDone = true;
+    while (i < 10) {
+        SPDK_NOTICELOG("waiting for all worker threads...\n");
+        sleep(1);
+        for (size_t i = 0; i < FS->WorkerThreadCount; i++) {
+            if (FS->WorkerSPDKContexts[i].bdev_io_channel == NULL) {
+                allDone = false;
+                SPDK_NOTICELOG("thread %d hasn't yet got io channel!\n", i);
+                break;
+            }
+        }
+        if (allDone) {
+            SPDK_NOTICELOG("all threads got io channel!\n");
+            break;
+        }
+        i++;
     }
- */
-    //
-    // Listen for incoming connections
-    //
-    //
-    /* ret = rdma_listen(config.DMAConf.CmId, LISTEN_BACKLOG);
-    if (ret) {
-        ret = errno;
-        fprintf(stderr, "rdma_listen error %d\n", ret);
-        return ret;
-    } */
+
+    if (!allDone) {
+        // TODO: FS app stop
+        SPDK_ERRLOG("waiting for all worker threads timed out, EXITING...\n");
+        exit(-1);
+    }
 
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
 
+    SPDK_NOTICELOG("Sto->TotalSegments: %d, Sto->AvailableSegments: %d\n", Sto->TotalSegments, Sto->AvailableSegments);
     
     ControlPlaneRequestContext *CtrlReqCtx = malloc(sizeof(*CtrlReqCtx));
     CtrlReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
     CtrlMsgF2BReqCreateFile *Req = malloc(sizeof(CtrlMsgF2BReqCreateFile));
-    Req->DirId = 0;//TODO
+    CtrlMsgB2FAckCreateFile *Resp = malloc(sizeof(CtrlMsgB2FAckCreateFile));
+    Resp->Result = DDS_ERROR_CODE_IO_PENDING;
+    
+    Req->DirId = 0;//root dir
+    snprintf(&Req->FileName, 8, "foofile");
+    Req->FileId = 0;
+    Req->FileAttributes = 0;
+
+    ControlPlaneRequestContext *ReqCtx = malloc(sizeof(*ReqCtx));
+    ReqCtx->SPDKContext = FS->MasterSPDKContext;
+    ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+    ReqCtx->Request = Req;
+    ReqCtx->Response = Resp;
+    SubmitControlPlaneRequest(FS, ReqCtx);
+
+    SPDK_NOTICELOG("waiting for ctrl completion\n");
+    while (Resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("ctrl req Resp->Result = %hu\n", Resp->Result);
     
     
-    // TODO: test SubmitDataPlaneRequest isolated
+
+    /* int ret;
+    ret = spdk_bdev_write(FS->MasterSPDKContext->bdev_desc, ) */
+
+
+
     DataPlaneRequestContext *Context = malloc(sizeof(*Context));
     // Context->DataBuffer = malloc(ONE_MB * 32);
     Context->Request = malloc(sizeof(*Context->Request));
     Context->Request->RequestId = 0;
     Context->Request->FileId = 0;
+    Context->Request->Offset = 1073741824 - 1024; // this split would result in 3 writes
+    Context->Request->Bytes = 4096;
 
+    Context->DataBuffer.FirstAddr = malloc(Context->Request->Bytes);
+    memset(Context->DataBuffer.FirstAddr, 0, Context->Request->Bytes);
+    snprintf(Context->DataBuffer.FirstAddr, 32, "test string1...");
+    Context->DataBuffer.FirstSize = Context->Request->Bytes;
+    Context->DataBuffer.SecondAddr = malloc(Context->Request->Bytes);
+    memset(Context->DataBuffer.SecondAddr, 0, Context->Request->Bytes);
+    snprintf(Context->DataBuffer.SecondAddr, 32, "test string2...");
+    Context->DataBuffer.TotalSize = Context->Request->Bytes * 2;
+    
 
+    Context->Response = malloc(sizeof(*Context->Response));
+    Context->Response->Result = DDS_ERROR_CODE_IO_PENDING;
+    Context->Response->BytesServiced = 0;
+    Context->Response->RequestId = 0;
 
-    // SubmitDataPlaneRequest(FS, Context, false, 0);  // do a write
+    SubmitDataPlaneRequest(FS, Context, false, 0);  // do a write
+
+    SPDK_NOTICELOG("waiting for data completion\n");
+    while (Context->Response->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("data req Resp->Result = %hu\n", Context->Response->Result);
+
+    Context->Response->Result = DDS_ERROR_CODE_IO_PENDING;
+    memset(Context->DataBuffer.FirstAddr, 0, Context->Request->Bytes);
+    memset(Context->DataBuffer.SecondAddr, 0, Context->Request->Bytes);
+    SubmitDataPlaneRequest(FS, Context, true, 0);
+
+    SPDK_NOTICELOG("waiting for read data completion\n");
+    while (Context->Response->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("data read req Resp->Result = %hu\n", Context->Response->Result);
+    printf("result: %s; %s\n", Context->DataBuffer.FirstAddr, Context->DataBuffer.SecondAddr);
 
 
 

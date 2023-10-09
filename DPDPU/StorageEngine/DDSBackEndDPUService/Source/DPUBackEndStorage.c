@@ -271,6 +271,7 @@ ErrorCodeT WriteToDiskAsync(
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc;
     if (ZeroCopy){
+        // SPDK_NOTICELOG("offset: %llu, nbytes: %u %llu, seg->DiskAddress %u, SegmentOffset %u\n", seg->DiskAddress + SegmentOffset, Bytes, Bytes, seg->DiskAddress, SegmentOffset);
         rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
         Callback, Context);
     }
@@ -290,7 +291,7 @@ ErrorCodeT WriteToDiskAsync(
     if (rc)
     {
         printf("WriteToDiskAsync called bdev_write(), but failed with: %d\n", rc);
-        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+        return rc;  // there should be an SPDK error log before this?
     }
 
     return DDS_ERROR_CODE_SUCCESS;
@@ -782,6 +783,94 @@ void RemainingPagesProgressCallback(
     }
 }
 
+
+// //
+// // Increment progress callback
+// //
+// //
+// void
+// IncrementProgressCallback(
+//     struct spdk_bdev_io *bdev_io,
+//     bool Success,
+//     ContextT Context)
+// {
+//     spdk_bdev_free_io(bdev_io);
+//     struct InitializeCtx *Ctx = Context;
+//     SPDK_NOTICELOG("Ctx->CurrentProgress %d, Ctx->TargetProgress %d\n", Ctx->CurrentProgress, Ctx->TargetProgress);
+//     if (Ctx->FailureStatus->HasAborted) {
+//         if (Ctx->FailureStatus->HasStopped) {
+//             return;
+//         }
+//         Ctx->FailureStatus->HasStopped = true;
+//         SPDK_ERRLOG("fatal, HasStopped and HasAborted, exiting...\n");
+//         exit(-1);
+//         return;
+//     }
+
+//     if (!Success) {
+//         SPDK_ERRLOG("HasFailed!\n");
+//         Ctx->FailureStatus->HasFailed = true;
+//     }
+
+//     // this is the last of looped IO callbacks
+//     if (Ctx->CurrentProgress == Ctx->TargetProgress) {
+//         SPDK_NOTICELOG("Initialize() IncrementProgressCallback last one running\n");
+//         if (Ctx->FailureStatus->HasFailed) {
+//             SPDK_ERRLOG("Initialize() IncrementProgressCallback has failed IO, stopping...\n");
+//             exit(-1);
+//             return;
+//         }
+//         else {  // we can do the rest of the work
+//             ErrorCodeT result;
+//             SPDK_NOTICELOG("continue Initialize() work\n");
+//             //
+//             // Handle the remaining pages
+//             //
+//             //
+//             SPDK_NOTICELOG("Initialize(), pagesLeft: %d\n", Ctx->PagesLeft);  // this should be 0?
+//             Ctx->TargetProgress = Ctx->PagesLeft;
+//             Ctx->CurrentProgress = 0;
+//             char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
+//             memset(tmpPageBuf, 0, DDS_BACKEND_PAGE_SIZE);
+
+//             for (size_t q = 0; q != Ctx->PagesLeft; q++) {
+//                 result = WriteToDiskAsync(
+//                     tmpPageBuf,
+//                     0,
+//                     (SegmentSizeT)((Ctx->NumPagesWritten + q) * DDS_BACKEND_PAGE_SIZE),
+//                     DDS_BACKEND_PAGE_SIZE,
+//                     RemainingPagesProgressCallback,
+//                     Ctx,
+//                     Sto,
+//                     Ctx->SPDKContext,
+//                     true
+//                 );
+
+//                 if (result != DDS_ERROR_CODE_SUCCESS) {
+//                     Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
+//                     Ctx->FailureStatus->HasFailed = true;
+//                     return;
+//                 }
+//             }
+
+//             /* while (Sto->CurrentProgress != Sto->TargetProgress) {
+//                 //std::this_thread::yield();
+//                 sched_yield();
+//             } */
+
+            
+//         }
+//     }
+//     // else not last, wait until it's the last callback
+
+
+//     /* atomic_size_t* progress = (atomic_size_t*)Context;
+//     (*progress) += 1;
+//     spdk_bdev_free_io(bdev_io); */
+// }
+
+
+
 //
 // Increment progress callback
 //
@@ -794,77 +883,49 @@ IncrementProgressCallback(
 {
     spdk_bdev_free_io(bdev_io);
     struct InitializeCtx *Ctx = Context;
-    SPDK_NOTICELOG("Ctx->CurrentProgress %d, Ctx->TargetProgress %d\n", Ctx->CurrentProgress, Ctx->TargetProgress);
-    if (Ctx->FailureStatus->HasAborted) {
-        if (Ctx->FailureStatus->HasStopped) {
-            return;
-        }
-        Ctx->FailureStatus->HasStopped = true;
-        SPDK_ERRLOG("fatal, HasStopped and HasAborted, exiting...\n");
-        exit(-1);
-        return;
-    }
+    // SPDK_NOTICELOG("Ctx->PagesLeft %d, Ctx->NumPagesWritten %d\n", Ctx->PagesLeft, Ctx->NumPagesWritten);
 
     if (!Success) {
         SPDK_ERRLOG("HasFailed!\n");
         Ctx->FailureStatus->HasFailed = true;
+        exit(-1);
     }
+    ErrorCodeT result;
+    if (Ctx->PagesLeft == 0) {  // all done, continue initialization
+        //
+        // Create the root directory, which is on the second sector on the segment
+        //
+        //
+        SPDK_NOTICELOG("Last of writing zeroed page to reserved seg!\n");
+        struct DPUDir* rootDir = BackEndDirI(DDS_DIR_ROOT, DDS_DIR_INVALID, DDS_BACKEND_ROOT_DIR_NAME);
+        Ctx->RootDir = rootDir;
+        result = SyncDirToDisk(rootDir, Sto, Ctx->SPDKContext, InitializeSyncDirToDiskCallback, Ctx);
 
-    // this is the last of looped IO callbacks
-    if (Ctx->CurrentProgress == Ctx->TargetProgress) {
-        SPDK_NOTICELOG("Initialize() IncrementProgressCallback last one running\n");
-        if (Ctx->FailureStatus->HasFailed) {
-            SPDK_ERRLOG("Initialize() IncrementProgressCallback has failed IO, stopping...\n");
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            Ctx->FailureStatus->HasFailed = true;
+            Ctx->FailureStatus->HasAborted = true;
+            SPDK_ERRLOG("Initialize() SyncDirToDisk early fail!!\n");
+            // FS app stop func
             exit(-1);
-            return;
-        }
-        else {  // we can do the rest of the work
-            ErrorCodeT result;
-            SPDK_NOTICELOG("continue Initialize() work\n");
-            //
-            // Handle the remaining pages
-            //
-            //
-            SPDK_NOTICELOG("Initialize(), pagesLeft: %d\n", Ctx->PagesLeft);  // this should be 0?
-            Ctx->TargetProgress = Ctx->PagesLeft;
-            Ctx->CurrentProgress = 0;
-            char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
-            memset(tmpPageBuf, 0, DDS_BACKEND_PAGE_SIZE);
-
-            for (size_t q = 0; q != Ctx->PagesLeft; q++) {
-                result = WriteToDiskAsync(
-                    tmpPageBuf,
-                    0,
-                    (SegmentSizeT)((Ctx->NumPagesWritten + q) * DDS_BACKEND_PAGE_SIZE),
-                    DDS_BACKEND_PAGE_SIZE,
-                    RemainingPagesProgressCallback,
-                    Ctx,
-                    Sto,
-                    Ctx->SPDKContext,
-                    true
-                );
-
-                if (result != DDS_ERROR_CODE_SUCCESS) {
-                    Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
-                    Ctx->FailureStatus->HasFailed = true;
-                    return;
-                }
-            }
-
-            /* while (Sto->CurrentProgress != Sto->TargetProgress) {
-                //std::this_thread::yield();
-                sched_yield();
-            } */
-
-            
         }
     }
-    // else not last, wait until it's the last callback
-
-
-    /* atomic_size_t* progress = (atomic_size_t*)Context;
-    (*progress) += 1;
-    spdk_bdev_free_io(bdev_io); */
+    // else not last, issue more zeroing writes
+    else {
+        Ctx->NumPagesWritten += 1;
+        Ctx->PagesLeft -= 1;
+        // SPDK_NOTICELOG("Ctx->NumPagesWritten %u, offset %u\n", Ctx->NumPagesWritten, (Ctx->NumPagesWritten - 1) * DDS_BACKEND_PAGE_SIZE);
+        result = WriteToDiskAsync(
+            Ctx->tmpPageBuf,
+            0,
+            (SegmentSizeT)((Ctx->NumPagesWritten - 1) * DDS_BACKEND_PAGE_SIZE),
+            DDS_BACKEND_PAGE_SIZE,
+            IncrementProgressCallback,
+            Ctx,
+            Sto,
+            Ctx->SPDKContext,
+            true
+        );
+    }
 }
 
 void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Success, ContextT Context) {
@@ -884,9 +945,14 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         // char tmpPageBuf[DDS_BACKEND_PAGE_SIZE];
         char *tmpPageBuf = malloc(DDS_BACKEND_PAGE_SIZE);
         memset(tmpPageBuf, 0, DDS_BACKEND_PAGE_SIZE);  // original: DDS_BACKEND_SECTOR_SIZE probably wrong
+        Ctx->tmpPageBuf = tmpPageBuf;
         
         size_t pagesPerSegment = DDS_BACKEND_SEGMENT_SIZE / DDS_BACKEND_PAGE_SIZE;
-        size_t numPagesWritten = 0;
+        // size_t numPagesWritten = 0;
+
+        size_t numPagesWritten = 1;
+        Ctx->NumPagesWritten = numPagesWritten;
+        Ctx->PagesLeft = pagesPerSegment - numPagesWritten;
 
         //
         // Issue writes with the maximum queue depth
@@ -894,7 +960,28 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         //
         Ctx->TargetProgress = pagesPerSegment;
         
-        while (numPagesWritten < pagesPerSegment) {
+        Ctx->CurrentProgress = 1;
+
+        SPDK_NOTICELOG("nbytes %u\n", result);
+        result = WriteToDiskAsync(
+            tmpPageBuf,
+            0,
+            (SegmentSizeT)(numPagesWritten * DDS_BACKEND_PAGE_SIZE),
+            DDS_BACKEND_PAGE_SIZE,
+            IncrementProgressCallback,
+            Ctx,
+            Sto,
+            Ctx->SPDKContext,
+            true
+        );
+        if (result != DDS_ERROR_CODE_SUCCESS) {
+            Ctx->FailureStatus->HasFailed = true;
+            Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
+            SPDK_ERRLOG("Clearing backend pages failed with %d\n", result);
+            exit(-1);
+        }
+        
+        /* while (numPagesWritten < pagesPerSegment) {
             SPDK_NOTICELOG("numPagesWritten %d, pagesPerSegment %d\n", numPagesWritten, pagesPerSegment);
             struct InitializeCtx *CallbackCtx = malloc(sizeof(*CallbackCtx));
             memcpy(CallbackCtx, Ctx, sizeof(*Ctx));
@@ -915,20 +1002,13 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
                 Ctx->FailureStatus->HasFailed = true;
                 Ctx->FailureStatus->HasAborted = true;  // don't need to run callbacks anymore
                 SPDK_ERRLOG("Clearing backend pages failed with %d\n", result);
-                return;
+                exit(-1);
             }
-
-            /* while (Sto->CurrentProgress != Sto->TargetProgress) {
-                //std::this_thread::yield();
-                //not sure does this function have the same effect
-                //pthread_yield() is non-standard function so I replace it by
-                sched_yield();
-            } */
             
             numPagesWritten += 1;
         }
         Ctx->NumPagesWritten = numPagesWritten;
-        Ctx->PagesLeft = pagesPerSegment - numPagesWritten;
+        Ctx->PagesLeft = pagesPerSegment - numPagesWritten; */
     }
     else {
         SPDK_NOTICELOG("Backend is initialized! Load directories and files...\n");
@@ -1275,12 +1355,14 @@ ErrorCodeT CreateFile(
     struct DPUDir* dir = Sto->AllDirs[DirId];
     if (!dir) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_DIR_NOT_FOUND;
+        SPDK_ERRLOG("DDS_ERROR_CODE_DIR_NOT_FOUND\n");
         return DDS_ERROR_CODE_DIR_NOT_FOUND;
     }
 
     struct DPUFile* file = BackEndFileI(FileId, FileName, FileAttributes);
     if (!file) {
         *(HandlerCtx->Result) = DDS_ERROR_CODE_OUT_OF_MEMORY;
+        SPDK_ERRLOG("DDS_ERROR_CODE_OUT_OF_MEMORY\n");
         return DDS_ERROR_CODE_OUT_OF_MEMORY;
     }
 
@@ -1295,6 +1377,7 @@ ErrorCodeT CreateFile(
     ErrorCodeT result = SyncFileToDisk(file, Sto, SPDKContext, CreateFileCallback1, HandlerCtx);
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
+        SPDK_ERRLOG("DDS_ERROR_CODE_IO_FAILURE\n");
         *(HandlerCtx->Result) = DDS_ERROR_CODE_IO_FAILURE;
     }
     return result;
@@ -1678,6 +1761,7 @@ ErrorCodeT WriteFile(
 
             if (numSegmentsToAllocate > Sto->AvailableSegments) {
                 //SegmentAllocationMutex.unlock();
+                SPDK_ERRLOG("need to allocate seg for file, but not enough available segs left!\n");
                 pthread_mutex_unlock(&Sto->SegmentAllocationMutex);
                 return DDS_ERROR_CODE_STORAGE_OUT_OF_SPACE;
             }
@@ -1712,6 +1796,7 @@ ErrorCodeT WriteFile(
     SegmentSizeT remainingBytesOnCurSeg;
     BufferT SourceAddr = SourceBuffer->FirstAddr;
     while (bytesLeftToWrite) {
+        // SPDK_NOTICELOG("while (bytesLeftToWrite)\n");
         //
         // Cross-boundary detection
         //
@@ -1744,7 +1829,7 @@ ErrorCodeT WriteFile(
         //
 
         bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg);
-        SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d\n", bytesToIssue, bufferOffset);
+        SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d, offsetOnSegment: %d\n", bytesToIssue, bufferOffset, offsetOnSegment);
 
         /* if (remainingBytesOnCurSeg >= bytesLeftToWrite) {  // everything can go onto curr seg
             bytesToIssue = bytesLeftToWrite;
@@ -1756,7 +1841,8 @@ ErrorCodeT WriteFile(
             bytesToIssue = remainingBytesOnCurSeg;
         } */
         
-
+        //// SlotContext->CallbacksToRun += 1;
+        SPDK_NOTICELOG("WriteToDiskAsync(), src addr %p, curSegment %d, offsetOnSegment %d, bytesToIssue %d\n", SourceAddr, curSegment, offsetOnSegment, bytesToIssue);
         result = WriteToDiskAsync(
             SourceAddr + bufferOffset,//curOffset - Offset
             curSegment,

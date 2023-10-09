@@ -152,6 +152,7 @@ void WriteHandler(
     ErrorCodeT ret = WriteFile(Context->Request->FileId, Context->Request->Offset, &Context->DataBuffer,
         WriteHandlerCallback, SlotContext, Sto, SlotContext->SPDKContext);
     if (ret) {  // fatal, some callbacks won't be called
+        SPDK_ERRLOG("WriteFile ret: %d\n", ret);
         Context->Response->BytesServiced = 0;
         Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
         return;

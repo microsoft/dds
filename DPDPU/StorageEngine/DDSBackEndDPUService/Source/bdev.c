@@ -33,11 +33,11 @@ int bdev_read(
 	SPDKContextT *spdkContext = arg;
 	int rc = 0; 
 
-	SPDK_NOTICELOG("bdev_read run on thread: %d\n", spdk_thread_get_id(spdk_get_thread()));
-	SPDK_NOTICELOG("Reading io, cb_arg@%p: %hu\n", cb_arg, *((unsigned short *) cb_arg));
+	// SPDK_NOTICELOG("bdev_read run on thread: %d\n", spdk_thread_get_id(spdk_get_thread()));
+	// SPDK_NOTICELOG("Reading io, cb_arg@%p: %hu\n", cb_arg, *((unsigned short *) cb_arg));
 	rc = spdk_bdev_read(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 			    DstBuffer, offset, nbytes, cb, cb_arg);
-	SPDK_NOTICELOG("spdk_bdev_read returned: %d\n", rc);
+	// SPDK_NOTICELOG("spdk_bdev_read returned: %d\n", rc);
 	if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
@@ -73,7 +73,7 @@ int bdev_write(
 	SPDKContextT *spdkContext = arg;
 	int rc = 0;
 
-	SPDK_NOTICELOG("Writing to the bdev\n");
+	// SPDK_NOTICELOG("Writing to the bdev, offset %llu, nbytes %llu\n", offset, nbytes);
 	rc = spdk_bdev_write(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 			     SrcBuffer, offset, nbytes, cb, cb_arg);
 

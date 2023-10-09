@@ -4,7 +4,7 @@
 #include "Zmalloc.h"
 #include "DataPlaneHandlers.h"
 
-#define WORKER_THREAD_COUNT 2
+#define WORKER_THREAD_COUNT 6
 
 
 //

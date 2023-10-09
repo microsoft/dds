@@ -135,6 +135,7 @@ struct InitializeCtx {
 
     SPDKContextT *SPDKContext;
     char *tmpSectorBuf;  // actually the buff that stores the reserved segment
+    char *tmpPageBuf;  // zeroed page to write
     atomic_size_t TargetProgress;
     atomic_size_t CurrentProgress;
     size_t PagesLeft;
