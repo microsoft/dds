@@ -37,7 +37,7 @@ LDLIBS=-pthread -Wl,--no-as-needed -lspdk -lspdk_env_dpdk $(SPDK_LIB) $(DPDK_LIB
 
 # LDLIBS=-pthread -lspdk -lspdk_env_dpdk -ldpdk
 
-CFLAGS=-std=gnu11 -O3
+CFLAGS=-std=gnu11 -O3 -g
 
 PROG=TestDDS
 BUILD_DIR=./build
