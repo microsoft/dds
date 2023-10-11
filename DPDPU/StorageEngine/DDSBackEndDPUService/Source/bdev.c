@@ -87,7 +87,7 @@ int bdev_write(
 					&spdkContext->bdev_io_wait);
 		return 0;  // eventually this IO should finish successfully
 	} else if (rc == -EINVAL) {
-		SPDK_ERRLOG("offset and/or nbytes are not aligned or out of range\n");
+		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
 		return rc;
 	} else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while writing to bdev: %d\n", spdk_strerror(-rc), rc);

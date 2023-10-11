@@ -704,6 +704,7 @@ void InitializeSyncReservedInfoCallback(
     }
     // else success, Initialize() done, continue work? FS would be started by now, nothing more to do
     SPDK_NOTICELOG("Initialize() done!!!\n");
+    G_INITIALIZATION_DONE = true;
 }
 
 void InitializeSyncDirToDiskCallback(
@@ -862,11 +863,6 @@ void RemainingPagesProgressCallback(
 //         }
 //     }
 //     // else not last, wait until it's the last callback
-
-
-//     /* atomic_size_t* progress = (atomic_size_t*)Context;
-//     (*progress) += 1;
-//     spdk_bdev_free_io(bdev_io); */
 // }
 
 
@@ -960,9 +956,9 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         //
         Ctx->TargetProgress = pagesPerSegment;
         
+        
         Ctx->CurrentProgress = 1;
 
-        SPDK_NOTICELOG("nbytes %u\n", result);
         result = WriteToDiskAsync(
             tmpPageBuf,
             0,
@@ -1128,7 +1124,7 @@ void CreateDirectorySyncReservedInformationToDiskCallback(struct spdk_bdev_io *b
         // this is basically the last line of the original CreateDirectory()
         pthread_mutex_unlock(&Sto->SectorModificationMutex);
         *(HandlerCtx->Result) = DDS_ERROR_CODE_SUCCESS;
-        free(HandlerCtx);
+        ////free(HandlerCtx); DOUBLE FREE HERE!!!
         // at this point, we've finished all work, don't do RDMA, just return
         // RespondWithResult(HandlerCtx, CTRL_MSG_B2F_ACK_CREATE_DIR, DDS_ERROR_CODE_SUCCESS);
     }
@@ -1662,20 +1658,20 @@ ErrorCodeT ReadFile(
         FileIOSizeT bufferOffset;
 
         if (firstSplitLeftToRead > 0) {  // first addr
-            SPDK_NOTICELOG("reading into first split, firstSplitLeftToRead: %d\n", firstSplitLeftToRead);
+            // SPDK_NOTICELOG("reading into first split, firstSplitLeftToRead: %d\n", firstSplitLeftToRead);
             DestAddr = DestBuffer->FirstAddr;
             bytesLeftOnCurrSplit = firstSplitLeftToRead;
             bufferOffset = bytesRead;
         }
         else {  // second addr
-            SPDK_NOTICELOG("reading into second split, bytesLeftToRead: %d\n", bytesLeftToRead);
+            // SPDK_NOTICELOG("reading into second split, bytesLeftToRead: %d\n", bytesLeftToRead);
             DestAddr = DestBuffer->SecondAddr;
             bytesLeftOnCurrSplit = bytesLeftToRead;
             bufferOffset = bytesRead - DestBuffer->FirstSize;
         }
 
         bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToRead, remainingBytesOnCurSeg);
-        SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d\n", bytesToIssue, bufferOffset);
+        // SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d\n", bytesToIssue, bufferOffset);
 
         
         /* if (remainingBytesOnCurSeg >= bytesLeftToRead) {
@@ -1711,7 +1707,7 @@ ErrorCodeT ReadFile(
         bytesLeftToRead -= bytesToIssue;
     }
 
-    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", SlotContext->Ctx->Response->RequestId, SlotContext->CallbacksToRun);
+    // SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", SlotContext->Ctx->Response->RequestId, SlotContext->CallbacksToRun);
     return result;
 }
 
@@ -1811,7 +1807,7 @@ ErrorCodeT WriteFile(
         FileIOSizeT bufferOffset;
         
         if (firstSplitLeftToWrite > 0) {  // writing from first addr
-            SPDK_NOTICELOG("writing from first split, firstSplitLeftToWrite: %d\n", firstSplitLeftToWrite);
+            // SPDK_NOTICELOG("writing from first split, firstSplitLeftToWrite: %d\n", firstSplitLeftToWrite);
             SourceAddr = SourceBuffer->FirstAddr;
             bytesLeftOnCurrSplit = firstSplitLeftToWrite;
             bufferOffset = bytesWritten;
@@ -1829,7 +1825,11 @@ ErrorCodeT WriteFile(
         //
 
         bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg);
-        SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d, offsetOnSegment: %d\n", bytesToIssue, bufferOffset, offsetOnSegment);
+        if (bytesToIssue % 512 != 0) {
+            SPDK_NOTICELOG("bytesToIssue: %u, bytesLeftOnCurrSplit: %u, remainingBytesOnCurSeg: %u\n",
+                bytesToIssue, bytesLeftOnCurrSplit, remainingBytesOnCurSeg);
+        }
+        // SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d, offsetOnSegment: %d\n", bytesToIssue, bufferOffset, offsetOnSegment);
 
         /* if (remainingBytesOnCurSeg >= bytesLeftToWrite) {  // everything can go onto curr seg
             bytesToIssue = bytesLeftToWrite;
@@ -1842,7 +1842,7 @@ ErrorCodeT WriteFile(
         } */
         
         //// SlotContext->CallbacksToRun += 1;
-        SPDK_NOTICELOG("WriteToDiskAsync(), src addr %p, curSegment %d, offsetOnSegment %d, bytesToIssue %d\n", SourceAddr, curSegment, offsetOnSegment, bytesToIssue);
+        // SPDK_NOTICELOG("WriteToDiskAsync(), src addr %p, curSegment %d, offsetOnSegment %d, bytesToIssue %d\n", SourceAddr, curSegment, offsetOnSegment, bytesToIssue);
         result = WriteToDiskAsync(
             SourceAddr + bufferOffset,//curOffset - Offset
             curSegment,
@@ -1869,7 +1869,7 @@ ErrorCodeT WriteFile(
         bytesLeftToWrite -= bytesToIssue;
     }
 
-    SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", SlotContext->Ctx->Response->RequestId, SlotContext->CallbacksToRun);
+    // SPDK_NOTICELOG("For RequestId %hu, # callbacks to run: %hu\n", SlotContext->Ctx->Response->RequestId, SlotContext->CallbacksToRun);
     return result;
 }
 
@@ -1935,6 +1935,7 @@ ErrorCodeT GetStorageFreeSpace(
     //SegmentAllocationMutex.unlock();
     pthread_mutex_unlock(&Sto->SegmentAllocationMutex);
     Resp->Result = DDS_ERROR_CODE_SUCCESS;
+    SPDK_NOTICELOG("free space %llu\n", *StorageFreeSpace);
     return DDS_ERROR_CODE_SUCCESS;
 }
 

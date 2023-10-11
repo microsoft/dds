@@ -11,7 +11,7 @@
 //
 //
 void ControlPlaneHandler(
-    ControlPlaneRequestContext *Context
+    void *ReqContext
 );
 
 typedef struct ControlPlaneHandlerContext {

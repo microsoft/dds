@@ -19,7 +19,7 @@ void ReadHandler(
     struct PerSlotContext *SlotContext
 ) {
     DataPlaneRequestContext* Context = SlotContext->Ctx;
-    DebugPrint("Executing a read request: %u@%lu#%u\n", Context->Request->FileId, Context->Request->Offset, Context->Request->Bytes);
+    // DebugPrint("Executing a read request: %u@%lu#%u\n", Context->Request->FileId, Context->Request->Offset, Context->Request->Bytes);
 
     //
     // Execute the read asynchronously
@@ -97,7 +97,7 @@ void ReadHandlerCallback(
             if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {  // all callbacks done and successful, mark resp success
                 SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_SUCCESS;
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
-                SPDK_NOTICELOG("ReadHandler for RequestId %hu successful, BytesServiced: %d with %hu writes\n",
+                SPDK_NOTICELOG("ReadHandler for RequestId %hu successful, BytesServiced: %d with %hu reads\n",
                     SlotContext->Ctx->Response->RequestId, SlotContext->BytesIssued, SlotContext->CallbacksRan);
             }  // else this isn't the last, nothing more to do
             else {
@@ -129,8 +129,8 @@ void WriteHandler(
     struct PerSlotContext *SlotContext
 ) {
     DataPlaneRequestContext* Context = SlotContext->Ctx;
-    printf("Executing a write request: %u@%lu#%u, splittable buffer total size: %d\n", Context->Request->FileId,
-    Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer.TotalSize);
+    // SPDK_NOTICELOG("Executing a write request: %u@%lu#%u, splittable buffer total size: %d\n", Context->Request->FileId,
+    //     Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer.TotalSize);
 
     /* struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
     //
@@ -204,11 +204,11 @@ void WriteHandlerCallback(
             if (SlotContext->CallbacksRan == SlotContext->CallbacksToRun) {  // all callbacks done and successful, mark resp success
                 SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_SUCCESS;
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
-                SPDK_NOTICELOG("WriteHandler for RequestId %hu successful, BytesServiced: %d with %hu writes\n",
-                    SlotContext->Ctx->Response->RequestId, SlotContext->BytesIssued, SlotContext->CallbacksRan);
+                // SPDK_NOTICELOG("WriteHandler for RequestId %hu successful, BytesServiced: %d with %hu writes\n",
+                    // SlotContext->Ctx->Response->RequestId, SlotContext->BytesIssued, SlotContext->CallbacksRan);
             }  // else this isn't the last, nothing more to do
             else {
-                SPDK_NOTICELOG("Intermediate ran, %hu / %hu\n", SlotContext->CallbacksRan, SlotContext->CallbacksToRun);
+                // SPDK_NOTICELOG("Intermediate ran, %hu / %hu\n", SlotContext->CallbacksRan, SlotContext->CallbacksToRun);
             }
         }
         else {  // unsuccessful, mark resp with failure

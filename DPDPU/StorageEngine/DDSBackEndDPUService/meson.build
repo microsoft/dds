@@ -31,11 +31,12 @@ base_app_inc_dirs = [
         include_directories('../../Common/Include/DPU'),
 ]
 
-app_link_args = []
+app_link_args = ['-L/home/jason/spdk/build/lib', '-L/home/jason/spdk/dpdk/build/lib', '-Wl,-rpath=/home/jason/spdk/build/lib,--no-as-needed']
+app_link_args += [-lspdk -L/home/jason/spdk/build/lib -lspdk_env_dpdk -lspdk_util -lspdk_log -L/home/jason/spdk/dpdk/build/lib -lrte_eal -lrte_mempool -lrte_ring -lrte_mbuf -lrte_bus_pci -lrte_pci -lrte_mempool_ring -lrte_telemetry -lrte_kvargs -lrte_rcu -lrte_power -lrte_ethdev -lrte_vhost -lrte_net -lrte_dmadev -lrte_cryptodev -lrte_hash  -pthread -lrt -luuid -lssl -lcrypto -lm -laio -lbsd -lnuma -ldl]
 app_link_args += ['-libverbs']
 app_link_args += ['-lrdmacm']
 
-APP_NAME = 'DDSFileBackEnd'
+APP_NAME = 'DDSFileBackEndSPDK'
 
 app_dependencies = base_app_dependencies
 app_inc_dirs = base_app_inc_dirs
@@ -45,6 +46,13 @@ src = 'Source/'
 
 app_srcs += [
         src + 'FileBackEnd.c',
+        'Source/bdev.c',
+        'Source/ControlPlaneHandlers.c',
+        'Source/DataPlaneHandlers.c',
+        'Source/DPUBackEndDir.c',
+        'Source/DPUBackEndFile.c',
+        'Source/DPUBackEndStorage.c',
+        'Source/Zmalloc.c',
         '../../Common/Source/DPU/FileService.c',
         '../../Common/Source/DPU/RingBufferPolling.c',
 ]

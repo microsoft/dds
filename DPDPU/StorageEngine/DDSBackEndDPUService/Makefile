@@ -23,11 +23,13 @@ SPDK_EVENT_LIB := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs
 SPDK_DPDK_LIB := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs spdk_event spdk_event_bdev spdk_env_dpdk)
 SYS_LIB := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs --static spdk_syslibs)
 
+SYS_LIB += -lrdmacm -libverbs
+
 $(info SPDK_LIB: $(SPDK_LIB))
 $(info DPDK_LIB: $(DPDK_LIB))
 
 LDFLAGS=-L$(SPDK_LIB_DIR) -L$(DPDK_LIB_DIR)
-LDLIBS=-pthread -Wl,--no-as-needed -lspdk -lspdk_env_dpdk $(SPDK_LIB) $(DPDK_LIB)
+LDLIBS=-pthread -Wl,--no-as-needed -lspdk -lspdk_env_dpdk $(SPDK_LIB) $(DPDK_LIB) -lrdmacm -libverbs
 
 # SPDK_LIB := $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs spdk_bdev)
 # DPDK_LIB := $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs spdk_env_dpdk)
@@ -46,6 +48,7 @@ SRC_COMMON=../../Common/Source
 SRC_DIR = Source
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 SRCS += $(SRC_COMMON)/DPU/FileService.c
+SRCS += $(SRC_COMMON)/DPU/RingBufferPolling.c
 $(info SRCS: $(SRCS))
 
 OBJ = $(SRCS:%.c=$(BUILD_DIR)/%.o)

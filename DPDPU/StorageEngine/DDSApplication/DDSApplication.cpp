@@ -580,8 +580,8 @@ int main()
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
     // const FileSizeT maxFileSize = 1073741824ULL;
-    // const FileSizeT maxFileSize = 8192000;
-    const FileSizeT maxFileSize = 163840000000;
+    const FileSizeT maxFileSize = 819200;
+    // const FileSizeT maxFileSize = 163840000000;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
     const FileAttributesT fileAttributes = 0;

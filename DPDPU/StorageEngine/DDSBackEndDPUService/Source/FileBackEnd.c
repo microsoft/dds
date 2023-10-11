@@ -27,7 +27,7 @@ static inline void DebugPrint(const char* Fmt, ...) { }
 
 static volatile int ForceQuitFileBackEnd = 0;
 
-// struct DPUStorage *Sto;
+extern bool G_INITIALIZATION_DONE = false;
 
 //
 // the pthread on which spdk_app_start() is called, might wanna join?
@@ -1346,6 +1346,8 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            SPDK_NOTICELOG("submit create dir control plane request, id: %d, req: %p, result: %d\n",
+                CtrlConn->PendingControlPlanRequest.RequestId, CtrlConn->PendingControlPlanRequest.Request, resp->Result);
             SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
 
@@ -1967,7 +1969,7 @@ ExecuteRequests(
             if (respSize % alignment != 0) {
                 respSize += (alignment - (respSize % alignment));
             }
-            DebugPrint("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
+            // DebugPrint("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
             
             //
             // Record the size of the this response on the response ring
@@ -2661,66 +2663,80 @@ CheckAndProcessControlPlaneCompletions(
             {
             case CTRL_MSG_F2B_REQ_CREATE_DIR:
             {
+                // SPDK_NOTICELOG("setting result to success...\n");
                 CtrlMsgB2FAckCreateDirectory* resp = (CtrlMsgB2FAckCreateDirectory*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+                    SPDK_NOTICELOG("CREATE DIR PENDING...\n");
+                }
+                else {
+                    SPDK_NOTICELOG("CREATE DIR GOT RESULT: %d\n", resp->Result);
+                }
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_REMOVE_DIR:
             {
                 CtrlMsgB2FAckRemoveDirectory* resp = (CtrlMsgB2FAckRemoveDirectory*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_CREATE_FILE:
             {
+                // SPDK_NOTICELOG("setting result to success...\n");
                 CtrlMsgB2FAckCreateFile* resp = (CtrlMsgB2FAckCreateFile*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+                    SPDK_NOTICELOG("CREATE FILE PENDING...\n");
+                }
+                else {
+                    SPDK_NOTICELOG("CREATE FILE GOT RESULT: %d\n", resp->Result);
+                }
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_DELETE_FILE:
             {
                 CtrlMsgB2FAckDeleteFile* resp = (CtrlMsgB2FAckDeleteFile*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE:
             {
                 CtrlMsgB2FAckChangeFileSize* resp = (CtrlMsgB2FAckChangeFileSize*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_SIZE:
             {
                 CtrlMsgB2FAckGetFileSize* resp = (CtrlMsgB2FAckGetFileSize*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                resp->FileSize = 0;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->FileSize = 0;
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_INFO:
             {
                 CtrlMsgB2FAckGetFileInfo* resp = (CtrlMsgB2FAckGetFileInfo*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_ATTR:
             {
                 CtrlMsgB2FAckGetFileAttr* resp = (CtrlMsgB2FAckGetFileAttr*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                resp->FileAttr = 0;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->FileAttr = 0;
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FREE_SPACE:
             {
                 CtrlMsgB2FAckGetFreeSpace* resp = (CtrlMsgB2FAckGetFreeSpace*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                resp->FreeSpace = 0;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->FreeSpace = 0;
             }
                 break;
             case CTRL_MSG_F2B_REQ_MOVE_FILE:
             {
                 CtrlMsgB2FAckMoveFile* resp = (CtrlMsgB2FAckMoveFile*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             default:
@@ -2728,20 +2744,24 @@ CheckAndProcessControlPlaneCompletions(
             }
 
             // continue;
+            
         }
 
-        ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
-        ctrlConn->PendingControlPlanRequest.Request = NULL;
-        ctrlConn->PendingControlPlanRequest.Response = NULL;
+        if (*(ErrorCodeT*)(ctrlConn->PendingControlPlanRequest.Response) != DDS_ERROR_CODE_IO_PENDING) {
+            SPDK_NOTICELOG("Responding back... and NULLing ctrl plane request\n");
+            ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
+            ctrlConn->PendingControlPlanRequest.Request = NULL;
+            ctrlConn->PendingControlPlanRequest.Response = NULL;
 
-        //
-        // It's complete. Respond back to the host
-        //
-        //
-        ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
-        if (ret) {
-            fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-            ret = -1;
+            //
+            // It's complete. Respond back to the host
+            //
+            //
+            ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
         }
     }
 
@@ -2791,6 +2811,7 @@ int RunFileBackEnd(
         return ret;
     }
 
+    SPDK_NOTICELOG("Starting file service... StartFileService()\n");
     StartFileService(argc, argv, config.FS, &AppPthread);
 
 
@@ -2854,6 +2875,7 @@ int RunFileBackEnd(
                     SignalHandler(SIGTERM);
                 }
             }
+            // SPDK_NOTICELOG("Process connection events completed\n");
 
             //
             // Process RDMA events for control connections
@@ -2864,6 +2886,7 @@ int RunFileBackEnd(
                 fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
                 SignalHandler(SIGTERM);
             }
+            // SPDK_NOTICELOG("Process control conn completed\n");
 
             //
             // Check and process control plane completions
@@ -2874,17 +2897,20 @@ int RunFileBackEnd(
                 fprintf(stderr, "CheckAndProcessControlPlaneCompletions error %d\n", ret);
                 SignalHandler(SIGTERM);
             }
+            // SPDK_NOTICELOG("control plane completion completed\n");
         }
 
         //
         // Process RDMA events for buffer connections
         //
         //
+        // SPDK_NOTICELOG("buffer connections started\n");
         ret = ProcessBuffCqEvents(&config);
         if (ret) {
             fprintf(stderr, "ProcessBuffCqEvents error %d\n", ret);
             SignalHandler(SIGTERM);
         }
+        // SPDK_NOTICELOG("buffer connections completed\n");
 
         //
         // Check and process I/O completions
@@ -2895,6 +2921,7 @@ int RunFileBackEnd(
             fprintf(stderr, "CheckAndProcessIOCompletions error %d\n", ret);
             SignalHandler(SIGTERM);
         }
+        // SPDK_NOTICELOG("io completions completed\n");
 
         dataPlaneCounter++;
         if (dataPlaneCounter == DATA_PLANE_WEIGHT) {
@@ -2958,8 +2985,12 @@ int RunFileBackEnd(
 
     SPDK_NOTICELOG("Starting file service... StartFileService()\n");
     StartFileService(argc, argv, config.FS, &AppPthread);
-    sleep(2);
-    // TODO: does this work?? wait for all workers to finish
+    while (!G_INITIALIZATION_DONE) {
+        printf("waiting for storage initialization...\n");
+        sleep(3);
+    }
+    printf("storage initialization done!\n");
+
     int i = 0;
     bool allDone = true;
     while (i < 10) {
@@ -2989,19 +3020,43 @@ int RunFileBackEnd(
     signal(SIGTERM, SignalHandler);
 
     SPDK_NOTICELOG("Sto->TotalSegments: %d, Sto->AvailableSegments: %d\n", Sto->TotalSegments, Sto->AvailableSegments);
-    
-    ControlPlaneRequestContext *CtrlReqCtx = malloc(sizeof(*CtrlReqCtx));
-    CtrlReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
-    CtrlMsgF2BReqCreateFile *Req = malloc(sizeof(CtrlMsgF2BReqCreateFile));
-    CtrlMsgB2FAckCreateFile *Resp = malloc(sizeof(CtrlMsgB2FAckCreateFile));
-    Resp->Result = DDS_ERROR_CODE_IO_PENDING;
-    
-    Req->DirId = 0;//root dir
-    snprintf(&Req->FileName, 8, "foofile");
-    Req->FileId = 0;
-    Req->FileAttributes = 0;
+
 
     ControlPlaneRequestContext *ReqCtx = malloc(sizeof(*ReqCtx));
+    ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+    CtrlMsgF2BReqCreateDirectory *Req = malloc(sizeof(CtrlMsgF2BReqCreateFile));
+    CtrlMsgB2FAckCreateDirectory *Resp = malloc(sizeof(CtrlMsgB2FAckCreateFile));
+    Resp->Result = DDS_ERROR_CODE_IO_PENDING;
+    Req->DirId = 1;
+    Req->ParentDirId = 0;
+    snprintf(&Req->PathName, 8, "foodir");
+    ReqCtx->SPDKContext = FS->MasterSPDKContext;
+    ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+    ReqCtx->Request = Req;
+    ReqCtx->Response = Resp;
+    SubmitControlPlaneRequest(FS, ReqCtx);
+
+    SPDK_NOTICELOG("waiting for ctrl completion\n");
+    while (Resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("ctrl req create dir, Resp->Result = %hu\n", Resp->Result);
+
+
+
+    ControlPlaneRequestContext *CtrlReqCtx = malloc(sizeof(*CtrlReqCtx));
+    CtrlReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+    CtrlMsgF2BReqCreateFile *FileReq = malloc(sizeof(CtrlMsgF2BReqCreateFile));
+    CtrlMsgB2FAckCreateFile *FileResp = malloc(sizeof(CtrlMsgB2FAckCreateFile));
+    FileResp->Result = DDS_ERROR_CODE_IO_PENDING;
+    
+    FileReq->DirId = 0;//root dir
+    snprintf(&FileReq->FileName, 8, "foofile");
+    FileReq->FileId = 0;
+    FileReq->FileAttributes = 0;
+
+    ReqCtx = malloc(sizeof(*ReqCtx));
     ReqCtx->SPDKContext = FS->MasterSPDKContext;
     ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
     ReqCtx->Request = Req;
@@ -3013,7 +3068,7 @@ int RunFileBackEnd(
         sleep(1);
         SPDK_NOTICELOG("sleep(1)\n");
     }
-    SPDK_NOTICELOG("ctrl req Resp->Result = %hu\n", Resp->Result);
+    SPDK_NOTICELOG("ctrl req create file, Resp->Result = %hu\n", Resp->Result);
     
     
 

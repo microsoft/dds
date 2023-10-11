@@ -25,7 +25,7 @@ typedef struct SPDKContext {
 // this is already deprecated, DO NOT USE
 //
 //
-extern SPDKContextT *SPDKContext;
+// extern SPDKContextT *SPDKContext;
 
 //
 // Bdev read function, zeroCopy is used to provide different buffer

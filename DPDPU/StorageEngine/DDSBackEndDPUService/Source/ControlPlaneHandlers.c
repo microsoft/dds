@@ -11,13 +11,15 @@
 //
 //
 void ControlPlaneHandler(
-    ControlPlaneRequestContext *Context
+    void *ReqContext
 ) {
     //
     // Upon completion, set Context->Response->Result as DDS_ERROR_CODE_SUCCESS
     //
     //
-    printf("Executing a control plane request: %u\n", Context->RequestId);
+    ControlPlaneRequestContext *Context = (ControlPlaneRequestContext *) ReqContext;
+    SPDK_NOTICELOG("Executing a control plane request, id: %d, req: %p, resp: %p\n",
+        Context->RequestId, Context->Request, Context->Response);
     switch (Context->RequestId) {
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
             CtrlMsgF2BReqCreateDirectory *Req = Context->Request;

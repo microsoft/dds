@@ -13,8 +13,10 @@ static inline void DebugPrint(const char* Fmt, ...) { }
 #endif
 
 struct DPUStorage *Sto;
-char *G_BDEV_NAME = "Malloc0";
+char *G_BDEV_NAME = "malloc_delay";
 FileService* FS;
+extern bool G_INITIALIZATION_DONE;
+uint64_t submit_count = 0;
 
 //
 // Allocate the file service object
@@ -214,6 +216,7 @@ StartFileService(
     FileService *FS,
     pthread_t *AppPthread
 ) {
+    G_INITIALIZATION_DONE = false;
     struct StartFileServiceCtx *StartCtx = malloc(sizeof(*StartCtx));
     StartCtx->argc = argc;
     StartCtx->argv = argv;
@@ -296,7 +299,8 @@ SubmitControlPlaneRequest(
     FileService* FS,
     ControlPlaneRequestContext* Context
 ) {
-    DebugPrint("Submitting a control plane request\n");
+    SPDK_NOTICELOG("Submitting a control plane request, id: %d, req: %p, resp: %p\n",
+        Context->RequestId, Context->Request, Context->Response);
 
     // TODO: thread selection?
     struct spdk_thread *worker = FS->WorkerThreads[1];
@@ -329,7 +333,11 @@ SubmitDataPlaneRequest(
     RequestIdT Index
 ) {
     // note: FindFreeSpace within handlers
-    DebugPrint("Submitting a data plane request, IsRead: %d\n", IsRead);
+    submit_count += 1;
+    if (submit_count % 10000 == 0) {
+        SPDK_NOTICELOG("Submitting a data plane request, count: %llu\n", submit_count);
+    }
+    
     
     
     // TODO: do proper thread selection
@@ -346,7 +354,7 @@ SubmitDataPlaneRequest(
         
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
-            exit(-1);
+            // exit(-1);
             while (1) {
                 ret = spdk_thread_send_msg(worker, ReadHandler, SlotContext);
                 if (ret == 0) {
@@ -361,7 +369,7 @@ SubmitDataPlaneRequest(
 
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
-            exit(-1);
+            // exit(-1);
             while (1) {
                 ret = spdk_thread_send_msg(worker, WriteHandler, SlotContext);
                 if (ret == 0) {
