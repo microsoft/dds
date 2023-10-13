@@ -589,7 +589,7 @@ void run_benchmark(store_t* store, size_t num_threads) {
 void run(Workload workload, size_t num_threads) {
   // FASTER store has a hash table with approx. kInitCount / 2 entries and a log of size 16 GB
   size_t init_size = next_power_of_two(kInitCount / 2);
-  store_t store{ init_size, 536870912, "storage", 0.5};
+  store_t store{ init_size, 17179869184, "storage" };
 
   printf("Populating the store...\n");
 
