@@ -31,6 +31,7 @@ enum class Op : uint8_t {
 enum class Workload {
   A_50_50 = 0,
   RMW_100 = 1,
+  A_100_0 = 2,
 };
 
 static constexpr uint64_t kInitCount = 250000000;
@@ -268,6 +269,10 @@ inline Op ycsb_a_50_50(std::mt19937& rng) {
 
 inline Op ycsb_rmw_100(std::mt19937& rng) {
   return Op::ReadModifyWrite;
+}
+
+inline Op ycsb_a_100_0(std::mt19937& rng) {
+	return Op::Read;
 }
 
 /// Affinitize to hardware threads on the same core first, before
@@ -589,7 +594,7 @@ void run_benchmark(store_t* store, size_t num_threads) {
 void run(Workload workload, size_t num_threads) {
   // FASTER store has a hash table with approx. kInitCount / 2 entries and a log of size 16 GB
   size_t init_size = next_power_of_two(kInitCount / 2);
-  store_t store{ init_size, 17179869184, "storage" };
+  store_t store{ init_size, 536870912, "/bigssd/log", 0.5 };
 
   printf("Populating the store...\n");
 
@@ -604,6 +609,9 @@ void run(Workload workload, size_t num_threads) {
     break;
   case Workload::RMW_100:
     run_benchmark<ycsb_rmw_100>(&store, num_threads);
+    break;
+  case Workload::A_100_0:
+    run_benchmark<ycsb_a_100_0>(&store, num_threads);
     break;
   default:
     printf("Unknown workload!\n");
