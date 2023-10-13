@@ -120,6 +120,7 @@ ENDFUNCTION()
 
 # Build each subdirectory
 add_subdirectory(benchmark-dir)
+add_subdirectory(benchmark-dds)
 add_subdirectory(playground)
 add_subdirectory(src)
 add_subdirectory(test)
