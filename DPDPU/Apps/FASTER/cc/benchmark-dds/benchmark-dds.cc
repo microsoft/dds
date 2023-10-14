@@ -48,7 +48,7 @@ static_assert(kCompletePendingInterval % kRefreshInterval == 0,
 static constexpr uint64_t kNanosPerSecond = 1000000000;
 
 static constexpr uint64_t kMaxKey = 268435456;
-static constexpr uint64_t kRunSeconds = 30;
+static constexpr uint64_t kRunSeconds = 60;
 static constexpr uint64_t kCheckpointSeconds = 0;
 
 aligned_unique_ptr_t<uint64_t> init_keys_;
@@ -594,7 +594,7 @@ void run_benchmark(store_t* store, size_t num_threads) {
 void run(Workload workload, size_t num_threads) {
   // FASTER store has a hash table with approx. kInitCount / 2 entries and a log of size 16 GB
   size_t init_size = next_power_of_two(kInitCount / 2);
-  store_t store{ init_size, 536870912, "/bigssd/log", 0.5 };
+  store_t store{ init_size, 536870912, "E:\\log", 0.5 };
 
   printf("Populating the store...\n");
 
