@@ -210,39 +210,22 @@ void DeBackEndStorage(
     }
 } */
 
-//
-// Read from disk asynchronously
-//
-//
-ErrorCodeT ReadFromDiskAsync(
-    BufferT DstBuffer,
+
+ErrorCodeT ReadvFromDiskAsyncZC(
+    struct iovec *iov,
+    int iovcnt,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *SPDKContext,
-    bool ZeroCopy
-){
+    void *SPDKContext
+) {
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc;
-    if (ZeroCopy){
-        rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+    rc = bdev_readv(SPDKContext, iov, iovcnt, seg->DiskAddress + SegmentOffset, Bytes, 
         Callback, Context);
-    }
-    else{
-        struct PerSlotContext* SlotContext = (struct PerSlotContext*) Context;
-        int position = SlotContext->Position;
-        SPDKContextT *arg = SPDKContext;
-        if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
-            SPDK_WARNLOG("A read with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
-        }
-        rc = bdev_read(SPDKContext, &arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
-        seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
-    }
-    
-    //memcpy(DstBuffer, (char*)seg->DiskAddress + SegmentOffset, Bytes);
 
     if (rc)
     {
@@ -250,14 +233,180 @@ ErrorCodeT ReadFromDiskAsync(
         return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
     }
 
-    return DDS_ERROR_CODE_SUCCESS; // TODO: since it's async, we don't know if the actual read will be successful
+    return DDS_ERROR_CODE_SUCCESS; // since it's async, we don't know if the actual read will be successful
+}
+
+ErrorCodeT ReadvFromDiskAsyncNonZC(
+    struct iovec *iov,
+    int iovcnt,
+    FileIOSizeT NonZCBuffOffset,
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+) {
+    SegmentT* seg = &Sto->AllSegments[SegmentId];
+    int rc;
+    int position = SlotContext->Position;
+    SPDKContextT *arg = SPDKContext;
+    if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
+        SPDK_WARNLOG("A read with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
+    }
+    SPDK_NOTICELOG("non zero copy, bdev_read reading from %llu, bytes: %u, NonZCBuffOffset: %u\n",
+        seg->DiskAddress + SegmentOffset, Bytes, NonZCBuffOffset);
+    // rc = bdev_read(SPDKContext, (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset, 
+    // seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
+    rc = bdev_read(SPDKContext, (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]), 
+    seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
+
+    if (rc)
+    {
+        printf("ReadFromDiskAsync called bdev_read(), but failed with: %d\n", rc);
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
+
+    return DDS_ERROR_CODE_SUCCESS; // since it's async, we don't know if the actual read will be successful
+}
+
+
+ErrorCodeT ReadFromDiskAsyncZC(
+    BufferT DstBuffer,
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    ContextT Context,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+){
+    SegmentT* seg = &Sto->AllSegments[SegmentId];
+    int rc;
+    rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+        Callback, Context);
+
+    if (rc)
+    {
+        printf("ReadFromDiskAsync called bdev_read(), but failed with: %d\n", rc);
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
+
+    return DDS_ERROR_CODE_SUCCESS; // since it's async, we don't know if the actual read will be successful
 }
 
 //
-// Write to disk asynchronously
+// Read from disk asynchronously, FileIOSizeT BytesRead is how many we already read, only used for non zero copy
 //
 //
-ErrorCodeT WriteToDiskAsync(
+ErrorCodeT ReadFromDiskAsyncNonZC(
+    BufferT DstBuffer,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+){
+    SegmentT* seg = &Sto->AllSegments[SegmentId];
+    int rc;
+    /* if (ZeroCopy){
+        rc = bdev_read(SPDKContext, DstBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+        Callback, Context);
+    } */
+    int position = SlotContext->Position;
+    SPDKContextT *arg = SPDKContext;
+    if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
+        SPDK_WARNLOG("A read with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
+    }
+    // SPDK_NOTICELOG("non zero copy, bdev_read reading from %llu, bytes: %u, NonZCBuffOffset: %u\n",
+    //     seg->DiskAddress + SegmentOffset, Bytes, NonZCBuffOffset);
+    rc = bdev_read(SPDKContext, (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset, 
+    seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
+
+    if (rc)
+    {
+        printf("ReadFromDiskAsync called bdev_read(), but failed with: %d\n", rc);
+        return DDS_ERROR_CODE_INVALID_FILE_POSITION;  // there should be an SPDK error log before this
+    }
+
+    return DDS_ERROR_CODE_SUCCESS; // since it's async, we don't know if the actual read will be successful
+}
+
+
+ErrorCodeT WritevToDiskAsyncZC(
+    struct iovec *iov,
+    int iovcnt,
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,  // this should be the callback arg
+    struct DPUStorage* Sto,
+    void *SPDKContext
+){
+    SegmentT* seg = &Sto->AllSegments[SegmentId];
+    int rc;
+    // SPDK_NOTICELOG("offset: %llu, nbytes: %u %llu, seg->DiskAddress %u, SegmentOffset %u\n", seg->DiskAddress + SegmentOffset, Bytes, Bytes, seg->DiskAddress, SegmentOffset);
+    rc = bdev_writev(SPDKContext, iov, iovcnt, seg->DiskAddress + SegmentOffset, Bytes, 
+        Callback, SlotContext);
+
+    if (rc)
+    {
+        printf("WriteToDiskAsync called bdev_write(), but failed with: %d\n", rc);
+        return rc;  // there should be an SPDK error log before this?
+    }
+
+    return DDS_ERROR_CODE_SUCCESS;
+}
+
+ErrorCodeT WritevToDiskAsyncNonZC(
+    struct iovec *iov,
+    int iovcnt,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,  // this should be the callback arg
+    struct DPUStorage* Sto,
+    void *SPDKContext
+){
+    SegmentT* seg = &Sto->AllSegments[SegmentId];
+    int rc;
+    /* if (ZeroCopy) {
+        // SPDK_NOTICELOG("offset: %llu, nbytes: %u %llu, seg->DiskAddress %u, SegmentOffset %u\n", seg->DiskAddress + SegmentOffset, Bytes, Bytes, seg->DiskAddress, SegmentOffset);
+        rc = bdev_writev(SPDKContext, iov, iovcnt, seg->DiskAddress + SegmentOffset, Bytes, 
+            Callback, Context);
+    } */
+    int position = SlotContext->Position;
+    SPDKContextT *arg = SPDKContext;
+    if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
+        SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
+    }
+    char *toCopy = (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset;
+    // memcpy(toCopy, iov[0].iov_base, iov[0].iov_len);
+    // memcpy(toCopy + iov[0].iov_len, iov[1].iov_base, iov[1].iov_len);
+    rc = bdev_write(SPDKContext, toCopy,
+        seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
+
+    if (rc)
+    {
+        printf("WriteToDiskAsync called bdev_write(), but failed with: %d\n", rc);
+        return rc;  // there should be an SPDK error log before this?
+    }
+
+    return DDS_ERROR_CODE_SUCCESS;
+}
+
+//
+// Write to disk asynchronously with zero copy
+//
+//
+ErrorCodeT WriteToDiskAsyncZC(
     BufferT SrcBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -265,28 +414,64 @@ ErrorCodeT WriteToDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,  // this should be the callback arg
     struct DPUStorage* Sto,
-    void *SPDKContext,
-    bool ZeroCopy
+    void *SPDKContext
 ){
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc;
-    if (ZeroCopy){
-        // SPDK_NOTICELOG("offset: %llu, nbytes: %u %llu, seg->DiskAddress %u, SegmentOffset %u\n", seg->DiskAddress + SegmentOffset, Bytes, Bytes, seg->DiskAddress, SegmentOffset);
-        rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
+    // SPDK_NOTICELOG("offset: %llu, nbytes: %u %llu, seg->DiskAddress %u, SegmentOffset %u\n", seg->DiskAddress + SegmentOffset, Bytes, Bytes, seg->DiskAddress, SegmentOffset);
+    rc = bdev_write(SPDKContext, SrcBuffer, seg->DiskAddress + SegmentOffset, Bytes, 
         Callback, Context);
-    }
-    else{
+
+    /* else{
         struct PerSlotContext* SlotContext = (struct PerSlotContext*) Context;
         int position = SlotContext->Position;
         SPDKContextT *arg = SPDKContext;
         if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
             SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
         }
-        memcpy(&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], SrcBuffer, Bytes);
-        rc = bdev_write(SPDKContext, &arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE], 
-        seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
+        char *toCopy = (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset;
+        memcpy(toCopy, SrcBuffer, Bytes);
+        rc = bdev_write(SPDKContext, toCopy, 
+            seg->DiskAddress + SegmentOffset, Bytes, Callback, Context);
+    } */
+
+    if (rc)
+    {
+        printf("WriteToDiskAsync called bdev_write(), but failed with: %d\n", rc);
+        return rc;  // there should be an SPDK error log before this?
     }
-    //memcpy((char*)seg->DiskAddress + SegmentOffset, SrcBuffer, Bytes);
+
+    return DDS_ERROR_CODE_SUCCESS;
+}
+
+ErrorCodeT WriteToDiskAsyncNonZC(
+    BufferT SrcBuffer,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    // ContextT Context,  // this should be the callback arg
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+){
+    SegmentT* seg = &Sto->AllSegments[SegmentId];
+    int rc;
+    // SPDK_NOTICELOG("offset: %llu, nbytes: %u %llu, seg->DiskAddress %u, SegmentOffset %u\n", seg->DiskAddress + SegmentOffset, Bytes, Bytes, seg->DiskAddress, SegmentOffset);
+
+    int position = SlotContext->Position;
+    SPDKContextT *arg = SPDKContext;
+    if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
+        SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
+    }
+
+    // SPDK_NOTICELOG("NonZCBuffOffset: %u, \n");
+
+    char *toCopy = (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset;
+    memcpy(toCopy, SrcBuffer, Bytes);
+    rc = bdev_write(SPDKContext, toCopy, 
+        seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
 
     if (rc)
     {
@@ -462,7 +647,7 @@ void LoadDirectoriesCallback(
             CallbackCtx->FileLoopIndex = f;
             CallbackCtx->FileOnDisk = malloc(sizeof(*CallbackCtx->FileOnDisk));
 
-            result = ReadFromDiskAsync(
+            result = ReadFromDiskAsyncZC(
                 (BufferT) fileOnDisk,
                 DDS_BACKEND_RESERVED_SEGMENT,
                 nextAddress,
@@ -470,8 +655,7 @@ void LoadDirectoriesCallback(
                 LoadFilesCallback,
                 CallbackCtx,
                 Sto,
-                SPDKContext,
-                true
+                SPDKContext
             );
 
             if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -523,7 +707,7 @@ void LoadDirectoriesAndFilesCallback(
         CallbackCtx->DirLoopIndex = d;
         // CallbackCtx->NextAddress = nextAddress;
         CallbackCtx->DirOnDisk = malloc(sizeof(*CallbackCtx->DirOnDisk));
-        result = ReadFromDiskAsync(
+        result = ReadFromDiskAsyncZC(
             (BufferT) CallbackCtx->DirOnDisk,
             DDS_BACKEND_RESERVED_SEGMENT,
             nextAddress,
@@ -531,8 +715,7 @@ void LoadDirectoriesAndFilesCallback(
             LoadDirectoriesCallback,
             CallbackCtx,
             Sto,
-            SPDKContext,
-            true
+            SPDKContext
         );
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -575,7 +758,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
     Ctx->TmpSectorBuffer = tmpSectorBuffer;
     Ctx->FailureStatus = InitializeCtx->FailureStatus;
     Ctx->SPDKContext = InitializeCtx->SPDKContext;
-    result = ReadFromDiskAsync(
+    result = ReadFromDiskAsyncZC(
         tmpSectorBuffer,
         DDS_BACKEND_RESERVED_SEGMENT,
         0,
@@ -583,8 +766,7 @@ ErrorCodeT LoadDirectoriesAndFiles(
         LoadDirectoriesAndFilesCallback,
         Ctx,
         Sto,
-        arg,
-        true
+        arg
     );
 
     if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -609,7 +791,7 @@ ErrorCodeT SyncDirToDisk(
     DiskIOCallback Callback,
     ContextT Context
 ){
-    return WriteToDiskAsync(
+    return WriteToDiskAsyncZC(
         (BufferT)GetDirProperties(Dir),
         DDS_BACKEND_RESERVED_SEGMENT,
         GetDirAddressOnSegment(Dir),
@@ -617,8 +799,7 @@ ErrorCodeT SyncDirToDisk(
         Callback,
         Context,
         Sto,
-        SPDKContext,
-        true
+        SPDKContext
     );
     /* return WriteToDiskSync(
         (BufferT)GetDirProperties(Dir),
@@ -642,7 +823,7 @@ ErrorCodeT SyncFileToDisk(
     DiskIOCallback Callback,
     ContextT Context
 ){
-    return WriteToDiskAsync(
+    return WriteToDiskAsyncZC(
         (BufferT)GetFileProperties(File),
         DDS_BACKEND_RESERVED_SEGMENT,
         GetFileAddressOnSegment(File),
@@ -650,8 +831,7 @@ ErrorCodeT SyncFileToDisk(
         Callback,
         Context,
         Sto,
-        SPDKContext,
-        true
+        SPDKContext
     );
 }
 
@@ -677,7 +857,7 @@ ErrorCodeT SyncReservedInformationToDisk(
 
     SPDK_NOTICELOG("Sto->TotalDirs %d, Sto->TotalFiles: %d\n", Sto->TotalDirs, Sto->TotalFiles);
 
-    return WriteToDiskAsync(
+    return WriteToDiskAsyncZC(
         tmpSectorBuf,
         DDS_BACKEND_RESERVED_SEGMENT,
         0,
@@ -685,8 +865,7 @@ ErrorCodeT SyncReservedInformationToDisk(
         Callback,
         Context,
         Sto,
-        SPDKContext,
-        true
+        SPDKContext
     );
 }
 
@@ -705,6 +884,20 @@ void InitializeSyncReservedInfoCallback(
     // else success, Initialize() done, continue work? FS would be started by now, nothing more to do
     SPDK_NOTICELOG("Initialize() done!!!\n");
     G_INITIALIZATION_DONE = true;
+    /* // readv writev work?
+    sleep(2);
+    struct iovec *dummy_iov = malloc(2*sizeof(struct iovec));
+    dummy_iov[0].iov_base = malloc(4096);
+    dummy_iov[0].iov_len = 4096;
+    dummy_iov[1].iov_base = malloc(4096);
+    dummy_iov[1].iov_len = 4096;
+    ret = spdk_bdev_readv(FS->MasterSPDKContext->bdev_desc, FS->MasterSPDKContext->bdev_io_channel, &dummy_iov, 2, 0, 8192, writev_cb, dummy_iov);
+    if (ret) {
+        SPDK_ERRLOG("writev failed: %d\n", ret);
+    }
+    else {
+        SPDK_ERRLOG("writev success\n");
+    } */
 }
 
 void InitializeSyncDirToDiskCallback(
@@ -910,16 +1103,15 @@ IncrementProgressCallback(
         Ctx->NumPagesWritten += 1;
         Ctx->PagesLeft -= 1;
         // SPDK_NOTICELOG("Ctx->NumPagesWritten %u, offset %u\n", Ctx->NumPagesWritten, (Ctx->NumPagesWritten - 1) * DDS_BACKEND_PAGE_SIZE);
-        result = WriteToDiskAsync(
+        result = WriteToDiskAsyncZC(
             Ctx->tmpPageBuf,
-            0,
+            DDS_BACKEND_RESERVED_SEGMENT,
             (SegmentSizeT)((Ctx->NumPagesWritten - 1) * DDS_BACKEND_PAGE_SIZE),
             DDS_BACKEND_PAGE_SIZE,
             IncrementProgressCallback,
             Ctx,
             Sto,
-            Ctx->SPDKContext,
-            true
+            Ctx->SPDKContext
         );
     }
 }
@@ -959,16 +1151,15 @@ void InitializeReadReservedSectorCallback(struct spdk_bdev_io *bdev_io, bool Suc
         
         Ctx->CurrentProgress = 1;
 
-        result = WriteToDiskAsync(
+        result = WriteToDiskAsyncZC(
             tmpPageBuf,
-            0,
+            DDS_BACKEND_RESERVED_SEGMENT,
             (SegmentSizeT)(numPagesWritten * DDS_BACKEND_PAGE_SIZE),
             DDS_BACKEND_PAGE_SIZE,
             IncrementProgressCallback,
             Ctx,
             Sto,
-            Ctx->SPDKContext,
-            true
+            Ctx->SPDKContext
         );
         if (result != DDS_ERROR_CODE_SUCCESS) {
             Ctx->FailureStatus->HasFailed = true;
@@ -1091,8 +1282,8 @@ ErrorCodeT Initialize(
     InitializeCtx->CurrentProgress = 0;
     InitializeCtx->TargetProgress = 0;
     InitializeCtx->SPDKContext = SPDKContext;
-    result = ReadFromDiskAsync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE,
-        InitializeReadReservedSectorCallback, InitializeCtx, Sto, arg, true);
+    result = ReadFromDiskAsyncZC(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE,
+        InitializeReadReservedSectorCallback, InitializeCtx, Sto, arg);
     SPDK_NOTICELOG("read reserved segment\n");
     // result = ReadFromDiskSync(tmpSectorBuf, DDS_BACKEND_RESERVED_SEGMENT, 0, DDS_BACKEND_SECTOR_SIZE, Sto, arg, true);
 
@@ -1613,6 +1804,7 @@ ErrorCodeT GetFileSize(
 
 //
 // Async read from a file
+// TODO: Currently doesn't handle non block sized IO, deals with split buffer with readv/writev but logic still relies on block sized IO
 // 
 //
 ErrorCodeT ReadFile(
@@ -1627,6 +1819,7 @@ ErrorCodeT ReadFile(
     ErrorCodeT result = DDS_ERROR_CODE_SUCCESS;
     struct DPUFile* file = Sto->AllFiles[FileId];
     struct PerSlotContext* SlotContext = (struct PerSlotContext*)Context;
+    SlotContext->DestBuffer = DestBuffer;
     FileSizeT remainingBytes = GetSize(file) - Offset;
 
     FileIOSizeT bytesLeftToRead = DestBuffer->TotalSize;
@@ -1653,36 +1846,135 @@ ErrorCodeT ReadFile(
         remainingBytesOnCurSeg = DDS_BACKEND_SEGMENT_SIZE - offsetOnSegment;
 
         FileIOSizeT bytesRead = DestBuffer->TotalSize - bytesLeftToRead;
-        FileIOSizeT firstSplitLeftToRead = DestBuffer->FirstSize - bytesRead;
+        int firstSplitLeftToRead = DestBuffer->FirstSize - bytesRead;
         FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to read onto it
-        FileIOSizeT bufferOffset;
+        FileIOSizeT splitBufferOffset;
+
+        bytesToIssue = min(bytesLeftToRead, remainingBytesOnCurSeg);
+
 
         if (firstSplitLeftToRead > 0) {  // first addr
             // SPDK_NOTICELOG("reading into first split, firstSplitLeftToRead: %d\n", firstSplitLeftToRead);
             DestAddr = DestBuffer->FirstAddr;
             bytesLeftOnCurrSplit = firstSplitLeftToRead;
-            bufferOffset = bytesRead;
+            splitBufferOffset = bytesRead;
         }
         else {  // second addr
             // SPDK_NOTICELOG("reading into second split, bytesLeftToRead: %d\n", bytesLeftToRead);
             DestAddr = DestBuffer->SecondAddr;
             bytesLeftOnCurrSplit = bytesLeftToRead;
-            bufferOffset = bytesRead - DestBuffer->FirstSize;
+            splitBufferOffset = bytesRead - DestBuffer->FirstSize;
         }
 
-        bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToRead, remainingBytesOnCurSeg);
-        // SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d\n", bytesToIssue, bufferOffset);
+        // SPDK_NOTICELOG("bytesToIssue: %d, splitBufferOffset: %d\n", bytesToIssue, splitBufferOffset);
 
-        
-        /* if (remainingBytesOnCurSeg >= bytesLeftToRead) {
-            bytesToIssue = bytesLeftToRead;
+        // if bytes to issue can all fit on curr split, then we don't need sg IO
+        if (bytesLeftOnCurrSplit >= bytesToIssue) {
+            if (USE_ZERO_COPY) {
+                result = ReadFromDiskAsyncZC(
+                    DestAddr + splitBufferOffset, //(curOffset - Offset)
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    Context,
+                    Sto,
+                    SPDKContext
+                );
+            }
+            else {
+                result = ReadFromDiskAsyncNonZC(
+                    DestAddr + splitBufferOffset, //(curOffset - Offset)
+                    bytesRead,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    Context,
+                    Sto,
+                    SPDKContext
+                );
+            }
+            // SPDK_NOTICELOG("ReadFromDiskAsync(), bytesToIssue: %u, base addr: %p\n",
+            //     bytesToIssue, DestAddr + splitBufferOffset);
+            /* result = ReadFromDiskAsync(
+                DestAddr + splitBufferOffset, //(curOffset - Offset)
+                bytesRead,
+                curSegment,
+                offsetOnSegment,
+                bytesToIssue,
+                Callback,
+                Context,
+                Sto,
+                SPDKContext,
+                USE_ZERO_COPY
+            ); */
         }
-        else {
-            bytesToIssue = remainingBytesOnCurSeg;
-        } */
+        else {  // we need sg, and exactly 2 iovec's, one on 1st split, the other on 2nd split
+            if (!(DestAddr == DestBuffer->FirstAddr)) {
+                SPDK_ERRLOG("ERROR: SG start addr is not FirstAddr\n");
+            }
+            SlotContext->iov[0].iov_base = DestAddr + splitBufferOffset;
+            // SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
+            SlotContext->iov[0].iov_len = 0;
 
-        result = ReadFromDiskAsync(
-            DestAddr + bufferOffset, //(curOffset - Offset)
+            SlotContext->iov[1].iov_base = DestBuffer->SecondAddr;
+            // SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
+            SlotContext->iov[1].iov_len = 0;
+
+            // SPDK_NOTICELOG("ReadvFromDiskAsync(), FirstAddr: %p, FirstSize: %llu, SecondAddr: %p, TotalSize: %llu\n",
+            //     DestBuffer->FirstAddr, DestBuffer->FirstSize, DestBuffer->SecondAddr, DestBuffer->TotalSize);
+            // SPDK_NOTICELOG("ReadvFromDiskAsync(), bytesToIssue: %u, base1: %p, len1: %u, base2: %p, len2: %u\n",
+            //     bytesToIssue, SlotContext->iov[0].iov_base, bytesLeftOnCurrSplit, SlotContext->iov[1].iov_base, bytesToIssue - bytesLeftOnCurrSplit);
+
+            if (USE_ZERO_COPY) {
+                result = ReadvFromDiskAsyncZC(
+                    &SlotContext->iov,
+                    2,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    Context,
+                    Sto,
+                    SPDKContext
+                );
+            }
+            else {
+                result = ReadvFromDiskAsyncNonZC(
+                    &SlotContext->iov,
+                    2,
+                    bytesRead,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    Context,
+                    Sto,
+                    SPDKContext
+                );
+            }
+            /* result = ReadvFromDiskAsync(
+                &SlotContext->iov,
+                2,
+                bytesRead,
+                curSegment,
+                offsetOnSegment,
+                bytesToIssue,
+                Callback,
+                Context,
+                Sto,
+                SPDKContext,
+                USE_ZERO_COPY
+            ); */
+        }
+
+
+        ////bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToRead, remainingBytesOnCurSeg);
+
+
+        /* result = ReadFromDiskAsync(
+            DestAddr + splitBufferOffset, //(curOffset - Offset)
             curSegment,
             offsetOnSegment,
             bytesToIssue,
@@ -1691,7 +1983,7 @@ ErrorCodeT ReadFile(
             Sto,
             SPDKContext,
             true
-        );
+        ); */
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             SPDK_WARNLOG("ReadFromDiskAsync() failed with ret: %d\n", result);
@@ -1792,7 +2084,6 @@ ErrorCodeT WriteFile(
     SegmentSizeT remainingBytesOnCurSeg;
     BufferT SourceAddr = SourceBuffer->FirstAddr;
     while (bytesLeftToWrite) {
-        // SPDK_NOTICELOG("while (bytesLeftToWrite)\n");
         //
         // Cross-boundary detection
         //
@@ -1804,47 +2095,113 @@ ErrorCodeT WriteFile(
         FileIOSizeT bytesWritten = SourceBuffer->TotalSize - bytesLeftToWrite;
         FileIOSizeT firstSplitLeftToWrite = SourceBuffer->FirstSize - bytesWritten;
         FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to write on it
-        FileIOSizeT bufferOffset;
+        FileIOSizeT splitBufferOffset;
+
+        bytesToIssue = min(bytesLeftToWrite, remainingBytesOnCurSeg);
         
         if (firstSplitLeftToWrite > 0) {  // writing from first addr
             // SPDK_NOTICELOG("writing from first split, firstSplitLeftToWrite: %d\n", firstSplitLeftToWrite);
             SourceAddr = SourceBuffer->FirstAddr;
             bytesLeftOnCurrSplit = firstSplitLeftToWrite;
-            bufferOffset = bytesWritten;
+            splitBufferOffset = bytesWritten;
         }
         else {  // writing from second addr
             SPDK_NOTICELOG("writing from second split, bytesLeftToWrite: %d\n", bytesLeftToWrite);
             SourceAddr = SourceBuffer->SecondAddr;
             bytesLeftOnCurrSplit = bytesLeftToWrite;
-            bufferOffset = bytesWritten - SourceBuffer->FirstSize;
+            splitBufferOffset = bytesWritten - SourceBuffer->FirstSize;
         }
 
-        //
-        // bytesToIssue will be the min of 3: bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg
-        //
-        //
+        ////bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg);
 
-        bytesToIssue = min3(bytesLeftOnCurrSplit, bytesLeftToWrite, remainingBytesOnCurSeg);
-        if (bytesToIssue % 512 != 0) {
-            SPDK_NOTICELOG("bytesToIssue: %u, bytesLeftOnCurrSplit: %u, remainingBytesOnCurSeg: %u\n",
-                bytesToIssue, bytesLeftOnCurrSplit, remainingBytesOnCurSeg);
-        }
-        // SPDK_NOTICELOG("bytesToIssue: %d, bufferOffset: %d, offsetOnSegment: %d\n", bytesToIssue, bufferOffset, offsetOnSegment);
-
-        /* if (remainingBytesOnCurSeg >= bytesLeftToWrite) {  // everything can go onto curr seg
-            bytesToIssue = bytesLeftToWrite;
-            if (bytesToIssue > firstSplitLeftToWrite) {
-                bytesToIssue = firstSplitLeftToWrite;
+        // SPDK_NOTICELOG("bytesToIssue: %d, splitBufferOffset: %d, offsetOnSegment: %d\n", bytesToIssue, splitBufferOffset, offsetOnSegment);
+        // SPDK_NOTICELOG("WriteToDiskAsync(), src addr %p, curSegment %d, offsetOnSegment %d, bytesToIssue %d\n", SourceAddr, curSegment, offsetOnSegment, bytesToIssue);
+        
+        
+        if (bytesLeftOnCurrSplit >= bytesToIssue) {  // if bytes to issue can all fit on curr split, then we don't need sg IO
+            if (USE_ZERO_COPY) {
+                result = WriteToDiskAsyncZC(
+                    SourceAddr + splitBufferOffset,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    SlotContext,
+                    Sto,
+                    SPDKContext
+                );
+            }
+            else {
+                result = WriteToDiskAsyncNonZC(
+                    SourceAddr + splitBufferOffset,
+                    bytesWritten,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    SlotContext,
+                    Sto,
+                    SPDKContext
+                );
             }
         }
-        else {  // write as much on curr seg now, some data will be on another seg later
-            bytesToIssue = remainingBytesOnCurSeg;
-        } */
+        else {  // we need sg, and exactly 2 iovec's, one on 1st split, the other on 2nd split
+            assert (SourceAddr == SourceBuffer->FirstAddr);
+            SlotContext->iov[0].iov_base = SourceAddr + splitBufferOffset;
+            // SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
+            SlotContext->iov[0].iov_len = 0;
+            SlotContext->iov[1].iov_base = SourceBuffer->SecondAddr;
+            // SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;//TODO
+            SlotContext->iov[1].iov_len = 0;
+            
+            // SPDK_NOTICELOG("WritevToDiskAsync(), bytesToIssue: %u, base1: %p, len1: %u\n",
+            //     bytesToIssue, SlotContext->iov[0].iov_base, bytesLeftOnCurrSplit);
+            
+            if (USE_ZERO_COPY) {
+                result = WritevToDiskAsyncZC(
+                    &SlotContext->iov,
+                    2,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    Context,
+                    Sto,
+                    SPDKContext
+                );
+            }
+            else {
+                result = WritevToDiskAsyncNonZC(
+                    &SlotContext->iov,
+                    2,
+                    bytesWritten,
+                    curSegment,
+                    offsetOnSegment,
+                    bytesToIssue,
+                    Callback,
+                    Context,
+                    Sto,
+                    SPDKContext
+                );
+            }
+
+            /* result = WritevToDiskAsync(
+                &SlotContext->iov,
+                2,
+                bytesWritten,
+                curSegment,
+                offsetOnSegment,
+                bytesToIssue,
+                Callback,
+                Context,
+                Sto,
+                SPDKContext,
+                USE_ZERO_COPY
+            ); */
+        }
         
-        //// SlotContext->CallbacksToRun += 1;
-        // SPDK_NOTICELOG("WriteToDiskAsync(), src addr %p, curSegment %d, offsetOnSegment %d, bytesToIssue %d\n", SourceAddr, curSegment, offsetOnSegment, bytesToIssue);
-        result = WriteToDiskAsync(
-            SourceAddr + bufferOffset,//curOffset - Offset
+        /* result = WriteToDiskAsync(
+            SourceAddr + splitBufferOffset,//curOffset - Offset
             curSegment,
             offsetOnSegment,
             bytesToIssue,
@@ -1853,7 +2210,7 @@ ErrorCodeT WriteFile(
             Sto,
             SPDKContext,
             true
-        );
+        ); */
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
             SPDK_WARNLOG("WriteToDiskAsync() failed with ret: %d\n", result);

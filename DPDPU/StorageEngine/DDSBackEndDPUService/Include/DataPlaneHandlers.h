@@ -18,7 +18,13 @@ void ReadHandler(
 // Callback for ReadHandler async read
 //
 //
-void ReadHandlerCallback(
+void ReadHandlerZCCallback(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    ContextT Context
+);
+
+void ReadHandlerNonZCCallback(
     struct spdk_bdev_io *bdev_io,
     bool Success,
     ContextT Context

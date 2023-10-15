@@ -44,6 +44,16 @@ int bdev_read(
 	void *cb_arg
 );
 
+int bdev_readv(
+	void *arg,
+    struct iovec *iov,
+	int iovcnt,
+    uint64_t offset,
+    uint64_t nbytes,
+	spdk_bdev_io_completion_cb cb,
+	void *cb_arg
+);
+
 //
 // Callback function for read io completion.
 //
@@ -68,6 +78,16 @@ int bdev_write(
     uint64_t offset,
     uint64_t nbytes,
     spdk_bdev_io_completion_cb cb,
+	void *cb_arg
+);
+
+int bdev_writev(
+    void *arg,
+    struct iovec *iov,
+    int iovcnt,
+    uint64_t offset,
+    uint64_t nbytes,
+	spdk_bdev_io_completion_cb cb,
 	void *cb_arg
 );
 

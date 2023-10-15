@@ -2,9 +2,10 @@
 
 void AllocateSpace(void *arg){
     SPDKContextT *SPDKContext = arg;
-    SPDKContext->buff_size = 2 * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE;//DDS_MAX_OUTSTANDING_IO
+    SPDKContext->buff_size = DDS_MAX_OUTSTANDING_IO * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE;//DDS_MAX_OUTSTANDING_IO
 	uint32_t buf_align = spdk_bdev_get_buf_align(SPDKContext->bdev);
-	SPDKContext->buff = spdk_dma_zmalloc(SPDKContext->buff_size, buf_align, NULL);
+	// SPDKContext->buff = spdk_dma_zmalloc(SPDKContext->buff_size, buf_align, NULL); //TODO: CAN'T spdk malloc
+    SPDKContext->buff = malloc(SPDKContext->buff_size);
 	if (!SPDKContext->buff) {
 		SPDK_ERRLOG("Failed to allocate buffer\n");
 		/* spdk_put_io_channel(SPDKContext->bdev_io_channel);

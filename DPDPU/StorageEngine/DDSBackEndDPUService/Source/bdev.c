@@ -22,6 +22,49 @@ void read_complete_dummy(struct spdk_bdev_io *bdev_io, bool success, void *cb_ar
 	spdk_app_stop(success ? 0 : -1);
 }
 
+int bdev_readv(
+	void *arg,
+    struct iovec *iov,
+	int iovcnt,
+    uint64_t offset,
+    uint64_t nbytes,
+	spdk_bdev_io_completion_cb cb,
+	void *cb_arg
+) {
+	SPDKContextT *spdkContext = arg;
+	int rc = 0;
+
+	if (nbytes != iov[0].iov_len + iov[1].iov_len) {
+		// TODO: SPDK_ERRLOG("READV HAS DIFFERENT LENGTH IN iovec and nbytes!!!\n");
+	}
+	rc = spdk_bdev_readv(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
+				iov, iovcnt, offset, nbytes, cb, cb_arg);
+	if ((rc == -ENOMEM)) {
+		SPDK_NOTICELOG("Queueing io\n");
+		/* In case we cannot perform I/O now, queue I/O */
+		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
+		spdkContext->bdev_io_wait.cb_fn = bdev_read;
+		spdkContext->bdev_io_wait.cb_arg = spdkContext;
+		spdk_bdev_queue_io_wait(spdkContext->bdev, spdkContext->bdev_io_channel,
+					&spdkContext->bdev_io_wait);
+		return 0;  // eventually this IO should finish successfully
+	} else if ((rc == -EINVAL)) {
+		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
+		return rc;
+	} else if ((rc < 0)) {  // unknown error?
+		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
+		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
+		spdk_bdev_close(spdkContext->bdev_desc);
+		spdk_app_stop(-1); */
+		return rc;
+	}
+	else {
+		// SPDK_NOTICELOG("bdev_readv() returned: %d\n", rc);
+		return 0;  // success
+	}
+		
+}
+
 int bdev_read(
     void *arg,
     char* DstBuffer,
@@ -31,7 +74,7 @@ int bdev_read(
 	void *cb_arg
 ){
 	SPDKContextT *spdkContext = arg;
-	int rc = 0; 
+	int rc = 0;
 
 	// SPDK_NOTICELOG("bdev_read run on thread: %d\n", spdk_thread_get_id(spdk_get_thread()));
 	// SPDK_NOTICELOG("Reading io, cb_arg@%p: %hu\n", cb_arg, *((unsigned short *) cb_arg));
@@ -48,7 +91,7 @@ int bdev_read(
 					&spdkContext->bdev_io_wait);
 		return 0;  // eventually this IO should finish successfully
 	} else if (rc == -EINVAL) {
-		SPDK_ERRLOG("offset and/or nbytes are not aligned or out of range\n");
+		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
 		return rc;
 	} else if (rc < 0) {  // unknown error?
 		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
@@ -61,6 +104,44 @@ int bdev_read(
 		return 0;  // success
 }
 
+int bdev_writev(
+    void *arg,
+    struct iovec *iov,
+    int iovcnt,
+    uint64_t offset,
+    uint64_t nbytes,
+	spdk_bdev_io_completion_cb cb,
+	void *cb_arg
+){
+	SPDKContextT *spdkContext = arg;
+	int rc = 0;
+
+	// SPDK_NOTICELOG("Writing to the bdev, offset %llu, nbytes %llu\n", offset, nbytes);
+	rc = spdk_bdev_writev(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
+			    iov, iovcnt, offset, nbytes, cb, cb_arg);
+
+	if (rc == -ENOMEM) {
+		SPDK_NOTICELOG("Queueing io\n");
+		/* In case we cannot perform I/O now, queue I/O */
+		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
+		spdkContext->bdev_io_wait.cb_fn = bdev_write;
+		spdkContext->bdev_io_wait.cb_arg = spdkContext;
+		spdk_bdev_queue_io_wait(spdkContext->bdev, spdkContext->bdev_io_channel,
+					&spdkContext->bdev_io_wait);
+		return 0;  // eventually this IO should finish successfully
+	} else if (rc == -EINVAL) {
+		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
+		return rc;
+	} else if (rc < 0) {  // unknown error?
+		SPDK_ERRLOG("%s error while writing to bdev: %d\n", spdk_strerror(-rc), rc);
+		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
+		spdk_bdev_close(spdkContext->bdev_desc);
+		spdk_app_stop(-1); */
+		return rc;
+	}
+	else
+		return 0;  // success
+}
 
 int bdev_write(
     void *arg,

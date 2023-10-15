@@ -87,6 +87,13 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
 }
 
 
+void writev_cb(
+    struct spdk_bdev_io *bdev_io,
+    bool Success,
+    struct iovec *dummy_iov) {
+    SPDK_NOTICELOG("writev_cb ran\n");
+    SPDK_NOTICELOG("len1: %u, %s\n", dummy_iov[0].iov_len, dummy_iov[0].iov_base);
+}
 //
 // This is the func supplied to `spdk_app_start()`, will do the actual init work asynchronously
 //
@@ -150,6 +157,21 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
 
     SPDK_NOTICELOG("Calling InitializeWorkerThreadIOChannel()...\n");
     InitializeWorkerThreadIOChannel(FS);
+
+    /* // readv writev work?
+    sleep(2);
+    struct iovec *dummy_iov = malloc(2*sizeof(struct iovec));
+    dummy_iov[0].iov_base = malloc(4096);
+    dummy_iov[0].iov_len = 4096;
+    dummy_iov[1].iov_base = malloc(4096);
+    dummy_iov[1].iov_len = 4096;
+    ret = spdk_bdev_readv(FS->MasterSPDKContext->bdev_desc, FS->MasterSPDKContext->bdev_io_channel, &dummy_iov, 2, 0, 8192, writev_cb, dummy_iov);
+    if (ret) {
+        SPDK_ERRLOG("writev failed: %d\n", ret);
+    }
+    else {
+        SPDK_ERRLOG("writev success\n");
+    } */
     
     //
     // Initialize Storage async, we are now using a global DPUStorage *, potentially cross thread
@@ -157,7 +179,6 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
     //
     Sto = BackEndStorage();
 
-    // XXX: this `Initialize` step is async!!!
     ErrorCodeT result = Initialize(Sto, FS->MasterSPDKContext);
     if (result != DDS_ERROR_CODE_SUCCESS){
         fprintf(stderr, "InitStorage failed with %d\n", result);
@@ -332,11 +353,11 @@ SubmitDataPlaneRequest(
     bool IsRead,
     RequestIdT Index
 ) {
-    // note: FindFreeSpace within handlers
     submit_count += 1;
-    if (submit_count % 10000 == 0) {
+    
+    /* if (submit_count % 1 == 0) {
         SPDK_NOTICELOG("Submitting a data plane request, count: %llu\n", submit_count);
-    }
+    } */
     
     
     

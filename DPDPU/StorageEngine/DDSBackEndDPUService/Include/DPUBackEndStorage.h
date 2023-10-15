@@ -18,6 +18,8 @@
 // #include "Zmalloc.h"
 
 
+#define USE_ZERO_COPY true
+
 
 //
 // Used to manage the status of each slot in SPDK buffer
@@ -25,6 +27,9 @@
 //
 struct PerSlotContext{
     int Position;
+    struct iovec iov[2];
+    // bool IsZeroCopy;
+    SplittableBufferT *DestBuffer;
     bool Available;  // should be unused now
     SPDKContextT *SPDKContext;  // thread specific SPDKContext
     DataPlaneRequestContext *Ctx;
@@ -164,7 +169,7 @@ struct InitializeCtx {
 // Read from disk synchronously
 //
 //
-ErrorCodeT ReadFromDiskSync(
+/* ErrorCodeT ReadFromDiskSync(
     BufferT DstBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -172,19 +177,19 @@ ErrorCodeT ReadFromDiskSync(
     struct DPUStorage* Sto,
     void *arg,
     bool ZeroCopy
-);
+); */
 
-void ReadFromDiskSyncCallback(
+/* void ReadFromDiskSyncCallback(
     struct spdk_bdev_io *bdev_io,
     bool success,
     void *cb_arg
-);
+); */
 
 //
 // Write from disk synchronously
 //
 //
-ErrorCodeT WriteToDiskSync(
+/* ErrorCodeT WriteToDiskSync(
     BufferT SrcBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -192,19 +197,19 @@ ErrorCodeT WriteToDiskSync(
     struct DPUStorage* Sto,
     void *arg,
     bool ZeroCopy
-);
+); */
 
-ErrorCodeT WriteToDiskSyncCallback(
+/* ErrorCodeT WriteToDiskSyncCallback(
     struct spdk_bdev_io *bdev_io,
     bool success,
     void *cb_arg
-);
+); */
 
 //
 // Read from disk asynchronously
 //
 //
-ErrorCodeT ReadFromDiskAsync(
+ErrorCodeT ReadFromDiskAsyncZC(
     BufferT DstBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -212,15 +217,51 @@ ErrorCodeT ReadFromDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg,
-    bool ZeroCopy //true for using zero copy, false otherwise
+    void *SPDKContext
+);
+
+ErrorCodeT ReadFromDiskAsyncNonZC(
+    BufferT DstBuffer,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+);
+
+ErrorCodeT ReadvFromDiskAsyncZC(
+    struct iovec *iov,
+    int iovcnt,
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    ContextT Context,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+);
+
+ErrorCodeT ReadvFromDiskAsyncNonZC(
+    struct iovec *iov,
+    int iovcnt,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
 );
 
 //
-// Write to disk asynchronously
+// Write to disk asynchronously, may be called by all, e.g. init, data plane and control plane etc.
 //
 //
-ErrorCodeT WriteToDiskAsync(
+ErrorCodeT WriteToDiskAsyncZC(
     BufferT SrcBuffer,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -228,8 +269,49 @@ ErrorCodeT WriteToDiskAsync(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg,
-    bool ZeroCopy //true for using zero copy, false otherwise
+    void *arg
+);
+
+//
+// This (Non ZC) should only be called in data plane, i.e. other calls must be zero copy (direct IO)
+// the context is therefore only per slot ctx and nothing else
+//
+//
+ErrorCodeT WriteToDiskAsyncNonZC(
+    BufferT SrcBuffer,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *arg
+);
+
+ErrorCodeT WritevToDiskAsyncZC(
+    struct iovec *iov,
+    int iovcnt,
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
+);
+
+ErrorCodeT WritevToDiskAsyncNonZC(
+    struct iovec *iov,
+    int iovcnt,
+    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    SegmentIdT SegmentId,
+    SegmentSizeT SegmentOffset,
+    FileIOSizeT Bytes,
+    DiskIOCallback Callback,
+    struct PerSlotContext *SlotContext,
+    struct DPUStorage* Sto,
+    void *SPDKContext
 );
 
 //
@@ -481,8 +563,8 @@ ErrorCodeT MoveFile(
 // e.g. Result = DDS_ERROR_CODE_OUT_OF_MEMORY, MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR
 //
 //
-ErrorCodeT RespondWithResult(
+/* ErrorCodeT RespondWithResult(
     ControlPlaneHandlerCtx *HandlerCtx,
     int MsgId,
     ErrorCodeT Result
-);
+); */

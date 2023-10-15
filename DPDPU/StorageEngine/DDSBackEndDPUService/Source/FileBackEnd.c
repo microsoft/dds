@@ -2024,6 +2024,8 @@ ExecuteRequests(
             //
             ctxt->Request = curReqObj;
             ctxt->Response = resp;
+            /* SPDK_NOTICELOG("req id: %hu, resp result: %hu, 1st addr: %p, total size: %llu\n",
+                ctxt->Request->RequestId, ctxt->Response->Result, ctxt->DataBuffer.FirstAddr, ctxt->DataBuffer.TotalSize); */
             SubmitDataPlaneRequest(FS, ctxt, true, CurrIndex);
         }
     }
@@ -2482,6 +2484,7 @@ static inline int
 CheckAndProcessIOCompletions(
     BackEndConfig *Config
 ) {
+    // SPDK_NOTICELOG("CheckAndProcessIOCompletions() running\n");
     int ret = 0;
     BuffConnConfig *buffConn = NULL;
 
@@ -2516,6 +2519,7 @@ CheckAndProcessIOCompletions(
         }
 
         while (DistanceBetweenPointers(head1, head2, BACKEND_RESPONSE_BUFFER_SIZE) != totalRespSize) {
+            // SPDK_NOTICELOG("head1: %d, head2: %d\n", head1, head2);
             curResp = buffResp + head1;
             curRespSize = *(FileIOSizeT*)curResp;
             curResp += sizeof(FileIOSizeT);
@@ -2524,10 +2528,12 @@ CheckAndProcessIOCompletions(
                 // TODO: testing
                 //
                 //
-                ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
-                ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
-
-                // break;
+                // ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
+                // ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
+                
+                // SPDK_NOTICELOG("pending req id: %llu, bytes serviced: %u\n",
+                //     ((BuffMsgB2FAckHeader*)curResp)->RequestId, ((BuffMsgB2FAckHeader*)curResp)->BytesServiced);
+                break;
             }
 
             head1 += curRespSize;
@@ -2624,7 +2630,7 @@ CheckAndProcessIOCompletions(
         }
 #endif
     }
-
+    // SPDK_NOTICELOG("CheckAndProcessIOCompletions() returned\n");
     return ret;
 }
 
