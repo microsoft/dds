@@ -255,8 +255,8 @@ ErrorCodeT ReadvFromDiskAsyncNonZC(
     if (Bytes > DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE) {
         SPDK_WARNLOG("A read with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
     }
-    SPDK_NOTICELOG("non zero copy, bdev_read reading from %llu, bytes: %u, NonZCBuffOffset: %u\n",
-        seg->DiskAddress + SegmentOffset, Bytes, NonZCBuffOffset);
+    // SPDK_NOTICELOG("non zero copy, bdev_read reading from %llu, bytes: %u, NonZCBuffOffset: %u\n",
+    //     seg->DiskAddress + SegmentOffset, Bytes, NonZCBuffOffset);
     // rc = bdev_read(SPDKContext, (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset, 
     // seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
     rc = bdev_read(SPDKContext, (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]), 

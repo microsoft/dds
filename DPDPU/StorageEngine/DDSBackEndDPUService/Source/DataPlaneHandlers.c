@@ -133,6 +133,7 @@ void ReadHandlerNonZCCallback(
                 memcpy(SlotContext->DestBuffer->FirstAddr, toCopy, SlotContext->DestBuffer->FirstSize);
                 // toCopy += SlotContext->DestBuffer->FirstSize;
                 // memcpy(SlotContext->DestBuffer->SecondAddr, toCopy, SlotContext->DestBuffer->TotalSize - SlotContext->DestBuffer->FirstSize);
+                memcpy(SlotContext->DestBuffer->FirstAddr, toCopy, SlotContext->DestBuffer->FirstSize); // cp again
                 SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_SUCCESS;
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
                 /* SPDK_NOTICELOG("ReadHandler for RequestId %hu successful, BytesServiced: %d with %hu reads\n",

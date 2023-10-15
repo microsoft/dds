@@ -18,7 +18,7 @@
 // #include "Zmalloc.h"
 
 
-#define USE_ZERO_COPY true
+#define USE_ZERO_COPY false
 
 
 //
