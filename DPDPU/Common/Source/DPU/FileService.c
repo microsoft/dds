@@ -17,6 +17,7 @@ char *G_BDEV_NAME = "malloc_delay";
 FileService* FS;
 extern bool G_INITIALIZATION_DONE;
 uint64_t submit_count = 0;
+int worker_id = 0;
 
 //
 // Allocate the file service object
@@ -353,7 +354,8 @@ SubmitDataPlaneRequest(
     bool IsRead,
     RequestIdT Index
 ) {
-    submit_count += 1;
+    worker_id += 1;
+    worker_id = worker_id % WORKER_THREAD_COUNT;
     
     /* if (submit_count % 1 == 0) {
         SPDK_NOTICELOG("Submitting a data plane request, count: %llu\n", submit_count);
@@ -362,11 +364,11 @@ SubmitDataPlaneRequest(
     
     
     // TODO: do proper thread selection
-    struct spdk_thread *worker = FS->WorkerThreads[0];
+    struct spdk_thread *worker = FS->WorkerThreads[worker_id];
     // Context->SPDKContext = FS->WorkerSPDKContexts[0];
 
-    struct PerSlotContext *SlotContext = GetFreeSpace(&FS->WorkerSPDKContexts[0], Context, Index); // TODO: no need for thread spdk ctx?
-    SlotContext->SPDKContext = &FS->WorkerSPDKContexts[0];
+    struct PerSlotContext *SlotContext = GetFreeSpace(&FS->WorkerSPDKContexts[worker_id], Context, Index); // TODO: no need for thread spdk ctx?
+    SlotContext->SPDKContext = &FS->WorkerSPDKContexts[worker_id];
     
 
     int ret;  // TODO: limited retries?
