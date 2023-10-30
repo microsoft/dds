@@ -5,13 +5,14 @@
 #include <string>
 #include <string.h>
 
-#include "Config.h"
-#include "LatencyHelpers.h"
+#include "../Common/Include/Config.h"
+#include "../Common/Include/LatencyHelpers.h"
 #include "Client.h"
 
 #pragma comment(lib,"ws2_32.lib")
 #pragma warning(disable: 6385)
 #pragma warning(disable: 6386)
+#pragma warning(disable:4996) 
 
 using std::srand;
 using std::rand;

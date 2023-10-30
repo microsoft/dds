@@ -2,8 +2,9 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+//#include <windows.h>
 
-#include "Config.h"
+#include "../Common/Include/Config.h"
 #include "Server.h"
 
 #pragma comment(lib,"ws2_32.lib")
@@ -173,6 +174,31 @@ int main(
 )
 {
     if (argc == 1) {
+        //HANDLE hFile;
+        //// create the file.
+        //hFile = CreateFile(TEXT("large.TXT"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        //if (hFile != INVALID_HANDLE_VALUE)
+        //{
+        //    DWORD dwByteCount;
+        //    TCHAR szBuf[64] = TEXT("/0");
+        //    // Write a simple string to hfile.
+        //    WriteFile(hFile, "This is a simple message", 25, &dwByteCount, NULL);
+        //    // Set the file pointer back to the beginning of the file.
+        //    SetFilePointer(hFile, 0, 0, FILE_BEGIN);
+        //    // Read the string back from the file.
+        //    ReadFile(hFile, szBuf, 128, &dwByteCount, NULL);
+        //    // Null terminate the string.
+        //    szBuf[dwByteCount] = 0;
+        //    // Close the file.
+        //    CloseHandle(hFile);
+        //    //output message with string if successful
+        //    cout << "created large.txt" << endl;
+        //}
+        //else
+        //{
+        //    //output message if unsuccessful
+        //    cout << "creation failed" << endl;
+        //}
         return RunServer();
     }
     else {
