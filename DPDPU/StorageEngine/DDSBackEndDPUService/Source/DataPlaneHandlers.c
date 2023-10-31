@@ -71,6 +71,14 @@ void ReadHandlerZCCallback(
     ContextT Context
 ) {
     struct PerSlotContext* SlotContext = Context;
+
+    /* if (SlotContext->DestBuffer->FirstSize != SlotContext->DestBuffer->TotalSize) {
+        SPDK_NOTICELOG("CALLBACK FOR SG READ RUNNING, RequestId: %llu\n", SlotContext->Ctx->Response->RequestId);
+    }
+    else {
+        // SPDK_NOTICELOG("CALLBACK FOR NORMAL READ RUNNING\n");
+    } */
+
     spdk_bdev_free_io(bdev_io);
     SlotContext->CallbacksRan += 1;
     // SPDK_NOTICELOG("ReadHandlerZCCallback() ran\n");
@@ -131,9 +139,8 @@ void ReadHandlerNonZCCallback(
                 // non zc, we need to copy read data from our buff to the dest splittable buffer
                 char *toCopy = &SlotContext->SPDKContext->buff[SlotContext->Position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE];
                 memcpy(SlotContext->DestBuffer->FirstAddr, toCopy, SlotContext->DestBuffer->FirstSize);
-                // toCopy += SlotContext->DestBuffer->FirstSize;
-                // memcpy(SlotContext->DestBuffer->SecondAddr, toCopy, SlotContext->DestBuffer->TotalSize - SlotContext->DestBuffer->FirstSize);
-                memcpy(SlotContext->DestBuffer->FirstAddr, toCopy, SlotContext->DestBuffer->FirstSize); // cp again
+                toCopy += SlotContext->DestBuffer->FirstSize;
+                memcpy(SlotContext->DestBuffer->SecondAddr, toCopy, SlotContext->DestBuffer->TotalSize - SlotContext->DestBuffer->FirstSize);
                 SlotContext->Ctx->Response->Result = DDS_ERROR_CODE_SUCCESS;
                 SlotContext->Ctx->Response->BytesServiced = SlotContext->BytesIssued;
                 /* SPDK_NOTICELOG("ReadHandler for RequestId %hu successful, BytesServiced: %d with %hu reads\n",
@@ -168,20 +175,6 @@ void WriteHandler(
     DataPlaneRequestContext* Context = SlotContext->Ctx;
     // SPDK_NOTICELOG("Executing a write request: %u@%lu#%u, splittable buffer total size: %d\n", Context->Request->FileId,
     //     Context->Request->Offset, Context->Request->Bytes, Context->DataBuffer.TotalSize);
-
-    /* struct PerSlotContext* SlotContext= FindFreeSpace(Context->SPDKContext, Context);
-    //
-    // in case there is no available space, set result to failure
-    //
-    //
-    if(!SlotContext) {
-        Context->Response->BytesServiced = 0;
-        Context->Response->Result = DDS_ERROR_CODE_IO_FAILURE;
-        return;
-    } */
-
-    // BackEndIOContextT *IOContext = malloc(sizeof(*IOContext));
-    // SlotContext->IsRead = false;  // unused??
 
     SlotContext->CallbacksRan = 0;  // incremented in callbacks
     SlotContext->CallbacksToRun = 0;  // incremented in WriteFile when async writes are issued successfully

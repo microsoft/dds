@@ -157,3 +157,9 @@ struct DPUStorage {
 extern struct DPUStorage *Sto;
 
 extern bool G_INITIALIZATION_DONE;  // will be set to true when reserved seg is initialized
+
+//
+// The variable for the main agent loop
+//
+//
+extern volatile int ForceQuitFileBackEnd;

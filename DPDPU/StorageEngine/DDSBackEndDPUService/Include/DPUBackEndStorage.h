@@ -18,7 +18,7 @@
 // #include "Zmalloc.h"
 
 
-#define USE_ZERO_COPY false
+#define USE_ZERO_COPY true
 
 
 //
@@ -221,7 +221,6 @@ ErrorCodeT ReadFromDiskAsyncZC(
 );
 
 ErrorCodeT ReadFromDiskAsyncNonZC(
-    BufferT DstBuffer,
     FileIOSizeT NonZCBuffOffset,  // how many we already read
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,

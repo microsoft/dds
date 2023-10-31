@@ -60,7 +60,7 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
         }
     }
 
-    // TODO: does this work?? wait for all workers to finish
+    // TODO: DON'T wait for all workers to finish
     /* int i = 0;
     bool allDone = true;
     while (i < 10) {
@@ -88,13 +88,6 @@ void InitializeWorkerThreadIOChannel(FileService *FS) {
 }
 
 
-void writev_cb(
-    struct spdk_bdev_io *bdev_io,
-    bool Success,
-    struct iovec *dummy_iov) {
-    SPDK_NOTICELOG("writev_cb ran\n");
-    SPDK_NOTICELOG("len1: %u, %s\n", dummy_iov[0].iov_len, dummy_iov[0].iov_base);
-}
 //
 // This is the func supplied to `spdk_app_start()`, will do the actual init work asynchronously
 //
@@ -255,8 +248,9 @@ void AppThreadExit(void *Ctx) {
     FileService *FS = Ctx;
     spdk_put_io_channel(FS->MasterSPDKContext->bdev_io_channel);
     spdk_bdev_close(FS->MasterSPDKContext->bdev_desc);
-    SPDK_NOTICELOG("calling spdk_app_stop(0);...\n");
-    spdk_app_stop(0);
+    // will get "spdk_app_stop() called twice" if we call it here (after Ctrl-C)
+    SPDK_NOTICELOG("App thread exited...\n");
+    // spdk_app_stop(0);
 }
 
 //
@@ -292,7 +286,7 @@ StopFileService(
         ExitCtx->Channel = FS->WorkerSPDKContexts[i].bdev_io_channel;
         spdk_thread_send_msg(FS->WorkerThreads[i], WorkerThreadExit, ExitCtx);
     }
-
+    // sleep(1);
     spdk_thread_send_msg(FS->AppThread, AppThreadExit, FS);
     // TODO: maybe do sth more, maybe thread exit for app thread?
     DebugPrint("File service stopped\n");
@@ -306,7 +300,6 @@ void
 DeallocateFileService(
     FileService* FS
 ) {
-    DebugPrint("File service stopping...\n");
     // StopFileService(FS);
     free(FS);
     DebugPrint("File service object deallocated\n");
@@ -321,12 +314,12 @@ SubmitControlPlaneRequest(
     FileService* FS,
     ControlPlaneRequestContext* Context
 ) {
-    SPDK_NOTICELOG("Submitting a control plane request, id: %d, req: %p, resp: %p\n",
-        Context->RequestId, Context->Request, Context->Response);
+    // SPDK_NOTICELOG("Submitting a control plane request, id: %d, req: %p, resp: %p\n",
+    //     Context->RequestId, Context->Request, Context->Response);
 
     // TODO: thread selection?
-    struct spdk_thread *worker = FS->WorkerThreads[1];
-    Context->SPDKContext = &FS->WorkerSPDKContexts[1];
+    struct spdk_thread *worker = FS->WorkerThreads[0];
+    Context->SPDKContext = &FS->WorkerSPDKContexts[0];
 
     int ret = spdk_thread_send_msg(worker, ControlPlaneHandler, Context);
 
@@ -354,8 +347,8 @@ SubmitDataPlaneRequest(
     bool IsRead,
     RequestIdT Index
 ) {
-    worker_id += 1;
-    worker_id = worker_id % WORKER_THREAD_COUNT;
+    /* worker_id += 1;
+    worker_id = worker_id % WORKER_THREAD_COUNT; */
     
     /* if (submit_count % 1 == 0) {
         SPDK_NOTICELOG("Submitting a data plane request, count: %llu\n", submit_count);

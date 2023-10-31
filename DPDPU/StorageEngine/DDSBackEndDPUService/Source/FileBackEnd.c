@@ -25,7 +25,7 @@
 static inline void DebugPrint(const char* Fmt, ...) { }
 #endif
 
-static volatile int ForceQuitFileBackEnd = 0;
+extern volatile int ForceQuitFileBackEnd = 0;
 
 extern bool G_INITIALIZATION_DONE = false;
 
@@ -2003,7 +2003,8 @@ ExecuteRequests(
                 if (progressResp + alignment < BACKEND_RESPONSE_BUFFER_SIZE) {
                     dataBuff->FirstAddr = buffResp + (progressResp + alignment);
                     dataBuff->FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
-                    dataBuff->SecondAddr = buffResp + (dataBuff->TotalSize - dataBuff->FirstSize);
+                    // dataBuff->SecondAddr = buffResp + (dataBuff->TotalSize - dataBuff->FirstSize);
+                    dataBuff->SecondAddr = buffResp;
                 }
                 else {
                     dataBuff->FirstAddr = buffResp;
@@ -2522,6 +2523,14 @@ CheckAndProcessIOCompletions(
             // SPDK_NOTICELOG("head1: %d, head2: %d\n", head1, head2);
             curResp = buffResp + head1;
             curRespSize = *(FileIOSizeT*)curResp;
+            if (curRespSize == 0) {
+                SPDK_ERRLOG("impossible, curRespSize == 0\n");
+            }
+
+            // if (curRespSize != 12) {
+            //     SPDK_NOTICELOG("curRespSize: %u\n", curRespSize);
+            // }
+            
             curResp += sizeof(FileIOSizeT);
             if (((BuffMsgB2FAckHeader*)curResp)->Result == DDS_ERROR_CODE_IO_PENDING) {
                 //
@@ -2671,12 +2680,12 @@ CheckAndProcessControlPlaneCompletions(
             {
                 // SPDK_NOTICELOG("setting result to success...\n");
                 CtrlMsgB2FAckCreateDirectory* resp = (CtrlMsgB2FAckCreateDirectory*)ctrlConn->PendingControlPlanRequest.Response;
-                if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+                /* if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
                     SPDK_NOTICELOG("CREATE DIR PENDING...\n");
                 }
                 else {
                     SPDK_NOTICELOG("CREATE DIR GOT RESULT: %d\n", resp->Result);
-                }
+                } */
                 // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
@@ -2690,12 +2699,12 @@ CheckAndProcessControlPlaneCompletions(
             {
                 // SPDK_NOTICELOG("setting result to success...\n");
                 CtrlMsgB2FAckCreateFile* resp = (CtrlMsgB2FAckCreateFile*)ctrlConn->PendingControlPlanRequest.Response;
-                if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+                /* if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
                     SPDK_NOTICELOG("CREATE FILE PENDING...\n");
                 }
                 else {
                     SPDK_NOTICELOG("CREATE FILE GOT RESULT: %d\n", resp->Result);
-                }
+                } */
                 // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
@@ -2754,7 +2763,7 @@ CheckAndProcessControlPlaneCompletions(
         }
 
         if (*(ErrorCodeT*)(ctrlConn->PendingControlPlanRequest.Response) != DDS_ERROR_CODE_IO_PENDING) {
-            SPDK_NOTICELOG("Responding back... and NULLing ctrl plane request\n");
+            // SPDK_NOTICELOG("Responding back... and NULLing ctrl plane request\n");
             ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
             ctrlConn->PendingControlPlanRequest.Request = NULL;
             ctrlConn->PendingControlPlanRequest.Response = NULL;
@@ -2943,7 +2952,7 @@ int RunFileBackEnd(
     TermDMA(&config.DMAConf);
     StopFileService(config.FS);
     DeallocateFileService(config.FS);
-
+    sleep(1);  // return only after all spdk threads have finished exiting, so wait a bit here
     return ret;
 }
 
@@ -3058,7 +3067,7 @@ int RunFileBackEnd(
     FileResp->Result = DDS_ERROR_CODE_IO_PENDING;
     
     FileReq->DirId = 0;//root dir
-    snprintf(&FileReq->FileName, 8, "foofile");
+    snprintf(&FileReq->FileName, 64, "foofile");
     FileReq->FileId = 0;
     FileReq->FileAttributes = 0;
 
@@ -3092,11 +3101,11 @@ int RunFileBackEnd(
     Context->Request->Bytes = 4096;
 
     Context->DataBuffer.FirstAddr = malloc(Context->Request->Bytes);
-    memset(Context->DataBuffer.FirstAddr, 0, Context->Request->Bytes);
+    memset(Context->DataBuffer.FirstAddr, 7, Context->Request->Bytes);
     snprintf(Context->DataBuffer.FirstAddr, 32, "test string1...");
     Context->DataBuffer.FirstSize = Context->Request->Bytes;
     Context->DataBuffer.SecondAddr = malloc(Context->Request->Bytes);
-    memset(Context->DataBuffer.SecondAddr, 0, Context->Request->Bytes);
+    memset(Context->DataBuffer.SecondAddr, 7, Context->Request->Bytes);
     snprintf(Context->DataBuffer.SecondAddr, 32, "test string2...");
     Context->DataBuffer.TotalSize = Context->Request->Bytes * 2;
     
@@ -3113,11 +3122,11 @@ int RunFileBackEnd(
         sleep(1);
         SPDK_NOTICELOG("sleep(1)\n");
     }
-    SPDK_NOTICELOG("data req Resp->Result = %hu\n", Context->Response->Result);
+    SPDK_NOTICELOG("data req Resp->Result = %hu, BytesServiced = %u\n", Context->Response->Result, Context->Response->BytesServiced);
 
     Context->Response->Result = DDS_ERROR_CODE_IO_PENDING;
-    memset(Context->DataBuffer.FirstAddr, 0, Context->Request->Bytes);
-    memset(Context->DataBuffer.SecondAddr, 0, Context->Request->Bytes);
+    memset(Context->DataBuffer.FirstAddr, 7, Context->Request->Bytes);
+    memset(Context->DataBuffer.SecondAddr, 7, Context->Request->Bytes);
     SubmitDataPlaneRequest(FS, Context, true, 0);
 
     SPDK_NOTICELOG("waiting for read data completion\n");

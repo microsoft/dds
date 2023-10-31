@@ -15,7 +15,7 @@ COMMON_CFLAGS+=-L$(DPDK_LIB_DIR)
 PKG_CONFIG_PATH = $(SPDK_LIB_DIR)/pkgconfig
 $(info PKG_CONFIG_PATH: $(PKG_CONFIG_PATH))
 
-### SPDK_LIB := $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs spdk_bdev)
+SPDK_LIB := $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs spdk_bdev)
 ### DPDK_LIB := $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs spdk_env_dpdk)
 
 DPDK_LIB := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs spdk_env_dpdk)
@@ -26,7 +26,10 @@ SYS_LIB := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs --stat
 SYS_LIB += -lrdmacm -libverbs
 
 $(info SPDK_LIB: $(SPDK_LIB))
+$(info SPDK_EVENT_LIB: $(SPDK_EVENT_LIB))
+
 $(info DPDK_LIB: $(DPDK_LIB))
+$(info SYS_LIB: $(SYS_LIB))
 
 LDFLAGS=-L$(SPDK_LIB_DIR) -L$(DPDK_LIB_DIR)
 LDLIBS=-pthread -Wl,--no-as-needed -lspdk -lspdk_env_dpdk $(SPDK_LIB) $(DPDK_LIB) -lrdmacm -libverbs
@@ -64,7 +67,7 @@ $(PROG) : $(BUILD_DIR)/$(PROG)
 # $(CC) $(Include) $(CFLAGS) $^ -o $@ $(LDLIBS)
 $(BUILD_DIR)/$(PROG) : $(OBJ)
 	mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(COMMON_CFLAGS) -Wl,-rpath=$(SPDK_LIB_DIR),--no-as-needed $^ -o $@ -lspdk $(DPDK_LIB) $(SYS_LIB)
+	$(CC) $(CFLAGS) $(COMMON_CFLAGS) $(LDFLAGS) -Wl,-rpath=$(SPDK_LIB_DIR),--no-as-needed $^ -o $@ -lspdk $(DPDK_LIB) $(SYS_LIB)
 
 -include $(DEP)
 
@@ -77,7 +80,7 @@ $(BUILD_DIR)/$(PROG) : $(OBJ)
 $(BUILD_DIR)/%.o : %.c
 	$(info with -MMD: $<)
 	mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(COMMON_CFLAGS) -Wl,-rpath=$(SPDK_LIB_DIR),--no-as-needed -MMD -c $< -o $@
+	$(CC) $(CFLAGS) $(COMMON_CFLAGS) $(LDFLAGS) -Wl,-rpath=$(SPDK_LIB_DIR),--no-as-needed -MMD -c $< -o $@
 
 .PHONY: clean
 clean:

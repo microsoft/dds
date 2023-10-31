@@ -18,8 +18,9 @@ void ControlPlaneHandler(
     //
     //
     ControlPlaneRequestContext *Context = (ControlPlaneRequestContext *) ReqContext;
-    SPDK_NOTICELOG("Executing a control plane request, id: %d, req: %p, resp: %p\n",
-        Context->RequestId, Context->Request, Context->Response);
+    // SPDK_NOTICELOG("Executing a control plane request, id: %d, req: %p, resp: %p\n",
+    //     Context->RequestId, Context->Request, Context->Response);
+
     switch (Context->RequestId) {
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
             CtrlMsgF2BReqCreateDirectory *Req = Context->Request;

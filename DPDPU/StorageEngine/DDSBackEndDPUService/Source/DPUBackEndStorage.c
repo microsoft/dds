@@ -301,7 +301,6 @@ ErrorCodeT ReadFromDiskAsyncZC(
 //
 //
 ErrorCodeT ReadFromDiskAsyncNonZC(
-    BufferT DstBuffer,
     FileIOSizeT NonZCBuffOffset,  // how many we already read
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -388,8 +387,8 @@ ErrorCodeT WritevToDiskAsyncNonZC(
         SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
     }
     char *toCopy = (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset;
-    // memcpy(toCopy, iov[0].iov_base, iov[0].iov_len);
-    // memcpy(toCopy + iov[0].iov_len, iov[1].iov_base, iov[1].iov_len);
+    memcpy(toCopy, iov[0].iov_base, iov[0].iov_len);
+    memcpy(toCopy + iov[0].iov_len, iov[1].iov_base, iov[1].iov_len);
     rc = bdev_write(SPDKContext, toCopy,
         seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
 
@@ -446,7 +445,7 @@ ErrorCodeT WriteToDiskAsyncZC(
 
 ErrorCodeT WriteToDiskAsyncNonZC(
     BufferT SrcBuffer,
-    FileIOSizeT NonZCBuffOffset,  // how many we already read
+    FileIOSizeT NonZCBuffOffset,  // how many we've already written (i.e. the progress)
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
@@ -468,6 +467,7 @@ ErrorCodeT WriteToDiskAsyncNonZC(
 
     // SPDK_NOTICELOG("NonZCBuffOffset: %u, \n");
 
+    // copy into our own buffer, then write
     char *toCopy = (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset;
     memcpy(toCopy, SrcBuffer, Bytes);
     rc = bdev_write(SPDKContext, toCopy, 
@@ -884,20 +884,6 @@ void InitializeSyncReservedInfoCallback(
     // else success, Initialize() done, continue work? FS would be started by now, nothing more to do
     SPDK_NOTICELOG("Initialize() done!!!\n");
     G_INITIALIZATION_DONE = true;
-    /* // readv writev work?
-    sleep(2);
-    struct iovec *dummy_iov = malloc(2*sizeof(struct iovec));
-    dummy_iov[0].iov_base = malloc(4096);
-    dummy_iov[0].iov_len = 4096;
-    dummy_iov[1].iov_base = malloc(4096);
-    dummy_iov[1].iov_len = 4096;
-    ret = spdk_bdev_readv(FS->MasterSPDKContext->bdev_desc, FS->MasterSPDKContext->bdev_io_channel, &dummy_iov, 2, 0, 8192, writev_cb, dummy_iov);
-    if (ret) {
-        SPDK_ERRLOG("writev failed: %d\n", ret);
-    }
-    else {
-        SPDK_ERRLOG("writev success\n");
-    } */
 }
 
 void InitializeSyncDirToDiskCallback(
@@ -1823,7 +1809,16 @@ ErrorCodeT ReadFile(
     FileSizeT remainingBytes = GetSize(file) - Offset;
 
     FileIOSizeT bytesLeftToRead = DestBuffer->TotalSize;
+    FileSizeT fileSize = GetSize(file);
+    // SPDK_WARNLOG("GetSize(file): %llu, Offset: %llu\n", fileSize, Offset);
+    // SPDK_NOTICELOG("remainingBytes: %llu,  DestBuffer->TotalSize: %llu\n", remainingBytes, DestBuffer->TotalSize);
+    if (Offset > GetSize(file)) {
+        SPDK_WARNLOG("Offset > GetSize(file)!!!\n");
+    }
+
     if (remainingBytes < DestBuffer->TotalSize) {
+        // TODO: bytes serviced can be smaller than requested, probably not a problem?
+        SPDK_WARNLOG("found remainingBytes < DestBuffer->TotalSize, GetSize(file): %llu, Offset: %llu\n", fileSize, Offset);
         bytesLeftToRead = (FileIOSizeT)remainingBytes;
     }
 
@@ -1847,9 +1842,16 @@ ErrorCodeT ReadFile(
 
         FileIOSizeT bytesRead = DestBuffer->TotalSize - bytesLeftToRead;
         int firstSplitLeftToRead = DestBuffer->FirstSize - bytesRead;
+        if (DestBuffer->FirstSize - bytesRead < 0) {  //TODO: check
+            SPDK_ERRLOG("int firstSplitLeftToRead = DestBuffer->FirstSize - bytesRead, underflow, %u - %u = %d\n",
+                DestBuffer->FirstSize, bytesRead, firstSplitLeftToRead);
+        }
+
         FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to read onto it
         FileIOSizeT splitBufferOffset;
 
+        // XXX: it is assumed that both are block size aligned, so that bytesToIssue is always block size aligned
+        // also, bytesToIssue >= bytesLeftOnCurrSplit should always hold true
         bytesToIssue = min(bytesLeftToRead, remainingBytesOnCurSeg);
 
 
@@ -1860,13 +1862,14 @@ ErrorCodeT ReadFile(
             splitBufferOffset = bytesRead;
         }
         else {  // second addr
-            // SPDK_NOTICELOG("reading into second split, bytesLeftToRead: %d\n", bytesLeftToRead);
+            SPDK_NOTICELOG("reading into second split, bytesLeftToRead: %d\n", bytesLeftToRead);
             DestAddr = DestBuffer->SecondAddr;
             bytesLeftOnCurrSplit = bytesLeftToRead;
             splitBufferOffset = bytesRead - DestBuffer->FirstSize;
         }
 
-        // SPDK_NOTICELOG("bytesToIssue: %d, splitBufferOffset: %d\n", bytesToIssue, splitBufferOffset);
+        // SPDK_NOTICELOG("bytesToIssue: %u, splitBufferOffset: %u, bytesLeftOnCurrSplit: %u\n",
+        //     bytesToIssue, splitBufferOffset, bytesLeftOnCurrSplit);
 
         // if bytes to issue can all fit on curr split, then we don't need sg IO
         if (bytesLeftOnCurrSplit >= bytesToIssue) {
@@ -1884,7 +1887,7 @@ ErrorCodeT ReadFile(
             }
             else {
                 result = ReadFromDiskAsyncNonZC(
-                    DestAddr + splitBufferOffset, //(curOffset - Offset)
+                    // DestAddr + splitBufferOffset, //(curOffset - Offset) // we don't actually need the splittable buffer
                     bytesRead,
                     curSegment,
                     offsetOnSegment,
@@ -1911,16 +1914,17 @@ ErrorCodeT ReadFile(
             ); */
         }
         else {  // we need sg, and exactly 2 iovec's, one on 1st split, the other on 2nd split
+            // SPDK_WARNLOG("DOING SG READ...\n");
             if (!(DestAddr == DestBuffer->FirstAddr)) {
                 SPDK_ERRLOG("ERROR: SG start addr is not FirstAddr\n");
             }
             SlotContext->iov[0].iov_base = DestAddr + splitBufferOffset;
-            // SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
-            SlotContext->iov[0].iov_len = 0;
+            SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
+            // SlotContext->iov[0].iov_len = 0;
 
             SlotContext->iov[1].iov_base = DestBuffer->SecondAddr;
-            // SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
-            SlotContext->iov[1].iov_len = 0;
+            SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
+            // SlotContext->iov[1].iov_len = 0;
 
             // SPDK_NOTICELOG("ReadvFromDiskAsync(), FirstAddr: %p, FirstSize: %llu, SecondAddr: %p, TotalSize: %llu\n",
             //     DestBuffer->FirstAddr, DestBuffer->FirstSize, DestBuffer->SecondAddr, DestBuffer->TotalSize);
@@ -2029,7 +2033,9 @@ ErrorCodeT WriteFile(
     FileSizeT currentFileSize = GetFileProperties(file)->FProperties.FileSize;
     long long sizeToChange = newSize - currentFileSize;
 
+    // SPDK_NOTICELOG("newSize: %lld, currentFileSize: %llu\n", newSize, currentFileSize);
     if (sizeToChange >= 0) {
+        // SPDK_NOTICELOG("sizeToChange: %lld\n", sizeToChange);
         size_t numSeg = GetNumSegments(file);
         SegmentSizeT remainingAllocatedSize = (SegmentSizeT)(numSeg * DDS_BACKEND_SEGMENT_SIZE - currentFileSize);
         long long bytesToBeAllocated = sizeToChange - (long long)remainingAllocatedSize;
@@ -2093,7 +2099,7 @@ ErrorCodeT WriteFile(
         remainingBytesOnCurSeg = DDS_BACKEND_SEGMENT_SIZE - offsetOnSegment;
 
         FileIOSizeT bytesWritten = SourceBuffer->TotalSize - bytesLeftToWrite;
-        FileIOSizeT firstSplitLeftToWrite = SourceBuffer->FirstSize - bytesWritten;
+        int firstSplitLeftToWrite = SourceBuffer->FirstSize - bytesWritten;
         FileIOSizeT bytesLeftOnCurrSplit; // may be 1st or 2nd split, the no. of bytes left to write on it
         FileIOSizeT splitBufferOffset;
 
@@ -2148,11 +2154,11 @@ ErrorCodeT WriteFile(
         else {  // we need sg, and exactly 2 iovec's, one on 1st split, the other on 2nd split
             assert (SourceAddr == SourceBuffer->FirstAddr);
             SlotContext->iov[0].iov_base = SourceAddr + splitBufferOffset;
-            // SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
-            SlotContext->iov[0].iov_len = 0;
+            SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
+            // SlotContext->iov[0].iov_len = 0;
             SlotContext->iov[1].iov_base = SourceBuffer->SecondAddr;
-            // SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;//TODO
-            SlotContext->iov[1].iov_len = 0;
+            SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
+            // SlotContext->iov[1].iov_len = 0;
             
             // SPDK_NOTICELOG("WritevToDiskAsync(), bytesToIssue: %u, base1: %p, len1: %u\n",
             //     bytesToIssue, SlotContext->iov[0].iov_base, bytesLeftOnCurrSplit);
@@ -2292,7 +2298,7 @@ ErrorCodeT GetStorageFreeSpace(
     //SegmentAllocationMutex.unlock();
     pthread_mutex_unlock(&Sto->SegmentAllocationMutex);
     Resp->Result = DDS_ERROR_CODE_SUCCESS;
-    SPDK_NOTICELOG("free space %llu\n", *StorageFreeSpace);
+    // SPDK_NOTICELOG("free space %llu\n", *StorageFreeSpace);
     return DDS_ERROR_CODE_SUCCESS;
 }
 

@@ -1,5 +1,6 @@
 #include "../Include/bdev.h"
 
+// extern volatile int ForceQuitFileBackEnd;
 
 /*
  * Callback function for read io completion.
@@ -34,12 +35,14 @@ int bdev_readv(
 	SPDKContextT *spdkContext = arg;
 	int rc = 0;
 
-	if (nbytes != iov[0].iov_len + iov[1].iov_len) {
-		// TODO: SPDK_ERRLOG("READV HAS DIFFERENT LENGTH IN iovec and nbytes!!!\n");
-	}
+	/* if (nbytes != iov[0].iov_len + iov[1].iov_len) {
+		// SPDK_ERRLOG("READV HAS DIFFERENT LENGTH IN iovec and nbytes!!!\n");
+	} */
 	rc = spdk_bdev_readv(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 				iov, iovcnt, offset, nbytes, cb, cb_arg);
-	if ((rc == -ENOMEM)) {
+	if (rc == 0) {
+		return 0;
+	} else if ((rc == -ENOMEM)) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
@@ -51,18 +54,13 @@ int bdev_readv(
 	} else if ((rc == -EINVAL)) {
 		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
 		return rc;
-	} else if ((rc < 0)) {  // unknown error?
+	} else {  // unknown error?
 		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
 		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1); */
 		return rc;
 	}
-	else {
-		// SPDK_NOTICELOG("bdev_readv() returned: %d\n", rc);
-		return 0;  // success
-	}
-		
 }
 
 int bdev_read(
@@ -80,8 +78,9 @@ int bdev_read(
 	// SPDK_NOTICELOG("Reading io, cb_arg@%p: %hu\n", cb_arg, *((unsigned short *) cb_arg));
 	rc = spdk_bdev_read(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 			    DstBuffer, offset, nbytes, cb, cb_arg);
-	// SPDK_NOTICELOG("spdk_bdev_read returned: %d\n", rc);
-	if (rc == -ENOMEM) {
+	if (rc == 0) {
+		return 0;
+	} else if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
@@ -93,15 +92,13 @@ int bdev_read(
 	} else if (rc == -EINVAL) {
 		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
 		return rc;
-	} else if (rc < 0) {  // unknown error?
+	} else {  // unknown error?
 		SPDK_ERRLOG("%s error while reading from bdev: %d\n", spdk_strerror(-rc), rc);
 		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1); */
 		return rc;
 	}
-	else
-		return 0;  // success
 }
 
 int bdev_writev(
@@ -120,7 +117,9 @@ int bdev_writev(
 	rc = spdk_bdev_writev(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 			    iov, iovcnt, offset, nbytes, cb, cb_arg);
 
-	if (rc == -ENOMEM) {
+	if (rc == 0) {
+		return 0;
+	} else if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
@@ -132,15 +131,13 @@ int bdev_writev(
 	} else if (rc == -EINVAL) {
 		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
 		return rc;
-	} else if (rc < 0) {  // unknown error?
+	} else {  // unknown error?
 		SPDK_ERRLOG("%s error while writing to bdev: %d\n", spdk_strerror(-rc), rc);
 		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1); */
 		return rc;
 	}
-	else
-		return 0;  // success
 }
 
 int bdev_write(
@@ -158,7 +155,9 @@ int bdev_write(
 	rc = spdk_bdev_write(spdkContext->bdev_desc, spdkContext->bdev_io_channel,
 			     SrcBuffer, offset, nbytes, cb, cb_arg);
 
-	if (rc == -ENOMEM) {
+	if (rc == 0) {
+		return 0;
+	} else if (rc == -ENOMEM) {
 		SPDK_NOTICELOG("Queueing io\n");
 		/* In case we cannot perform I/O now, queue I/O */
 		spdkContext->bdev_io_wait.bdev = spdkContext->bdev;
@@ -170,23 +169,15 @@ int bdev_write(
 	} else if (rc == -EINVAL) {
 		SPDK_ERRLOG("offset: %llu and/or nbytes: %llu are not aligned or out of range\n", offset, nbytes);
 		return rc;
-	} else if (rc < 0) {  // unknown error?
+	} else {  // unknown error?
 		SPDK_ERRLOG("%s error while writing to bdev: %d\n", spdk_strerror(-rc), rc);
 		/* spdk_put_io_channel(spdkContext->bdev_io_channel);
 		spdk_bdev_close(spdkContext->bdev_desc);
 		spdk_app_stop(-1); */
 		return rc;
 	}
-	else
-		return 0;  // success
 }
 
-static void
-hello_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
-		    void *event_ctx)
-{
-	SPDK_NOTICELOG("Unsupported bdev event: type %d\n", type);
-}
 
 void
 reset_zone_complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
@@ -232,8 +223,17 @@ bdev_reset_zone(void *arg)
 	}
 }
 
+//
+// this seems to be called when Ctrl-C'd, and gets type 0
+//
+//
 void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
 		    void *event_ctx)
 {
+	if (type == 0) {
+		SPDK_NOTICELOG("bdev event: type 0, exiting...\n");
+		ForceQuitFileBackEnd = 1;
+		return;
+	}
 	SPDK_NOTICELOG("Unsupported bdev event: type %d\n", type);
 }
