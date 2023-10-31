@@ -579,8 +579,8 @@ int main()
     const char* storeName = "DDS-Store0";
     const char* rootDirName = "/data";
     const char* fileName = "/data/example";
-    // const FileSizeT maxFileSize = 1073741824ULL;
-    const FileSizeT maxFileSize = 819200;
+    const FileSizeT maxFileSize = 1073741824ULL;
+    // const FileSizeT maxFileSize = 8192000;
     // const FileSizeT maxFileSize = 163840000000;
     const FileAccessT fileAccess = 0;
     const FileShareModeT shareMode = 0;
@@ -620,15 +620,16 @@ int main()
         cout << "File created: " << fileId << endl;
     }
 
-    int dataToWrite = 42;
-    int readBuffer = 0;
+    int dataToWrite[128];
+    dataToWrite[0] = 42;
+    int readBuffer[128];
     size_t ioCount = 0;
     FileIOSizeT bytesServiced = 0;
 
     result = store.WriteFile(
         fileId,
-        (BufferT)&dataToWrite,
-        sizeof(int),
+        (BufferT)dataToWrite,
+        sizeof(int) * 128,
         &bytesServiced,
         DummyCallback,
         &ioCount
@@ -671,8 +672,8 @@ int main()
 
     result = store.ReadFile(
         fileId,
-        (BufferT)&readBuffer,
-        sizeof(int),
+        (BufferT)readBuffer,
+        sizeof(int) * 128,
         &bytesServiced,
         DummyCallback,
         &ioCount
@@ -696,7 +697,7 @@ int main()
     }
     */
 
-    cout << "Data has been read: " << readBuffer << endl;
+    cout << "Data has been read: " << readBuffer[0] << endl;
 
     /*
     cout << "Benchmarking callback-based I/O" << endl;
