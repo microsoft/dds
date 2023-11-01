@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "dpubackend.h": "c",
-        "dataplanehandlers.h": "c",
-        "zmalloc.h": "c",
-        "functional": "c"
-    }
-}
