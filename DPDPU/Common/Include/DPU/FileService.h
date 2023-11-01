@@ -1,6 +1,11 @@
 #pragma once
 
 #include "BackEndTypes.h"
+#include "Zmalloc.h"
+#include "DataPlaneHandlers.h"
+
+#define WORKER_THREAD_COUNT 1
+
 
 //
 // File service running on the DPU
@@ -8,11 +13,20 @@
 //
 typedef struct {
     //
-    // TODO: necessary state of the SPDK file service
+    // Spawned worker threads, each will have its corresponding SPDKContext,
+    // this should be initialized at startup and remain unchanged
     //
     //
-    int Dummy;
+    struct spdk_thread **WorkerThreads;  // array of thread ptrs
+    SPDKContextT *WorkerSPDKContexts;  // array of ctxs per thread
+    int WorkerThreadCount;
+
+    struct spdk_thread *AppThread;
+    SPDKContextT *MasterSPDKContext;
 } FileService;
+
+extern FileService* FS;
+
 
 //
 // Allocate the file service object
@@ -21,14 +35,33 @@ typedef struct {
 FileService*
 AllocateFileService();
 
+
+//
+// the context/params to start the file service
+//
+//
+struct StartFileServiceCtx {
+    int argc;
+    char **argv;
+    FileService *FS;
+};
+
 //
 // Start the file service 
 //
 //
 void
 StartFileService(
-    FileService* FS
+    int argc,
+    char **argv,
+    FileService *FS,
+    pthread_t *AppPthread
 );
+
+struct WorkerThreadExitCtx {
+    struct spdk_io_channel *Channel;
+    int i;
+};
 
 //
 // Stop the file service
@@ -65,5 +98,22 @@ SubmitControlPlaneRequest(
 void
 SubmitDataPlaneRequest(
     FileService* FS,
-    DataPlaneRequestContext* Context
+    DataPlaneRequestContext* Context,
+    bool IsRead,
+    RequestIdT Index
 );
+
+
+//
+// Usage function for printing parameters that are specific to this application, needed for SPDK app start
+//
+//
+static void
+dds_custom_args_usage(void);
+
+//
+// This function is called to parse the parameters that are specific to this application
+//
+//
+static int
+dds_parse_arg(int ch, char *arg);
