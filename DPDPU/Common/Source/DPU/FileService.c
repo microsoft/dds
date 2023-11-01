@@ -16,8 +16,7 @@ struct DPUStorage *Sto;
 char *G_BDEV_NAME = "malloc_delay";
 FileService* FS;
 extern bool G_INITIALIZATION_DONE;
-uint64_t submit_count = 0;
-int worker_id = 0;
+int WorkerId = 0;
 
 //
 // Allocate the file service object
@@ -152,21 +151,6 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
     SPDK_NOTICELOG("Calling InitializeWorkerThreadIOChannel()...\n");
     InitializeWorkerThreadIOChannel(FS);
 
-    /* // readv writev work?
-    sleep(2);
-    struct iovec *dummy_iov = malloc(2*sizeof(struct iovec));
-    dummy_iov[0].iov_base = malloc(4096);
-    dummy_iov[0].iov_len = 4096;
-    dummy_iov[1].iov_base = malloc(4096);
-    dummy_iov[1].iov_len = 4096;
-    ret = spdk_bdev_readv(FS->MasterSPDKContext->bdev_desc, FS->MasterSPDKContext->bdev_io_channel, &dummy_iov, 2, 0, 8192, writev_cb, dummy_iov);
-    if (ret) {
-        SPDK_ERRLOG("writev failed: %d\n", ret);
-    }
-    else {
-        SPDK_ERRLOG("writev success\n");
-    } */
-    
     //
     // Initialize Storage async, we are now using a global DPUStorage *, potentially cross thread
     //
@@ -176,19 +160,26 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
     ErrorCodeT result = Initialize(Sto, FS->MasterSPDKContext);
     if (result != DDS_ERROR_CODE_SUCCESS){
         fprintf(stderr, "InitStorage failed with %d\n", result);
+        
+        //
         // FS app stop
+        //
+        //
         exit(-1);
         return;
     }
 
+    //
     // `Initialize` will be completed async, returning here doesn't mean it's actually started, but assume it's ok.
-
+    //
+    //
     DebugPrint("File service started\n");
 }
 
 //
 // On the top level, this will call spdk_app_start(), supplying the func `StartSPDKFileService`
 // which will initialize threads and storage
+//
 //
 void *
 StartFileServiceWrapper(
@@ -198,20 +189,22 @@ StartFileServiceWrapper(
     struct StartFileServiceCtx *StartCtx = Ctx;
 
     FileService *FS = StartCtx->FS;
-    int argc = StartCtx->argc;
-    char **argv = StartCtx->argv;
+    int argc = StartCtx->Argc;
+    char **argv = StartCtx->Argv;
 
     int rc;
     struct spdk_app_opts opts = {};
     /* Set default values in opts structure. */
 	spdk_app_opts_init(&opts, sizeof(opts));
 	opts.name = "dds_bdev";
-    /*
-	 * Parse built-in SPDK command line parameters as well
-	 * as our custom one(s).
-	 */
-	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, dds_parse_arg,
-				      dds_custom_args_usage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
+    
+    //
+	// Parse built-in SPDK command line parameters as well
+	// as our custom one(s).
+	//
+    //
+	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, DDSParseArg,
+				      DDSCustomArgsUsage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
         printf("spdk_app_parse_args() failed with: %d\n", rc);
 		exit(rc);
 	}
@@ -226,17 +219,18 @@ StartFileServiceWrapper(
 //
 void
 StartFileService(
-    int argc,
-    char **argv,
+    int Argc,
+    char **Argv,
     FileService *FS,
     pthread_t *AppPthread
 ) {
     G_INITIALIZATION_DONE = false;
     struct StartFileServiceCtx *StartCtx = malloc(sizeof(*StartCtx));
-    StartCtx->argc = argc;
-    StartCtx->argv = argv;
+    StartCtx->Argc = Argc;
+    StartCtx->Argv = Argv;
     StartCtx->FS = FS;
-    printf("calling pthread_create()\n");
+    
+    SPDK_NOTICELOG("Calling pthread_create()...\n");
     pthread_create(AppPthread, NULL, StartFileServiceWrapper, StartCtx);
 }
 
@@ -248,9 +242,12 @@ void AppThreadExit(void *Ctx) {
     FileService *FS = Ctx;
     spdk_put_io_channel(FS->MasterSPDKContext->bdev_io_channel);
     spdk_bdev_close(FS->MasterSPDKContext->bdev_desc);
+    
+    //
     // will get "spdk_app_stop() called twice" if we call it here (after Ctrl-C)
-    SPDK_NOTICELOG("App thread exited...\n");
-    // spdk_app_stop(0);
+    //
+    //
+    SPDK_NOTICELOG("App thread exited\n");
 }
 
 //
@@ -277,7 +274,6 @@ StopFileService(
     // clean up and free contexts, then worker threads exit
     //
     //
-
     for (size_t i = 0; i < FS->WorkerThreadCount; i++) {
         struct spdk_thread *worker = FS->WorkerThreads[i];
         SPDKContextT ctx = FS->WorkerSPDKContexts[i];
@@ -286,9 +282,13 @@ StopFileService(
         ExitCtx->Channel = FS->WorkerSPDKContexts[i].bdev_io_channel;
         spdk_thread_send_msg(FS->WorkerThreads[i], WorkerThreadExit, ExitCtx);
     }
-    // sleep(1);
+
     spdk_thread_send_msg(FS->AppThread, AppThreadExit, FS);
+
+    //
     // TODO: maybe do sth more, maybe thread exit for app thread?
+    //
+    //
     DebugPrint("File service stopped\n");
 }
 
@@ -300,7 +300,6 @@ void
 DeallocateFileService(
     FileService* FS
 ) {
-    // StopFileService(FS);
     free(FS);
     DebugPrint("File service object deallocated\n");
 }
@@ -314,10 +313,10 @@ SubmitControlPlaneRequest(
     FileService* FS,
     ControlPlaneRequestContext* Context
 ) {
-    // SPDK_NOTICELOG("Submitting a control plane request, id: %d, req: %p, resp: %p\n",
-    //     Context->RequestId, Context->Request, Context->Response);
-
+    //
     // TODO: thread selection?
+    //
+    //
     struct spdk_thread *worker = FS->WorkerThreads[0];
     Context->SPDKContext = &FS->WorkerSPDKContexts[0];
 
@@ -325,7 +324,11 @@ SubmitControlPlaneRequest(
 
     if (ret) {
         fprintf(stderr, "SubmitControlPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
+        
+        //
         // TODO: maybe limited retries?
+        //
+        //
         while (1) {
             ret = spdk_thread_send_msg(worker, ControlPlaneHandler, Context);
             if (ret == 0) {
@@ -347,30 +350,29 @@ SubmitDataPlaneRequest(
     bool IsRead,
     RequestIdT Index
 ) {
-    /* worker_id += 1;
-    worker_id = worker_id % WORKER_THREAD_COUNT; */
-    
-    /* if (submit_count % 1 == 0) {
-        SPDK_NOTICELOG("Submitting a data plane request, count: %llu\n", submit_count);
-    } */
-    
-    
-    
+    //
     // TODO: do proper thread selection
-    struct spdk_thread *worker = FS->WorkerThreads[worker_id];
-    // Context->SPDKContext = FS->WorkerSPDKContexts[0];
+    //
+    //
+    struct spdk_thread *worker = FS->WorkerThreads[WorkerId];
 
-    struct PerSlotContext *SlotContext = GetFreeSpace(&FS->WorkerSPDKContexts[worker_id], Context, Index); // TODO: no need for thread spdk ctx?
-    SlotContext->SPDKContext = &FS->WorkerSPDKContexts[worker_id];
+    //
+    // TODO: no need for thread spdk ctx?
+    //
+    //
+    struct PerSlotContext *SlotContext = GetFreeSpace(&FS->WorkerSPDKContexts[WorkerId], Context, Index);
+    SlotContext->SPDKContext = &FS->WorkerSPDKContexts[WorkerId];
     
-
-    int ret;  // TODO: limited retries?
+    //
+    // TODO: limited retries?
+    //
+    //
+    int ret;
     if (IsRead) {
         ret = spdk_thread_send_msg(worker, ReadHandler, SlotContext);
         
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
-            // exit(-1);
             while (1) {
                 ret = spdk_thread_send_msg(worker, ReadHandler, SlotContext);
                 if (ret == 0) {
@@ -385,7 +387,6 @@ SubmitDataPlaneRequest(
 
         if (ret) {
             fprintf(stderr, "SubmitDataPlaneRequest() initial thread send msg failed with %d, retrying\n", ret);
-            // exit(-1);
             while (1) {
                 ret = spdk_thread_send_msg(worker, WriteHandler, SlotContext);
                 if (ret == 0) {
@@ -404,7 +405,7 @@ SubmitDataPlaneRequest(
 //
 //
 static void
-dds_custom_args_usage(void)
+DDSCustomArgsUsage(void)
 {
 	printf("if there is any custom cmdline params, add a description for it here\n");
 }
@@ -414,7 +415,7 @@ dds_custom_args_usage(void)
 //
 //
 static int
-dds_parse_arg(int ch, char *arg)
+DDSParseArg(int ch, char *arg)
 {
 	printf("parse custom arg func called, currently doing nothing...\n");
 }

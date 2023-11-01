@@ -1,9 +1,9 @@
 #pragma once
 
-#include "DPUBackEnd.h"
 #include <stdint.h>
-// #include "Zmalloc.h"
 #include <pthread.h>
+
+#include "DPUBackEnd.h"
 
 extern char *G_BDEV_NAME;
 
@@ -19,13 +19,6 @@ typedef struct SPDKContext {
     struct PerSlotContext *SPDKSpace; // an array to record the status of each slot memory inside buff.
     pthread_mutex_t SpaceMutex; // used for SPDKSpace
 } SPDKContextT;
-
-
-//
-// this is already deprecated, DO NOT USE
-//
-//
-// extern SPDKContextT *SPDKContext;
 
 //
 // Bdev read function, zeroCopy is used to provide different buffer
@@ -90,12 +83,6 @@ int bdev_writev(
 	spdk_bdev_io_completion_cb cb,
 	void *cb_arg
 );
-
-//
-// This function is used to initialize BDEV
-//
-//
-struct hello_context_t* Init();
 
 void dds_bdev_event_cb(enum spdk_bdev_event_type type, struct spdk_bdev *bdev,
 		    void *event_ctx);

@@ -2,7 +2,7 @@
 #include "../../DPDPU/StorageEngine/DDSBackEndDPUService/Include/bdev.h"
 
 static void
-dds_custom_args_usage(void)
+DDSCustomArgsUsage(void)
 {
 	printf("if there is any custom cmdline params, add a description for it here\n");
 }
@@ -12,7 +12,7 @@ dds_custom_args_usage(void)
 //
 //
 static int
-dds_parse_arg(int ch, char *arg)
+DDSParseArg(int ch, char *arg)
 {
 	printf("parse custom arg func called, currently doing nothing...\n");
 }
@@ -119,8 +119,8 @@ int main(int argc, char **argv) {
 	 * Parse built-in SPDK command line parameters as well
 	 * as our custom one(s).
 	 */
-	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, dds_parse_arg,
-				      dds_custom_args_usage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
+	if ((rc = spdk_app_parse_args(argc, argv, &opts, "b:", NULL, DDSParseArg,
+				      DDSCustomArgsUsage)) != SPDK_APP_PARSE_ARGS_SUCCESS) {
         printf("spdk_app_parse_args() failed with: %d\n", rc);
 		exit(rc);
 	}

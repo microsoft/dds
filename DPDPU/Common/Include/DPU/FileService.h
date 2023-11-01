@@ -41,8 +41,8 @@ AllocateFileService();
 //
 //
 struct StartFileServiceCtx {
-    int argc;
-    char **argv;
+    int Argc;
+    char **Argv;
     FileService *FS;
 };
 
@@ -52,8 +52,8 @@ struct StartFileServiceCtx {
 //
 void
 StartFileService(
-    int argc,
-    char **argv,
+    int Argc,
+    char **Argv,
     FileService *FS,
     pthread_t *AppPthread
 );
@@ -109,11 +109,11 @@ SubmitDataPlaneRequest(
 //
 //
 static void
-dds_custom_args_usage(void);
+DDSCustomArgsUsage(void);
 
 //
 // This function is called to parse the parameters that are specific to this application
 //
 //
 static int
-dds_parse_arg(int ch, char *arg);
+DDSParseArg(int ch, char *arg);
