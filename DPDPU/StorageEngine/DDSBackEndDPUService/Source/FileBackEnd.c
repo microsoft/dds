@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <pthread.h>
 
 #include "DDSTypes.h"
 #include "FileBackEnd.h"
@@ -24,7 +25,15 @@
 static inline void DebugPrint(const char* Fmt, ...) { }
 #endif
 
-static volatile int ForceQuitFileBackEnd = 0;
+extern volatile int ForceQuitFileBackEnd = 0;
+
+extern bool G_INITIALIZATION_DONE = false;
+
+//
+// the pthread on which spdk_app_start() is called, might wanna join?
+//
+//
+pthread_t AppPthread;
 
 //
 // Set a CM channel to be non-blocking
@@ -1337,6 +1346,8 @@ CtrlMsgHandler(
             CtrlConn->PendingControlPlanRequest.Request = (BufferT)req;
             CtrlConn->PendingControlPlanRequest.Response = (BufferT)resp;
             resp->Result = DDS_ERROR_CODE_IO_PENDING;
+            SPDK_NOTICELOG("submit create dir control plane request, id: %d, req: %p, result: %d\n",
+                CtrlConn->PendingControlPlanRequest.RequestId, CtrlConn->PendingControlPlanRequest.Request, resp->Result);
             SubmitControlPlaneRequest(FS, &CtrlConn->PendingControlPlanRequest);
 
 
@@ -1901,7 +1912,8 @@ ExecuteRequests(
             // Extract write source buffer from the request ring
             //
             //
-            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            RequestIdT CurrIndex = BuffConn->NextRequestContext;
+            ctxt = &BuffConn->PendingDataPlaneRequests[CurrIndex];
             BuffConn->NextRequestContext++;
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
@@ -1942,7 +1954,7 @@ ExecuteRequests(
             //
             ctxt->Request = curReqObj;
             ctxt->Response = resp;
-            SubmitDataPlaneRequest(FS, ctxt);
+            SubmitDataPlaneRequest(FS, ctxt, false, CurrIndex);
         }
         else {
             //
@@ -1957,7 +1969,7 @@ ExecuteRequests(
             if (respSize % alignment != 0) {
                 respSize += (alignment - (respSize % alignment));
             }
-            DebugPrint("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
+            // DebugPrint("Allocated response size = %d, progressResp = %d\n", respSize, progressResp);
             
             //
             // Record the size of the this response on the response ring
@@ -1973,7 +1985,8 @@ ExecuteRequests(
             // Extract read destination buffer from the response ring
             //
             //
-            ctxt = &BuffConn->PendingDataPlaneRequests[BuffConn->NextRequestContext];
+            RequestIdT CurrIndex = BuffConn->NextRequestContext;
+            ctxt = &BuffConn->PendingDataPlaneRequests[CurrIndex];
             BuffConn->NextRequestContext++;
             if (BuffConn->NextRequestContext == DDS_MAX_OUTSTANDING_IO) {
                 BuffConn->NextRequestContext = 0;
@@ -1990,7 +2003,8 @@ ExecuteRequests(
                 if (progressResp + alignment < BACKEND_RESPONSE_BUFFER_SIZE) {
                     dataBuff->FirstAddr = buffResp + (progressResp + alignment);
                     dataBuff->FirstSize = BACKEND_RESPONSE_BUFFER_SIZE - progressResp - alignment;
-                    dataBuff->SecondAddr = buffResp + (dataBuff->TotalSize - dataBuff->FirstSize);
+                    // dataBuff->SecondAddr = buffResp + (dataBuff->TotalSize - dataBuff->FirstSize);
+                    dataBuff->SecondAddr = buffResp;
                 }
                 else {
                     dataBuff->FirstAddr = buffResp;
@@ -2006,12 +2020,14 @@ ExecuteRequests(
             }
 
             //
-            // Inovke read handler 
+            // Invoke read handler 
             //
             //
             ctxt->Request = curReqObj;
             ctxt->Response = resp;
-            SubmitDataPlaneRequest(FS, ctxt);
+            /* SPDK_NOTICELOG("req id: %hu, resp result: %hu, 1st addr: %p, total size: %llu\n",
+                ctxt->Request->RequestId, ctxt->Response->Result, ctxt->DataBuffer.FirstAddr, ctxt->DataBuffer.TotalSize); */
+            SubmitDataPlaneRequest(FS, ctxt, true, CurrIndex);
         }
     }
 
@@ -2452,6 +2468,15 @@ ProcessBuffCqEventsReturn:
     return ret;
 }
 
+struct runFileBackEndArgs
+{
+    const char* ServerIpStr;
+    const int ServerPort;
+    const uint32_t MaxClients;
+    const uint32_t MaxBuffs;
+};
+
+
 //
 // Check and process I/O completions
 //
@@ -2460,6 +2485,7 @@ static inline int
 CheckAndProcessIOCompletions(
     BackEndConfig *Config
 ) {
+    // SPDK_NOTICELOG("CheckAndProcessIOCompletions() running\n");
     int ret = 0;
     BuffConnConfig *buffConn = NULL;
 
@@ -2494,18 +2520,29 @@ CheckAndProcessIOCompletions(
         }
 
         while (DistanceBetweenPointers(head1, head2, BACKEND_RESPONSE_BUFFER_SIZE) != totalRespSize) {
+            // SPDK_NOTICELOG("head1: %d, head2: %d\n", head1, head2);
             curResp = buffResp + head1;
             curRespSize = *(FileIOSizeT*)curResp;
+            if (curRespSize == 0) {
+                SPDK_ERRLOG("impossible, curRespSize == 0\n");
+            }
+
+            // if (curRespSize != 12) {
+            //     SPDK_NOTICELOG("curRespSize: %u\n", curRespSize);
+            // }
+            
             curResp += sizeof(FileIOSizeT);
             if (((BuffMsgB2FAckHeader*)curResp)->Result == DDS_ERROR_CODE_IO_PENDING) {
                 //
                 // TODO: testing
                 //
                 //
-                ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
-                ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
-
-                // break;
+                // ((BuffMsgB2FAckHeader*)curResp)->Result = DDS_ERROR_CODE_SUCCESS;
+                // ((BuffMsgB2FAckHeader*)curResp)->BytesServiced = 4;
+                
+                // SPDK_NOTICELOG("pending req id: %llu, bytes serviced: %u\n",
+                //     ((BuffMsgB2FAckHeader*)curResp)->RequestId, ((BuffMsgB2FAckHeader*)curResp)->BytesServiced);
+                break;
             }
 
             head1 += curRespSize;
@@ -2602,7 +2639,7 @@ CheckAndProcessIOCompletions(
         }
 #endif
     }
-
+    // SPDK_NOTICELOG("CheckAndProcessIOCompletions() returned\n");
     return ret;
 }
 
@@ -2641,66 +2678,80 @@ CheckAndProcessControlPlaneCompletions(
             {
             case CTRL_MSG_F2B_REQ_CREATE_DIR:
             {
+                // SPDK_NOTICELOG("setting result to success...\n");
                 CtrlMsgB2FAckCreateDirectory* resp = (CtrlMsgB2FAckCreateDirectory*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                /* if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+                    SPDK_NOTICELOG("CREATE DIR PENDING...\n");
+                }
+                else {
+                    SPDK_NOTICELOG("CREATE DIR GOT RESULT: %d\n", resp->Result);
+                } */
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_REMOVE_DIR:
             {
                 CtrlMsgB2FAckRemoveDirectory* resp = (CtrlMsgB2FAckRemoveDirectory*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_CREATE_FILE:
             {
+                // SPDK_NOTICELOG("setting result to success...\n");
                 CtrlMsgB2FAckCreateFile* resp = (CtrlMsgB2FAckCreateFile*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                /* if (resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+                    SPDK_NOTICELOG("CREATE FILE PENDING...\n");
+                }
+                else {
+                    SPDK_NOTICELOG("CREATE FILE GOT RESULT: %d\n", resp->Result);
+                } */
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_DELETE_FILE:
             {
                 CtrlMsgB2FAckDeleteFile* resp = (CtrlMsgB2FAckDeleteFile*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_CHANGE_FILE_SIZE:
             {
                 CtrlMsgB2FAckChangeFileSize* resp = (CtrlMsgB2FAckChangeFileSize*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_SIZE:
             {
                 CtrlMsgB2FAckGetFileSize* resp = (CtrlMsgB2FAckGetFileSize*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                resp->FileSize = 0;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->FileSize = 0;
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_INFO:
             {
                 CtrlMsgB2FAckGetFileInfo* resp = (CtrlMsgB2FAckGetFileInfo*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // memset(&resp->FileInfo, 0, sizeof(resp->FileInfo));
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FILE_ATTR:
             {
                 CtrlMsgB2FAckGetFileAttr* resp = (CtrlMsgB2FAckGetFileAttr*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                resp->FileAttr = 0;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->FileAttr = 0;
             }
                 break;
             case CTRL_MSG_F2B_REQ_GET_FREE_SPACE:
             {
                 CtrlMsgB2FAckGetFreeSpace* resp = (CtrlMsgB2FAckGetFreeSpace*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
-                resp->FreeSpace = 0;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->FreeSpace = 0;
             }
                 break;
             case CTRL_MSG_F2B_REQ_MOVE_FILE:
             {
                 CtrlMsgB2FAckMoveFile* resp = (CtrlMsgB2FAckMoveFile*)ctrlConn->PendingControlPlanRequest.Response;
-                resp->Result = DDS_ERROR_CODE_SUCCESS;
+                // resp->Result = DDS_ERROR_CODE_SUCCESS;
             }
                 break;
             default:
@@ -2708,35 +2759,43 @@ CheckAndProcessControlPlaneCompletions(
             }
 
             // continue;
+            
         }
 
-        ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
-        ctrlConn->PendingControlPlanRequest.Request = NULL;
-        ctrlConn->PendingControlPlanRequest.Response = NULL;
+        if (*(ErrorCodeT*)(ctrlConn->PendingControlPlanRequest.Response) != DDS_ERROR_CODE_IO_PENDING) {
+            // SPDK_NOTICELOG("Responding back... and NULLing ctrl plane request\n");
+            ctrlConn->PendingControlPlanRequest.RequestId = DDS_REQUEST_INVALID;
+            ctrlConn->PendingControlPlanRequest.Request = NULL;
+            ctrlConn->PendingControlPlanRequest.Response = NULL;
 
-        //
-        // It's complete. Respond back to the host
-        //
-        //
-        ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
-        if (ret) {
-            fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
-            ret = -1;
+            //
+            // It's complete. Respond back to the host
+            //
+            //
+            ret = ibv_post_send(ctrlConn->QPair, &ctrlConn->SendWr, &badSendWr);
+            if (ret) {
+                fprintf(stderr, "%s [error]: ibv_post_send failed: %d\n", __func__, ret);
+                ret = -1;
+            }
         }
     }
 
     return ret;
 }
 
+#ifndef TESTING_FS
 //
 // The entry point for the back end
+// This is on the main thread not app thread, i.e. app start not called when entering this func
 //
 //
 int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
-    const uint32_t MaxBuffs
+    const uint32_t MaxBuffs,
+    int argc,
+    char **argv
 ) {
     BackEndConfig config;
     struct rdma_cm_event *event;
@@ -2766,6 +2825,10 @@ int RunFileBackEnd(
         fprintf(stderr, "AllocateFileService failed\n");
         return ret;
     }
+
+    SPDK_NOTICELOG("Starting file service... StartFileService()\n");
+    StartFileService(argc, argv, config.FS, &AppPthread);
+
 
     //
     // Initialize DMA
@@ -2803,6 +2866,280 @@ int RunFileBackEnd(
     signal(SIGTERM, SignalHandler);
 
     while (ForceQuitFileBackEnd == 0) {
+        if (dataPlaneCounter == 0) {
+            //
+            // Process connection events
+            //
+            //
+            ret = rdma_get_cm_event(config.DMAConf.CmChannel, &event);
+            if (ret && errno != EAGAIN) {
+                ret = errno;
+                fprintf(stderr, "rdma_get_cm_event error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+            else if (!ret) {
+#ifdef DDS_STORAGE_FILE_BACKEND_VERBOSE
+                fprintf(stdout, "cma_event type %s cma_id %p (%s)\n",
+                    rdma_event_str(event->event), event->id,
+                    (event->id == config.DMAConf.CmId) ? "parent" : "child");
+#endif
+
+                ret = ProcessCmEvents(&config, event);
+                if (ret) {
+                    fprintf(stderr, "ProcessCmEvents error %d\n", ret);
+                    SignalHandler(SIGTERM);
+                }
+            }
+            // SPDK_NOTICELOG("Process connection events completed\n");
+
+            //
+            // Process RDMA events for control connections
+            //
+            //
+            ret = ProcessCtrlCqEvents(&config);
+            if (ret) {
+                fprintf(stderr, "ProcessCtrlCqEvents error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+            // SPDK_NOTICELOG("Process control conn completed\n");
+
+            //
+            // Check and process control plane completions
+            //
+            //
+            ret = CheckAndProcessControlPlaneCompletions(&config);
+            if (ret) {
+                fprintf(stderr, "CheckAndProcessControlPlaneCompletions error %d\n", ret);
+                SignalHandler(SIGTERM);
+            }
+            // SPDK_NOTICELOG("control plane completion completed\n");
+        }
+
+        //
+        // Process RDMA events for buffer connections
+        //
+        //
+        // SPDK_NOTICELOG("buffer connections started\n");
+        ret = ProcessBuffCqEvents(&config);
+        if (ret) {
+            fprintf(stderr, "ProcessBuffCqEvents error %d\n", ret);
+            SignalHandler(SIGTERM);
+        }
+        // SPDK_NOTICELOG("buffer connections completed\n");
+
+        //
+        // Check and process I/O completions
+        //
+        //
+        ret = CheckAndProcessIOCompletions(&config);
+        if (ret) {
+            fprintf(stderr, "CheckAndProcessIOCompletions error %d\n", ret);
+            SignalHandler(SIGTERM);
+        }
+        // SPDK_NOTICELOG("io completions completed\n");
+
+        dataPlaneCounter++;
+        if (dataPlaneCounter == DATA_PLANE_WEIGHT) {
+            dataPlaneCounter = 0;
+        }
+    }
+
+    //
+    // Clean up
+    //
+    //
+    DeallocConns(&config);
+    TermDMA(&config.DMAConf);
+    StopFileService(config.FS);
+    DeallocateFileService(config.FS);
+    sleep(1);  // return only after all spdk threads have finished exiting, so wait a bit here
+    return ret;
+}
+
+#else
+//
+// The TESTING entry point for the back end, WITHOUT RDMA
+//
+//
+int RunFileBackEnd(
+    const char* ServerIpStr,
+    const int ServerPort,
+    const uint32_t MaxClients,
+    const uint32_t MaxBuffs,
+    int argc,
+    char **argv
+) {
+    BackEndConfig config;
+    struct rdma_cm_event *event;
+    int ret = 0;
+    int dataPlaneCounter = 0;
+
+    //
+    // Initialize the back end configuration
+    //
+    //
+    config.ServerIp = inet_addr(ServerIpStr);
+    config.ServerPort = htons(ServerPort);
+    config.MaxClients = MaxClients;
+    config.MaxBuffs = MaxBuffs;
+    config.CtrlConns = NULL;
+    config.BuffConns = NULL;
+    config.DMAConf.CmChannel = NULL;
+    config.DMAConf.CmId = NULL;
+    config.FS = NULL;
+
+    //
+    // Allocate the file service object
+    //
+    //
+    config.FS = AllocateFileService();
+    if (!config.FS) {
+        fprintf(stderr, "AllocateFileService failed\n");
+        return ret;
+    }
+
+    SPDK_NOTICELOG("Starting file service... StartFileService()\n");
+    StartFileService(argc, argv, config.FS, &AppPthread);
+    while (!G_INITIALIZATION_DONE) {
+        printf("waiting for storage initialization...\n");
+        sleep(3);
+    }
+    printf("storage initialization done!\n");
+
+    int i = 0;
+    bool allDone = true;
+    while (i < 10) {
+        SPDK_NOTICELOG("waiting for all worker threads...\n");
+        sleep(1);
+        for (size_t i = 0; i < FS->WorkerThreadCount; i++) {
+            if (FS->WorkerSPDKContexts[i].bdev_io_channel == NULL) {
+                allDone = false;
+                SPDK_NOTICELOG("thread %d hasn't yet got io channel!\n", i);
+                break;
+            }
+        }
+        if (allDone) {
+            SPDK_NOTICELOG("all threads got io channel!\n");
+            break;
+        }
+        i++;
+    }
+
+    if (!allDone) {
+        // TODO: FS app stop
+        SPDK_ERRLOG("waiting for all worker threads timed out, EXITING...\n");
+        exit(-1);
+    }
+
+    signal(SIGINT, SignalHandler);
+    signal(SIGTERM, SignalHandler);
+
+    SPDK_NOTICELOG("Sto->TotalSegments: %d, Sto->AvailableSegments: %d\n", Sto->TotalSegments, Sto->AvailableSegments);
+
+
+    ControlPlaneRequestContext *ReqCtx = malloc(sizeof(*ReqCtx));
+    ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+    CtrlMsgF2BReqCreateDirectory *Req = malloc(sizeof(CtrlMsgF2BReqCreateFile));
+    CtrlMsgB2FAckCreateDirectory *Resp = malloc(sizeof(CtrlMsgB2FAckCreateFile));
+    Resp->Result = DDS_ERROR_CODE_IO_PENDING;
+    Req->DirId = 1;
+    Req->ParentDirId = 0;
+    snprintf(&Req->PathName, 8, "foodir");
+    ReqCtx->SPDKContext = FS->MasterSPDKContext;
+    ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_DIR;
+    ReqCtx->Request = Req;
+    ReqCtx->Response = Resp;
+    SubmitControlPlaneRequest(FS, ReqCtx);
+
+    SPDK_NOTICELOG("waiting for ctrl completion\n");
+    while (Resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("ctrl req create dir, Resp->Result = %hu\n", Resp->Result);
+
+
+
+    ControlPlaneRequestContext *CtrlReqCtx = malloc(sizeof(*CtrlReqCtx));
+    CtrlReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+    CtrlMsgF2BReqCreateFile *FileReq = malloc(sizeof(CtrlMsgF2BReqCreateFile));
+    CtrlMsgB2FAckCreateFile *FileResp = malloc(sizeof(CtrlMsgB2FAckCreateFile));
+    FileResp->Result = DDS_ERROR_CODE_IO_PENDING;
+    
+    FileReq->DirId = 0;//root dir
+    snprintf(&FileReq->FileName, 64, "foofile");
+    FileReq->FileId = 0;
+    FileReq->FileAttributes = 0;
+
+    ReqCtx = malloc(sizeof(*ReqCtx));
+    ReqCtx->SPDKContext = FS->MasterSPDKContext;
+    ReqCtx->RequestId = CTRL_MSG_F2B_REQ_CREATE_FILE;
+    ReqCtx->Request = Req;
+    ReqCtx->Response = Resp;
+    SubmitControlPlaneRequest(FS, ReqCtx);
+
+    SPDK_NOTICELOG("waiting for ctrl completion\n");
+    while (Resp->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("ctrl req create file, Resp->Result = %hu\n", Resp->Result);
+    
+    
+
+    /* int ret;
+    ret = spdk_bdev_write(FS->MasterSPDKContext->bdev_desc, ) */
+
+
+
+    DataPlaneRequestContext *Context = malloc(sizeof(*Context));
+    // Context->DataBuffer = malloc(ONE_MB * 32);
+    Context->Request = malloc(sizeof(*Context->Request));
+    Context->Request->RequestId = 0;
+    Context->Request->FileId = 0;
+    Context->Request->Offset = 1073741824 - 1024; // this split would result in 3 writes
+    Context->Request->Bytes = 4096;
+
+    Context->DataBuffer.FirstAddr = malloc(Context->Request->Bytes);
+    memset(Context->DataBuffer.FirstAddr, 7, Context->Request->Bytes);
+    snprintf(Context->DataBuffer.FirstAddr, 32, "test string1...");
+    Context->DataBuffer.FirstSize = Context->Request->Bytes;
+    Context->DataBuffer.SecondAddr = malloc(Context->Request->Bytes);
+    memset(Context->DataBuffer.SecondAddr, 7, Context->Request->Bytes);
+    snprintf(Context->DataBuffer.SecondAddr, 32, "test string2...");
+    Context->DataBuffer.TotalSize = Context->Request->Bytes * 2;
+    
+
+    Context->Response = malloc(sizeof(*Context->Response));
+    Context->Response->Result = DDS_ERROR_CODE_IO_PENDING;
+    Context->Response->BytesServiced = 0;
+    Context->Response->RequestId = 0;
+
+    SubmitDataPlaneRequest(FS, Context, false, 0);  // do a write
+
+    SPDK_NOTICELOG("waiting for data completion\n");
+    while (Context->Response->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("data req Resp->Result = %hu, BytesServiced = %u\n", Context->Response->Result, Context->Response->BytesServiced);
+
+    Context->Response->Result = DDS_ERROR_CODE_IO_PENDING;
+    memset(Context->DataBuffer.FirstAddr, 7, Context->Request->Bytes);
+    memset(Context->DataBuffer.SecondAddr, 7, Context->Request->Bytes);
+    SubmitDataPlaneRequest(FS, Context, true, 0);
+
+    SPDK_NOTICELOG("waiting for read data completion\n");
+    while (Context->Response->Result == DDS_ERROR_CODE_IO_PENDING) {
+        sleep(1);
+        SPDK_NOTICELOG("sleep(1)\n");
+    }
+    SPDK_NOTICELOG("data read req Resp->Result = %hu\n", Context->Response->Result);
+    printf("result: %s; %s\n", Context->DataBuffer.FirstAddr, Context->DataBuffer.SecondAddr);
+
+
+
+/*     while (ForceQuitFileBackEnd == 0) {
         if (dataPlaneCounter == 0) {
             //
             // Process connection events
@@ -2874,18 +3211,37 @@ int RunFileBackEnd(
             dataPlaneCounter = 0;
         }
     }
-
+ */
+    
     //
     // Clean up
     //
     //
-    DeallocConns(&config);
-    TermDMA(&config.DMAConf);
+    /* DeallocConns(&config);
+    TermDMA(&config.DMAConf); */
+    StopFileService(config.FS);
     DeallocateFileService(config.FS);
 
     return ret;
 }
 
-int main() {
-    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1);
+#endif
+
+
+int main(int argc, char **argv) {
+    return RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1, argc, argv);
+
+    /* int ret = RunFileBackEnd(DDS_BACKEND_ADDR, DDS_BACKEND_PORT, 1, 1); */
+    
+    /* struct runFileBackEndArgs args = {
+        .ServerIpStr = DDS_BACKEND_ADDR,
+        .ServerPort = DDS_BACKEND_PORT,
+        .MaxClients = 1,
+        .MaxBuffs = 1
+    }; */
+    
+    // TODO: spdk stuff goes into initialization func, 
+    /* rc = spdk_app_start(&opts, RunFileBackEnd, &args);  // block until `spdk_app_stop` is called
+    printf("spdk_app_start returned with: %d\n", rc);
+    spdk_app_fini(); */
 }

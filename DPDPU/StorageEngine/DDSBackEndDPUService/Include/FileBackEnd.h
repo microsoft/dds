@@ -8,6 +8,16 @@
 
 #include "BackEndTypes.h"
 #include "FileService.h"
+#include "ControlPlaneHandler.h"
+#include "DataPlaneHandlers.h"
+#include "DDSTypes.h"
+#include "DPUBackEnd.h"
+#include "DPUBackEndDir.h"
+#include "DPUBackEndFile.h"
+#include "DPUBackEndStorage.h"
+#include "bdev.h"
+#include "Zmalloc.h"
+
 #include "MsgTypes.h"
 #include "Protocol.h"
 #include "RingBufferPolling.h"
@@ -211,12 +221,23 @@ typedef struct {
 } BackEndConfig;
 
 //
-// The entry point for the back end
+// The entry point for the back end,
+// but SPDK requires all the parameters be in just one struct, like the following
 //
 //
 int RunFileBackEnd(
     const char* ServerIpStr,
     const int ServerPort,
     const uint32_t MaxClients,
-    const uint32_t MaxBuffs
+    const uint32_t MaxBuffs,
+    int argc,
+    char **argv
 );
+/* void RunFileBackEnd(void *args); */
+
+
+//
+// the main loop where we submit requests and check for completions, happens after all initializations
+//
+//
+void RunAgentLoop(void *Ctx);

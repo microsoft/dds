@@ -157,6 +157,8 @@ typedef struct {
 
 typedef struct {
     FileIdT FileId;
+    DirIdT OldDirId;
+    DirIdT NewDirId;
     char NewFileName[DDS_MAX_FILE_PATH];
 } CtrlMsgF2BReqMoveFile;
 
