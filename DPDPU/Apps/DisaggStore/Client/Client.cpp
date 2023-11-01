@@ -4,6 +4,8 @@
 #include <thread>
 #include <string>
 #include <string.h>
+#include <windows.h>
+#include <tchar.h>
 
 #include "../Common/Include/Config.h"
 #include "../Common/Include/LatencyHelpers.h"
@@ -638,6 +640,43 @@ int main(
         return RunClientForThroughput(msgSize, queueDepth, totalBytes, port, offloadPercent, numConns);
     }
     else {
+        HANDLE hFile;
+        // create the file.
+        hFile = CreateFile(TEXT("large.TXT"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile != INVALID_HANDLE_VALUE)
+        {
+            DWORD dwByteCount;
+            TCHAR szBuf[64] = TEXT("/0");
+            // Write a simple string to hfile.
+            WriteFile(hFile, "This is a simple message", 25, &dwByteCount, NULL);
+            // Set the file pointer back to the beginning of the file.
+            SetFilePointer(hFile, 0, 0, FILE_BEGIN);
+            // Read the string back from the file.
+            ReadFile(hFile, szBuf, 128, &dwByteCount, NULL);
+            // Null terminate the string.
+            szBuf[dwByteCount] = 0;
+            // Close the file.
+            //output message with string if successful
+            cout << "created large.txt" << endl;
+            SetFilePointer(hFile, 0, 0, FILE_BEGIN);
+            //memset(szBuf, 0, 64);
+            DWORD byte;
+            //TCHAR Buf[64] = TEXT("/0");
+            for (int i = 1; i < 3; i++) {
+                ReadFile(hFile, szBuf, 8, &byte, NULL);
+                szBuf[byte] = 0;
+                printf("%s\n", szBuf);
+                //_tprintf(TEXT("%s\n", s);Buf);
+                //std::wcout << "reading" << szBuf << endl;
+                //SetFilePointer(hFile, 2, 0, FILE_CURRENT);
+            }
+            CloseHandle(hFile);
+        }
+        else
+        {
+            //output message if unsuccessful
+            cout << "creation failed" << endl;
+        }
         cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Queue Depth] [Total Bytes] [Port] [Offload Percentage]" << endl;
         cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Queue Depth] [Total Bytes] [Port Base] [Offload Percentage] [Num Connections]" << endl;
     }
