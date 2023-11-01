@@ -11,7 +11,19 @@
 
 using std::cout;
 using std::endl;
+// 2 groups of thread, 1 for fileIO, 1 for tcp conn
+//create files
+//create completion ports
+//fileIO group listen to ports
+//register files in ports
+//spawn mul threads
+//for every thread, keeps receving request
+//once recieved request issue file read
+//wait for next connecttion
+//read
+//insert in to ports
 
+//use infinity 
 void ThreadFunc(SOCKET clientSocket) {
     int iResult = 0;
 
@@ -42,6 +54,7 @@ void ThreadFunc(SOCKET clientSocket) {
 
     while (!finished) {
         // Receive message from client and send response
+
         while (oneReceive < msgSize) {
             iResult = recv(clientSocket, recvBuffer + oneReceive, remainingBytesToReceive, 0);
 
