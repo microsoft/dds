@@ -6,6 +6,7 @@
 #include <string.h>
 #include <windows.h>
 #include <tchar.h>
+#include <random>
 
 #include "../Common/Include/Config.h"
 #include "../Common/Include/LatencyHelpers.h"
@@ -616,6 +617,81 @@ int RunClientForThroughput(
 
     return 0;
 }
+struct FileReadData {
+    HANDLE hFile;
+    char* buffer;
+};
+
+void CALLBACK FileReadCompletion(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped) {
+    cout << "callback function started" << endl;
+    if (dwErrorCode == 0) {
+        FileReadData* readData = reinterpret_cast<FileReadData*>(lpOverlapped->hEvent);
+        cout << "Read " << dwNumberOfBytesTransfered << " bytes from file." << endl;
+        // You can access the custom data here:
+        // readData->hFile
+        // readData->buffer
+        //cout << "data: " << readData->buffer << endl;
+
+    }
+    else {
+        std::cerr << "Error reading file. Error code: " << dwErrorCode << endl;
+    }
+
+    // Cleanup, if necessary
+    if (lpOverlapped != nullptr) {
+        delete lpOverlapped;
+    }
+}
+// Function to generate random data of a given size
+void GenerateRandomData(char* buffer, size_t size) {
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_int_distribution<int> distribution(0, 51); // Range for uppercase and lowercase English letters
+
+    for (size_t i = 0; i < size; i++) {
+        int randomValue = distribution(generator);
+        if (randomValue < 26) {
+            // Uppercase letter (A-Z)
+            buffer[i] = static_cast<char>('A' + randomValue);
+        }
+        else {
+            // Lowercase letter (a-z)
+            buffer[i] = static_cast<char>('a' + (randomValue - 26));
+        }
+    }
+}
+
+int GenerateFile(int MBSize) {
+    int fileSizeMB = MBSize;
+    size_t fileSizeBytes = fileSizeMB * 1024 * 1024; // actual size
+    HANDLE hFile = CreateFile(L"random.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        std::cerr << "Error creating the file. Error code: " << GetLastError() << std::endl;
+        return 1;
+    }
+
+    char buffer[4096]; // Buffer size for writing (adjust as needed)
+
+    while (fileSizeBytes > 0) {
+        size_t bytesToWrite = min(sizeof(buffer), fileSizeBytes);
+        GenerateRandomData(buffer, bytesToWrite);
+
+        DWORD bytesWritten;
+        if (!WriteFile(hFile, buffer, static_cast<DWORD>(bytesToWrite), &bytesWritten, NULL)) {
+            std::cerr << "Error writing to the file. Error code: " << GetLastError() << std::endl;
+            CloseHandle(hFile);
+            return 1;
+        }
+
+        fileSizeBytes -= bytesWritten;
+    }
+
+    CloseHandle(hFile);
+    std::cout << "File with random data created successfully." << std::endl;
+
+    return 0;
+}
 
 int main(
     int argc,
@@ -640,43 +716,99 @@ int main(
         return RunClientForThroughput(msgSize, queueDepth, totalBytes, port, offloadPercent, numConns);
     }
     else {
-        HANDLE hFile;
-        // create the file.
-        hFile = CreateFile(TEXT("large.TXT"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hFile != INVALID_HANDLE_VALUE)
-        {
-            DWORD dwByteCount;
-            TCHAR szBuf[64] = TEXT("/0");
-            // Write a simple string to hfile.
-            WriteFile(hFile, "This is a simple message", 25, &dwByteCount, NULL);
-            // Set the file pointer back to the beginning of the file.
-            SetFilePointer(hFile, 0, 0, FILE_BEGIN);
-            // Read the string back from the file.
-            ReadFile(hFile, szBuf, 128, &dwByteCount, NULL);
-            // Null terminate the string.
-            szBuf[dwByteCount] = 0;
-            // Close the file.
-            //output message with string if successful
-            cout << "created large.txt" << endl;
-            SetFilePointer(hFile, 0, 0, FILE_BEGIN);
-            //memset(szBuf, 0, 64);
-            DWORD byte;
-            //TCHAR Buf[64] = TEXT("/0");
-            for (int i = 1; i < 3; i++) {
-                ReadFile(hFile, szBuf, 8, &byte, NULL);
-                szBuf[byte] = 0;
-                printf("%s\n", szBuf);
-                //_tprintf(TEXT("%s\n", s);Buf);
-                //std::wcout << "reading" << szBuf << endl;
-                //SetFilePointer(hFile, 2, 0, FILE_CURRENT);
+        //HANDLE hFile;
+        //// create the file.
+        //// noet: we have to create a new file otherwise it will return code 183 which means file already exists
+        //hFile = CreateFile(TEXT("test.TXT"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
+        //if (hFile != INVALID_HANDLE_VALUE)
+        //{
+        //    DWORD dwByteCount;
+        //    TCHAR szBuf[64] = TEXT("/0");
+        //    // Write a simple string to hfile.
+        //    for (int i = 0; i < 10000; i++) {
+        //        WriteFile(hFile, "This is a test message", 25, &dwByteCount, NULL);
+        //    }
+        //    // Set the file pointer back to the beginning of the file.
+        //    SetFilePointer(hFile, 0, 0, FILE_BEGIN);
+        //    //// Read the string back from the file.
+        //    //ReadFile(hFile, szBuf, 128, &dwByteCount, NULL);
+        //    //// Null terminate the string.
+        //    //szBuf[dwByteCount] = 0;
+        //    //// Close the file.
+        //    ////output message with string if successful
+        //    cout << "created test.txt" << endl;
+        //    //SetFilePointer(hFile, 0, 0, FILE_BEGIN);
+        //    ////memset(szBuf, 0, 64);
+        //    //DWORD byte;
+        //    ////TCHAR Buf[64] = TEXT("/0");
+        //    //for (int i = 1; i < 3; i++) {
+        //    //    ReadFile(hFile, szBuf, 8, &byte, NULL);
+        //    //    szBuf[byte] = 0;
+        //    //    printf("%s\n", szBuf);
+        //    //    //_tprintf(TEXT("%s\n", s);Buf);
+        //    //    //std::wcout << "reading" << szBuf << endl;
+        //    //    //SetFilePointer(hFile, 2, 0, FILE_CURRENT);
+        //    //}
+        //    CloseHandle(hFile);
+        //}
+        //else
+        //{
+        //    //output message if unsuccessful
+        //    cout << "creation failed" << endl;
+        //}
+
+        const int Size = 100;
+        // GenerateFile(Size);
+        
+        for (int i = 0; i < 100; i++) {
+            HANDLE hFile = CreateFile(TEXT("random.txt"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+            if (hFile == INVALID_HANDLE_VALUE) {
+                std::cerr << "Error opening the file. Error code: " << GetLastError() << std::endl;
+                return 1;
+            }
+            char buffer[Size * 1024];
+            DWORD bytesRead;
+            SetFilePointer(hFile, Size *1024*i, 0, FILE_BEGIN);
+
+            OVERLAPPED overlapped;
+            ZeroMemory(&overlapped, sizeof(OVERLAPPED));
+
+            FileReadData readData;
+            readData.hFile = hFile;
+            readData.buffer = buffer;
+            overlapped.hEvent = reinterpret_cast<HANDLE>(&readData);
+            cout << "start to read file" << endl;
+            if (ReadFileEx(hFile, buffer, sizeof(buffer), &overlapped, FileReadCompletion)) {
+                // ReadFileEx completed synchronously.
+                // You can handle it here if needed.
+                cout << "sync branch in " << i << endl;
+                // cout.write(buffer, 1000);
+                cout << endl;
+            }
+            else {
+                cout << "async branch in " << i << endl;
+                if (GetLastError() != ERROR_IO_PENDING) {
+                    std::cerr << "Error starting asynchronous read. Error code: " << GetLastError() << std::endl;
+                }
+                else {
+                    // Asynchronous read has been initiated. Wait for completion.
+                    WaitForSingleObject(overlapped.hEvent, INFINITE);
+                    cout << "finished" << endl;
+                }
             }
             CloseHandle(hFile);
         }
-        else
-        {
-            //output message if unsuccessful
-            cout << "creation failed" << endl;
-        }
+        /*if (ReadFileEx(hFile, buffer, sizeof(buffer), &overlapped, FileReadCompletion)) {
+            std::cerr << "Error starting asynchronous read. Error code: " << GetLastError() << endl;
+        }*/
+
+        // Continue with other tasks without waiting for the read to complete
+
+        // Optionally, you can wait for the read operation to complete using a sleep or other synchronization mechanism.
+
+        // Close the file handle when done
+
+        // CloseHandle(hFile);
         cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Queue Depth] [Total Bytes] [Port] [Offload Percentage]" << endl;
         cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Queue Depth] [Total Bytes] [Port Base] [Offload Percentage] [Num Connections]" << endl;
     }
