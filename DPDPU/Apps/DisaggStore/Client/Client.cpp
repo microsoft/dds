@@ -622,26 +622,6 @@ struct FileReadData {
     char* buffer;
 };
 
-void CALLBACK FileReadCompletion(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped) {
-    cout << "callback function started" << endl;
-    if (dwErrorCode == 0) {
-        FileReadData* readData = reinterpret_cast<FileReadData*>(lpOverlapped->hEvent);
-        cout << "Read " << dwNumberOfBytesTransfered << " bytes from file." << endl;
-        // You can access the custom data here:
-        // readData->hFile
-        // readData->buffer
-        //cout << "data: " << readData->buffer << endl;
-
-    }
-    else {
-        std::cerr << "Error reading file. Error code: " << dwErrorCode << endl;
-    }
-
-    // Cleanup, if necessary
-    if (lpOverlapped != nullptr) {
-        delete lpOverlapped;
-    }
-}
 // Function to generate random data of a given size
 void GenerateRandomData(char* buffer, size_t size) {
     std::random_device rd;
@@ -691,6 +671,33 @@ int GenerateFile(int MBSize) {
     std::cout << "File with random data created successfully." << std::endl;
 
     return 0;
+}
+
+void CALLBACK FileReadCompletion(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped) {
+    cout << "callback function started" << endl;
+    FileReadData* readData = reinterpret_cast<FileReadData*>(lpOverlapped->hEvent);
+    if (dwErrorCode == 0) {
+        cout << "Read " << dwNumberOfBytesTransfered << " bytes from file." << endl;
+        // You can access the custom data here:
+        // readData->hFile
+        // readData->buffer
+        //cout << "data: " << readData->buffer << endl;
+        CloseHandle(readData->hFile);
+        /*free(readData->buffer);
+        free(readData->hFile);
+        free(readData);*/
+
+    }
+    else {
+        std::cerr << "Error reading file. Error code: " << dwErrorCode << endl;
+    }
+
+    // Cleanup, if necessary
+    if (lpOverlapped != nullptr) {
+        delete lpOverlapped;
+        delete[] readData->buffer;
+        delete readData;
+    }
 }
 
 int main(
@@ -760,43 +767,48 @@ int main(
         const int Size = 100;
         // GenerateFile(Size);
         
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
+            /*HANDLE *hFile = (HANDLE*)malloc(sizeof(HANDLE));*/
             HANDLE hFile = CreateFile(TEXT("random.txt"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
             if (hFile == INVALID_HANDLE_VALUE) {
                 std::cerr << "Error opening the file. Error code: " << GetLastError() << std::endl;
                 return 1;
             }
-            char buffer[Size * 1024];
+            
+            char *buffer = (char*)malloc(1024*Size+1);
             DWORD bytesRead;
-            SetFilePointer(hFile, Size *1024*i, 0, FILE_BEGIN);
+            SetFilePointer(hFile, Size *1024*0, 0, FILE_BEGIN);
 
-            OVERLAPPED overlapped;
-            ZeroMemory(&overlapped, sizeof(OVERLAPPED));
+            OVERLAPPED* overlapped = new OVERLAPPED;
+            ZeroMemory(overlapped, sizeof(OVERLAPPED));
 
-            FileReadData readData;
-            readData.hFile = hFile;
-            readData.buffer = buffer;
-            overlapped.hEvent = reinterpret_cast<HANDLE>(&readData);
+            FileReadData *readData = new FileReadData;
+            readData->hFile = hFile;
+            readData->buffer = buffer;
+            overlapped->hEvent = reinterpret_cast<HANDLE>(&readData);
             cout << "start to read file" << endl;
-            if (ReadFileEx(hFile, buffer, sizeof(buffer), &overlapped, FileReadCompletion)) {
+            if (ReadFileEx(hFile, buffer, sizeof(buffer), overlapped, FileReadCompletion)) {
                 // ReadFileEx completed synchronously.
                 // You can handle it here if needed.
                 cout << "sync branch in " << i << endl;
-                // cout.write(buffer, 1000);
-                cout << endl;
+                /*cout.write(buffer, 1000);
+                cout << endl;*/
+                CloseHandle(hFile);
+                free(buffer);
+                delete overlapped;
+                delete readData;
             }
-            else {
-                cout << "async branch in " << i << endl;
-                if (GetLastError() != ERROR_IO_PENDING) {
-                    std::cerr << "Error starting asynchronous read. Error code: " << GetLastError() << std::endl;
-                }
-                else {
-                    // Asynchronous read has been initiated. Wait for completion.
-                    WaitForSingleObject(overlapped.hEvent, INFINITE);
-                    cout << "finished" << endl;
-                }
-            }
-            CloseHandle(hFile);
+            //else {
+            //    cout << "async branch in " << i << endl;
+            //    if (GetLastError() != ERROR_IO_PENDING) {
+            //        std::cerr << "Error starting asynchronous read. Error code: " << GetLastError() << std::endl;
+            //    }
+            //    else {
+            //        // Asynchronous read has been initiated. Wait for completion.
+            //        WaitForSingleObject(overlapped->hEvent, INFINITE);
+            //        cout << "finished" << endl;
+            //    }
+            //}
         }
         /*if (ReadFileEx(hFile, buffer, sizeof(buffer), &overlapped, FileReadCompletion)) {
             std::cerr << "Error starting asynchronous read. Error code: " << GetLastError() << endl;
