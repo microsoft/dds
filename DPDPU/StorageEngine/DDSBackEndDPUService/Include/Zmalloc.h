@@ -1,21 +1,5 @@
 #include "DPUBackEnd.h"
-// #include "bdev.h"  // circular
-#include "DPUBackEndStorage.h"  // circular include within FileService.h
-/* 
-//
-// Used to manage the status of each slot in SPDK buffer
-//
-//
-struct PerSlotContext{
-    int Position;
-    bool Available;  // should be unused now
-    SPDKContextT *SPDKContext;  // thread specific SPDKContext
-    DataPlaneRequestContext *Ctx;
-    atomic_ushort CallbacksToRun;
-    atomic_ushort CallbacksRan;
-    FileIOSizeT BytesIssued;
-    // bool IsRead;  // unused??
-}; */
+#include "DPUBackEndStorage.h"
 
 void AllocateSpace(void *arg);
 
@@ -23,14 +7,15 @@ void FreeSingleSpace(struct PerSlotContext* Ctx);
 
 void FreeAllSpace(void *arg);
 
-struct PerSlotContext* FindFreeSpace(
+struct PerSlotContext*
+FindFreeSpace(
     SPDKContextT *SPDKContext,
     DataPlaneRequestContext* Context
 );
 
-
-struct PerSlotContext* GetFreeSpace(
+struct PerSlotContext*
+GetFreeSpace(
     SPDKContextT *SPDKContext,
     DataPlaneRequestContext* Context,
-    RequestIdT index
+    RequestIdT Index
 );

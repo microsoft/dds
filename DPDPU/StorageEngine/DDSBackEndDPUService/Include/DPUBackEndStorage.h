@@ -1,25 +1,19 @@
 #pragma once
 
-// #include <atomic>
 #include <string.h>
 #include <stdlib.h>
 #include <stdatomic.h>
-// #include <mutex>
 #include <pthread.h>
 #include <time.h>
 #include <stdbool.h>
 
 #include "MsgTypes.h"
-// #include "FileBackEnd.h"  // circular include here: FileService - DPUBackEndStorage - FileBackEnd - FileService
 #include "DPUBackEndDir.h"
 #include "ControlPlaneHandler.h"
 #include "DPUBackEndFile.h"
 #include "bdev.h"
-// #include "Zmalloc.h"
-
 
 #define USE_ZERO_COPY true
-
 
 //
 // Used to manage the status of each slot in SPDK buffer
@@ -28,7 +22,6 @@
 struct PerSlotContext{
     int Position;
     struct iovec iov[2];
-    // bool IsZeroCopy;
     SplittableBufferT *DestBuffer;
     bool Available;  // should be unused now
     SPDKContextT *SPDKContext;  // thread specific SPDKContext
@@ -36,7 +29,6 @@ struct PerSlotContext{
     atomic_ushort CallbacksToRun;
     atomic_ushort CallbacksRan;
     FileIOSizeT BytesIssued;
-    // bool IsRead;  // unused??
 };
 
 //
@@ -47,34 +39,23 @@ struct PerSlotContext{
 // TODO: instead of tracking bytes all completed, might as well just track no. of writes all completed
 //
 //
-
 typedef struct BackEndIOContext {
-    /* DataPlaneRequestContext* RequestContext;  // now in request context */
-    // per slot info
+    //
+    // Per slot info
+    //
+    //
     int Position;
     bool IsAvailable;
     
-    // callback specific info
+    //
+    // Callback specific info
+    //
+    //
     atomic_ushort CallbacksToRun;
     atomic_ushort CallbacksRan;
-    FileIOSizeT BytesIssued; // equals request's no. of bytes
-    /* SplittableBufferT *SplittableBuffer;  // free this in last callback, but now in request context */
+    FileIOSizeT BytesIssued;
     bool IsRead;
-    /* BuffMsgB2FAckHeader *Resp  // the actual response, mutated in the callback, but now in RequestContext */
 } BackEndIOContextT;
-/* typedef struct BackEndIOContext {
-    ContextT FrontEndBufferContext;
-    ContextT BackEndBufferContext;
-    atomic_ushort CallbacksToRun;
-    atomic_ushort CallbacksRan;
-    FileIOSizeT BytesIssued; // equals request's no. of bytes
-    SplittableBufferT *SplittableBuffer;  // free this in last callback
-    // atomic_ulong BytesCompleted;  // unused; TODO: might not need atomic, handler even with multi writes should be on same thread
-    // atomic_bool IsAvailable;  // unused
-    // ErrorCodeT ErrorCode;  // TODO: do we need this? resp has result anyway
-    bool IsRead;
-    BuffMsgB2FAckHeader *Resp  // the actual response, mutated in the callback
-} BackEndIOContextT; */
 
 //
 // Callback for async disk operations
@@ -85,34 +66,6 @@ typedef void (*DiskIOCallback)(
     bool Success,
     ContextT Context
 );
-
-/* 
-//
-// DPU storage, highly similar with BackEndStorage
-//
-//
-struct DPUStorage {
-    SegmentT* AllSegments;
-    //remove const before SegmentIdT
-    SegmentIdT TotalSegments;
-    SegmentIdT AvailableSegments;
-    
-    struct DPUDir* AllDirs[DDS_MAX_DIRS];
-    struct DPUFile* AllFiles[DDS_MAX_FILES];
-    int TotalDirs;
-    int TotalFiles;
-
-    pthread_mutex_t SectorModificationMutex;
-    pthread_mutex_t SegmentAllocationMutex;
-    
-    //
-    // these are used during `Initialize`, move them to their own context
-    //
-    //
-
-    // atomic_size_t TargetProgress;
-    // atomic_size_t CurrentProgress;
-};
 
 //
 // DPU Storage var should be a global singleton
@@ -136,8 +89,6 @@ struct InitializeCtx {
     // and set HasFailed in Master etc.
     //
     //
-    // struct InitializeCtx *Master;
-
     SPDKContextT *SPDKContext;
     char *tmpSectorBuf;  // actually the buff that stores the reserved segment
     char *tmpPageBuf;  // zeroed page to write
@@ -147,63 +98,7 @@ struct InitializeCtx {
     size_t NumPagesWritten;
     struct DPUDir* RootDir;
     struct InitializeFailureStatus *FailureStatus;
-    //
-    // this will be set if some callback during the progress has callbacks run with failed param
-    //
-    //
-    // atomic_bool HasFailed;
-    //
-    // already fatal, some callback won't run, don't need to run other callbacks anymore; will stop spdk app
-    //
-    //
-    // atomic_bool HasAborted;
-    //
-    // The first callback to find HasAborted == true will stop SPDK app, and set HasStopped = true;
-    // other callbacks should check this so they don't stop again
-    //
-    //
-    // atomic_bool HasStopped;
 };
-
-//
-// Read from disk synchronously
-//
-//
-/* ErrorCodeT ReadFromDiskSync(
-    BufferT DstBuffer,
-    SegmentIdT SegmentId,
-    SegmentSizeT SegmentOffset,
-    FileIOSizeT Bytes,
-    struct DPUStorage* Sto,
-    void *arg,
-    bool ZeroCopy
-); */
-
-/* void ReadFromDiskSyncCallback(
-    struct spdk_bdev_io *bdev_io,
-    bool success,
-    void *cb_arg
-); */
-
-//
-// Write from disk synchronously
-//
-//
-/* ErrorCodeT WriteToDiskSync(
-    BufferT SrcBuffer,
-    SegmentIdT SegmentId,
-    SegmentSizeT SegmentOffset,
-    FileIOSizeT Bytes,
-    struct DPUStorage* Sto,
-    void *arg,
-    bool ZeroCopy
-); */
-
-/* ErrorCodeT WriteToDiskSyncCallback(
-    struct spdk_bdev_io *bdev_io,
-    bool success,
-    void *cb_arg
-); */
 
 //
 // Read from disk asynchronously
@@ -268,7 +163,7 @@ ErrorCodeT WriteToDiskAsyncZC(
     DiskIOCallback Callback,
     ContextT Context,
     struct DPUStorage* Sto,
-    void *arg
+    void *Arg
 );
 
 //
@@ -285,7 +180,7 @@ ErrorCodeT WriteToDiskAsyncNonZC(
     DiskIOCallback Callback,
     struct PerSlotContext *SlotContext,
     struct DPUStorage* Sto,
-    void *arg
+    void *Arg
 );
 
 ErrorCodeT WritevToDiskAsyncZC(
@@ -331,7 +226,7 @@ void ReturnSegments(struct DPUStorage* Sto);
 //
 ErrorCodeT LoadDirectoriesAndFiles(
     struct DPUStorage* Sto,
-    void *arg,
+    void *Arg,
     struct InitializeCtx *InitializeCtx
 );
 
@@ -377,7 +272,7 @@ ErrorCodeT SyncReservedInformationToDisk(
 //
 ErrorCodeT Initialize(
     struct DPUStorage* Sto,
-    void *arg
+    void *Arg
 );
 
 struct InitializeFailureStatus {
@@ -392,7 +287,6 @@ struct InitializeFailureStatus {
 //
 //
 struct LoadDirectoriesAndFilesCtx {
-    // SegmentSizeT NextAddress;
     char *TmpSectorBuffer;  // the reserved segment is read into this
     size_t DirLoopIndex;
     size_t FileLoopIndex;
@@ -402,9 +296,6 @@ struct LoadDirectoriesAndFilesCtx {
     atomic_int *LoadedFiles;
     struct InitializeFailureStatus *FailureStatus;  // points to the member in struct InitializeCtx
     SPDKContextT *SPDKContext;
-    /* atomic_bool HasFailed;
-    atomic_bool HasAborted;
-    atomic_bool *HasStopped; */
 };
 
 //
@@ -556,14 +447,3 @@ ErrorCodeT MoveFile(
     void *SPDKContext,
     ControlPlaneHandlerCtx *HandlerCtx
 );
-
-//
-// For responding result/error with RDMA, such as when IO failed in callback and/or can't continue situations
-// e.g. Result = DDS_ERROR_CODE_OUT_OF_MEMORY, MsgId = CTRL_MSG_B2F_ACK_CREATE_DIR
-//
-//
-/* ErrorCodeT RespondWithResult(
-    ControlPlaneHandlerCtx *HandlerCtx,
-    int MsgId,
-    ErrorCodeT Result
-); */

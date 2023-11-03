@@ -2,9 +2,6 @@
 
 #include "BackEndTypes.h"
 #include "MsgTypes.h"
-// #include "bdev.h"
-// #include "DPUBackEndStorage.h"  // circular
-// #include "FileService.h"
 
 //
 // Handler for a control plane request
