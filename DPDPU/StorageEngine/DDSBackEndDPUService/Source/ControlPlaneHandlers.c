@@ -3,9 +3,6 @@
 
 #include "ControlPlaneHandler.h"
 
-// struct DPUStorage *Sto;
-// FileService* FS;
-
 //
 // Handler for a control plane request
 //
@@ -18,15 +15,16 @@ void ControlPlaneHandler(
     //
     //
     ControlPlaneRequestContext *Context = (ControlPlaneRequestContext *) ReqContext;
-    // SPDK_NOTICELOG("Executing a control plane request, id: %d, req: %p, resp: %p\n",
-    //     Context->RequestId, Context->Request, Context->Response);
 
     switch (Context->RequestId) {
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
             CtrlMsgF2BReqCreateDirectory *Req = Context->Request;
             CtrlMsgB2FAckCreateDirectory *Resp = Context->Response;
 
-            // we should free handler ctx in the last callback for every case
+            //
+            // We should free handler ctx in the last callback for every case
+            //
+            //
             ControlPlaneHandlerCtx *HandlerCtx = malloc(sizeof(*HandlerCtx));
             HandlerCtx->Result = &Resp->Result;
             CreateDirectory(Req->PathName, Req->DirId, Req->ParentDirId, Sto, Context->SPDKContext, HandlerCtx);

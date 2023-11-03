@@ -230,11 +230,9 @@ int RunFileBackEnd(
     const int ServerPort,
     const uint32_t MaxClients,
     const uint32_t MaxBuffs,
-    int argc,
-    char **argv
+    int Argc,
+    char **Argv
 );
-/* void RunFileBackEnd(void *args); */
-
 
 //
 // the main loop where we submit requests and check for completions, happens after all initializations
