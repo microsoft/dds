@@ -2,8 +2,8 @@
 
 #include <chrono>
 
-#define CLIENT_IP "172.16.1.4"
-#define SERVER_IP "172.16.1.4"
+#define CLIENT_IP "10.1.0.6"
+#define SERVER_IP "10.1.0.6"
 #define SERVER_PORT 3232
 
 using namespace std;
