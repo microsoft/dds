@@ -21,7 +21,7 @@
 //
 struct PerSlotContext{
     int Position;
-    struct iovec iov[2];
+    struct iovec Iov[2];
     SplittableBufferT *DestBuffer;
     bool Available;  // should be unused now
     SPDKContextT *SPDKContext;  // thread specific SPDKContext
@@ -127,7 +127,7 @@ ErrorCodeT ReadFromDiskAsyncNonZC(
 );
 
 ErrorCodeT ReadvFromDiskAsyncZC(
-    struct iovec *iov,
+    struct iovec *Iov,
     int iovcnt,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -139,7 +139,7 @@ ErrorCodeT ReadvFromDiskAsyncZC(
 );
 
 ErrorCodeT ReadvFromDiskAsyncNonZC(
-    struct iovec *iov,
+    struct iovec *Iov,
     int iovcnt,
     FileIOSizeT NonZCBuffOffset,  // how many we already read
     SegmentIdT SegmentId,
@@ -184,7 +184,7 @@ ErrorCodeT WriteToDiskAsyncNonZC(
 );
 
 ErrorCodeT WritevToDiskAsyncZC(
-    struct iovec *iov,
+    struct iovec *Iov,
     int iovcnt,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -196,7 +196,7 @@ ErrorCodeT WritevToDiskAsyncZC(
 );
 
 ErrorCodeT WritevToDiskAsyncNonZC(
-    struct iovec *iov,
+    struct iovec *Iov,
     int iovcnt,
     FileIOSizeT NonZCBuffOffset,  // how many we already read
     SegmentIdT SegmentId,

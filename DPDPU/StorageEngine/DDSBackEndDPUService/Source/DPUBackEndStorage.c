@@ -63,8 +63,8 @@ void DeBackEndStorage(
 }
 
 ErrorCodeT ReadvFromDiskAsyncZC(
-    struct iovec *iov,
-    int iovcnt,
+    struct iovec *Iov,
+    int IovCnt,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
@@ -75,7 +75,7 @@ ErrorCodeT ReadvFromDiskAsyncZC(
 ) {
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc;
-    rc = bdev_readv(SPDKContext, iov, iovcnt, seg->DiskAddress + SegmentOffset, Bytes, 
+    rc = bdev_readv(SPDKContext, Iov, IovCnt, seg->DiskAddress + SegmentOffset, Bytes, 
         Callback, Context);
 
     if (rc)
@@ -88,8 +88,8 @@ ErrorCodeT ReadvFromDiskAsyncZC(
 }
 
 ErrorCodeT ReadvFromDiskAsyncNonZC(
-    struct iovec *iov,
-    int iovcnt,
+    struct iovec *Iov,
+    int IovCnt,
     FileIOSizeT NonZCBuffOffset,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -179,8 +179,8 @@ ErrorCodeT ReadFromDiskAsyncNonZC(
 
 
 ErrorCodeT WritevToDiskAsyncZC(
-    struct iovec *iov,
-    int iovcnt,
+    struct iovec *Iov,
+    int IovCnt,
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
     FileIOSizeT Bytes,
@@ -192,7 +192,7 @@ ErrorCodeT WritevToDiskAsyncZC(
     SegmentT* seg = &Sto->AllSegments[SegmentId];
     int rc;
     
-    rc = bdev_writev(SPDKContext, iov, iovcnt, seg->DiskAddress + SegmentOffset, Bytes, 
+    rc = bdev_writev(SPDKContext, Iov, IovCnt, seg->DiskAddress + SegmentOffset, Bytes, 
         Callback, SlotContext);
 
     if (rc)
@@ -205,8 +205,8 @@ ErrorCodeT WritevToDiskAsyncZC(
 }
 
 ErrorCodeT WritevToDiskAsyncNonZC(
-    struct iovec *iov,
-    int iovcnt,
+    struct iovec *Iov,
+    int IovCnt,
     FileIOSizeT NonZCBuffOffset,  // how many we already read
     SegmentIdT SegmentId,
     SegmentSizeT SegmentOffset,
@@ -225,8 +225,8 @@ ErrorCodeT WritevToDiskAsyncNonZC(
         SPDK_WARNLOG("A write with %d bytes exceeds buff block space: %d\n", Bytes, DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE);
     }
     char *toCopy = (&arg->buff[position * DDS_BACKEND_SPDK_BUFF_BLOCK_SPACE]) + NonZCBuffOffset;
-    memcpy(toCopy, iov[0].iov_base, iov[0].iov_len);
-    memcpy(toCopy + iov[0].iov_len, iov[1].iov_base, iov[1].iov_len);
+    memcpy(toCopy, Iov[0].iov_base, Iov[0].iov_len);
+    memcpy(toCopy + Iov[0].iov_len, Iov[1].iov_base, Iov[1].iov_len);
     rc = bdev_write(SPDKContext, toCopy,
         seg->DiskAddress + SegmentOffset, Bytes, Callback, SlotContext);
 
@@ -1655,15 +1655,15 @@ ErrorCodeT ReadFile(
             if (!(DestAddr == DestBuffer->FirstAddr)) {
                 SPDK_ERRLOG("ERROR: SG start addr is not FirstAddr\n");
             }
-            SlotContext->iov[0].iov_base = DestAddr + splitBufferOffset;
-            SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
+            SlotContext->Iov[0].iov_base = DestAddr + splitBufferOffset;
+            SlotContext->Iov[0].iov_len = bytesLeftOnCurrSplit;
 
-            SlotContext->iov[1].iov_base = DestBuffer->SecondAddr;
-            SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
+            SlotContext->Iov[1].iov_base = DestBuffer->SecondAddr;
+            SlotContext->Iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
 
             if (USE_ZERO_COPY) {
                 result = ReadvFromDiskAsyncZC(
-                    &SlotContext->iov,
+                    &SlotContext->Iov,
                     2,
                     curSegment,
                     offsetOnSegment,
@@ -1676,7 +1676,7 @@ ErrorCodeT ReadFile(
             }
             else {
                 result = ReadvFromDiskAsyncNonZC(
-                    &SlotContext->iov,
+                    &SlotContext->Iov,
                     2,
                     bytesRead,
                     curSegment,
@@ -1862,14 +1862,14 @@ ErrorCodeT WriteFile(
             //
             //
             assert (SourceAddr == SourceBuffer->FirstAddr);
-            SlotContext->iov[0].iov_base = SourceAddr + splitBufferOffset;
-            SlotContext->iov[0].iov_len = bytesLeftOnCurrSplit;
-            SlotContext->iov[1].iov_base = SourceBuffer->SecondAddr;
-            SlotContext->iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
+            SlotContext->Iov[0].iov_base = SourceAddr + splitBufferOffset;
+            SlotContext->Iov[0].iov_len = bytesLeftOnCurrSplit;
+            SlotContext->Iov[1].iov_base = SourceBuffer->SecondAddr;
+            SlotContext->Iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
             
             if (USE_ZERO_COPY) {
                 result = WritevToDiskAsyncZC(
-                    &SlotContext->iov,
+                    &SlotContext->Iov,
                     2,
                     curSegment,
                     offsetOnSegment,
@@ -1882,7 +1882,7 @@ ErrorCodeT WriteFile(
             }
             else {
                 result = WritevToDiskAsyncNonZC(
-                    &SlotContext->iov,
+                    &SlotContext->Iov,
                     2,
                     bytesWritten,
                     curSegment,
