@@ -76,6 +76,8 @@
 
 #define OFFLOAD_RESPONSE_RING_BYTES 251658240
 
+#define FILE_SERVICE_USE_ZERO_COPY
+
 //
 // Check a few parameters at the compile time
 //

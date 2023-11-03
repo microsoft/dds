@@ -1,10 +1,5 @@
 #include "DPUBackEndStorage.h"
 
-
-
-// struct DPUStorage* Sto;
-// SPDKContextT *SPDKContext;
-
 //
 // Constructor
 // 
@@ -1622,7 +1617,7 @@ ErrorCodeT ReadFile(
         //
         //
         if (bytesLeftOnCurrSplit >= bytesToIssue) {
-            if (USE_ZERO_COPY) {
+#ifdef FILE_SERVICE_USE_ZERO_COPY
                 result = ReadFromDiskAsyncZC(
                     DestAddr + splitBufferOffset,
                     curSegment,
@@ -1633,8 +1628,7 @@ ErrorCodeT ReadFile(
                     Sto,
                     SPDKContext
                 );
-            }
-            else {
+#else
                 result = ReadFromDiskAsyncNonZC(
                     bytesRead,
                     curSegment,
@@ -1645,7 +1639,7 @@ ErrorCodeT ReadFile(
                     Sto,
                     SPDKContext
                 );
-            }
+#endif
         }
         else {
             //
@@ -1661,7 +1655,7 @@ ErrorCodeT ReadFile(
             SlotContext->Iov[1].iov_base = DestBuffer->SecondAddr;
             SlotContext->Iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
 
-            if (USE_ZERO_COPY) {
+#ifdef FILE_SERVICE_USE_ZERO_COPY
                 result = ReadvFromDiskAsyncZC(
                     &SlotContext->Iov,
                     2,
@@ -1673,8 +1667,7 @@ ErrorCodeT ReadFile(
                     Sto,
                     SPDKContext
                 );
-            }
-            else {
+#else
                 result = ReadvFromDiskAsyncNonZC(
                     &SlotContext->Iov,
                     2,
@@ -1687,7 +1680,7 @@ ErrorCodeT ReadFile(
                     Sto,
                     SPDKContext
                 );
-            }
+#endif
         }
 
         if (result != DDS_ERROR_CODE_SUCCESS) {
@@ -1830,7 +1823,7 @@ ErrorCodeT WriteFile(
             // If bytes to issue can all fit on curr split, then we don't need sg IO
             //
             //
-            if (USE_ZERO_COPY) {
+#ifdef FILE_SERVICE_USE_ZERO_COPY
                 result = WriteToDiskAsyncZC(
                     SourceAddr + splitBufferOffset,
                     curSegment,
@@ -1841,8 +1834,7 @@ ErrorCodeT WriteFile(
                     Sto,
                     SPDKContext
                 );
-            }
-            else {
+#else
                 result = WriteToDiskAsyncNonZC(
                     SourceAddr + splitBufferOffset,
                     bytesWritten,
@@ -1854,7 +1846,7 @@ ErrorCodeT WriteFile(
                     Sto,
                     SPDKContext
                 );
-            }
+#endif
         }
         else {
             //
@@ -1867,7 +1859,7 @@ ErrorCodeT WriteFile(
             SlotContext->Iov[1].iov_base = SourceBuffer->SecondAddr;
             SlotContext->Iov[1].iov_len = bytesToIssue - bytesLeftOnCurrSplit;
             
-            if (USE_ZERO_COPY) {
+#ifdef FILE_SERVICE_USE_ZERO_COPY
                 result = WritevToDiskAsyncZC(
                     &SlotContext->Iov,
                     2,
@@ -1879,8 +1871,7 @@ ErrorCodeT WriteFile(
                     Sto,
                     SPDKContext
                 );
-            }
-            else {
+#else
                 result = WritevToDiskAsyncNonZC(
                     &SlotContext->Iov,
                     2,
@@ -1893,7 +1884,7 @@ ErrorCodeT WriteFile(
                     Sto,
                     SPDKContext
                 );
-            }
+#endif
         }
 
         if (result != DDS_ERROR_CODE_SUCCESS) {

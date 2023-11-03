@@ -13,8 +13,6 @@
 #include "DPUBackEndFile.h"
 #include "bdev.h"
 
-#define USE_ZERO_COPY true
-
 //
 // Used to manage the status of each slot in SPDK buffer
 //
