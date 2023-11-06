@@ -13,5 +13,9 @@ struct MessageHeader {
 	bool OffloadedToDPU;
 	bool LastMessage;
 	int MessageSize;
-	time_point<high_resolution_clock> TimeSend;
+	//time_point<high_resolution_clock> TimeSend;
+	long long TimeSend;
+	char FileName[16];
+	int Offset;
+	int Length;
 };
