@@ -24,11 +24,14 @@ using std::endl;
 using std::thread;
 
 const int RAND_SEED = 0;
+const int FILEID[4] = { 0, 0, 0, 0 };
+const int FILE_SIZE = 100 * 1024 * 1024;
 
 int RunClientForLatency(
     int MessageSize,
+    int BatchSize,
     int QueueDepth,
-    uint64_t TotalBytes,
+    uint64_t ReadNum,
     int Port,
     int OffloadPercent
 ) {
@@ -95,55 +98,39 @@ int RunClientForLatency(
     cout << "Preparing message buffers..." << endl;
 
     // Send message to the server and receive response
-    //const int TOTAL_MESSAGE_SIZE = sizeof(MessageHeader) + MessageSize;
-    const int TOTAL_MESSAGE_SIZE = sizeof(MessageHeader);
+    const int HeaderSize = sizeof(MessageHeader);
 
-    /*char* oneMessage = new char[MessageSize];
-    memset(oneMessage, 0, MessageSize);
-    *((int*)oneMessage) = 42;*/
-    /*char* FileName = new char[1024];
-    strcpy(FileName,"random.txt");*/
-
-    char* sendBuffer = new char[TOTAL_MESSAGE_SIZE];
-    memset(sendBuffer, 0, TOTAL_MESSAGE_SIZE);
-
-    MessageHeader* hdr = (MessageHeader*)(sendBuffer);
-    hdr->OffloadedToDPU = false;
-    hdr->LastMessage = false;
-    hdr->MessageSize = MessageSize;
-    strcpy(hdr->FileName, "random.txt");
-    hdr->Offset = 0;
-    hdr->Length = MessageSize;
-    // memcpy(sendBuffer + sizeof(MessageHeader), oneMessage, MessageSize);
-
+    char* sendBuffer = new char[HeaderSize*BatchSize];
+    memset(sendBuffer, 0, HeaderSize);
+    MessageHeader* hdr;
+    for (int i = 0; i != BatchSize; i++) {
+        hdr = (MessageHeader*)(sendBuffer+i*HeaderSize);
+        hdr->Length = MessageSize;
+    }
+    int TOTAL_MESSAGE_SIZE = (HeaderSize + MessageSize)*BatchSize;
     char* recvBuffer = new char[TOTAL_MESSAGE_SIZE];
     memset(recvBuffer, 0, TOTAL_MESSAGE_SIZE);
 
-    const int TOTAL_MESSAGES = (int)((TotalBytes / TOTAL_MESSAGE_SIZE) + (TotalBytes % TOTAL_MESSAGE_SIZE == 0 ? 0 : 1));
-    double* latencies = new double[TOTAL_MESSAGES];
-    for (int l = 0; l != TOTAL_MESSAGES; l++) {
+    double* latencies = new double[ReadNum];
+    for (int l = 0; l != ReadNum; l++) {
         latencies[l] = 0;
     }
 
     //
-    // Prepare offload bits
-    //
-    //
-    srand(RAND_SEED);
-    bool* isOffloaded = new bool[TOTAL_MESSAGES];
-    for (int o = 0; o != TOTAL_MESSAGES; o++) {
-        if (rand() % 100 <= OffloadPercent) {
-            isOffloaded[o] = true;
-        }
-        else {
-            isOffloaded[o] = false;
-        }
+    //Prepare FileId and offset for each request
+    // 
+    // 
+    uint16_t* FileIds = new uint16_t[ReadNum];
+    int* Offsets = new int[ReadNum];
+    for (int l = 0; l != ReadNum; l++) {
+        FileIds[l] = FILEID[rand() % 4];
+        Offsets[l] = rand() % (FILE_SIZE - MessageSize - 1);
     }
 
     cout << "Starting measurement..." << endl;
 
-    int firstMsg = TOTAL_MESSAGE_SIZE;
-    iResult = send(clientSocket, (const char*)&TOTAL_MESSAGE_SIZE, sizeof(int), 0);
+    int firstMsg = HeaderSize * BatchSize;
+    iResult = send(clientSocket, (const char*)&firstMsg, sizeof(int), 0);
     if (iResult == SOCKET_ERROR || iResult != sizeof(int)) {
         cout << "Error sending the first message: " << WSAGetLastError() << endl;
         closesocket(clientSocket);
@@ -157,14 +144,21 @@ int RunClientForLatency(
     auto startTime = high_resolution_clock::now().time_since_epoch().count(); // measure start time
 
     int oneSend = 0;
-    int remainingBytesToSend = TOTAL_MESSAGE_SIZE;
-    uint64_t msgIndexForOffloading = 0;
+    int remainingBytesToSend = HeaderSize;
+    uint64_t msgIndex = 0;
 
     for (uint64_t q = 0; q != QueueDepth; q++) {
-        hdr->OffloadedToDPU = isOffloaded[msgIndexForOffloading];
-        msgIndexForOffloading++;
-        hdr->TimeSend = high_resolution_clock::now().time_since_epoch().count();
-        while (oneSend < TOTAL_MESSAGE_SIZE) {
+        //batch size
+        for (int i = 0; i != BatchSize; i++) {
+            hdr = (MessageHeader*)(sendBuffer + i * HeaderSize);
+            hdr->TimeSend = high_resolution_clock::now().time_since_epoch().count();
+            hdr->BatchId = (uint16_t)q;
+            hdr->FileId = FileIds[msgIndex * BatchSize + i];
+            hdr->Offset = Offsets[msgIndex * BatchSize + i];
+
+        }
+        msgIndex++;
+        while (oneSend < HeaderSize * BatchSize) {
             iResult = send(clientSocket, sendBuffer + oneSend, remainingBytesToSend, 0);
             if (iResult == SOCKET_ERROR) {
                 cout << "Error sending message: " << WSAGetLastError() << endl;
@@ -174,18 +168,18 @@ int RunClientForLatency(
             }
 
             oneSend += iResult;
-            remainingBytesToSend = TOTAL_MESSAGE_SIZE - oneSend;
+            remainingBytesToSend = HeaderSize * BatchSize - oneSend;
         }
 
         bytesSent += oneSend;
 
         oneSend = 0;
-        remainingBytesToSend = TOTAL_MESSAGE_SIZE;
+        remainingBytesToSend = HeaderSize * BatchSize;
     }
 
     int oneReceive = 0;
     int remainingBytesToReceive = TOTAL_MESSAGE_SIZE;
-    uint64_t msgIndex = 0;
+    uint64_t RespIndex = 0;
 
     while (true) {
         //
@@ -210,14 +204,19 @@ int RunClientForLatency(
         // measure latency
         //
         //
-        long long diff = high_resolution_clock::now().time_since_epoch().count() - ((MessageHeader*)recvBuffer)->TimeSend;
-        //latencies[msgIndex] = diff * nanoseconds::period::num / nanoseconds::period::den;
-        //diff returns the time in nanosecond, here we divide it by 100 to get time in microsecond
-        latencies[msgIndex] = diff/1000;
+        long long diff;
+        uint16_t BatchID;
+        for (int i = 0; i != BatchSize; i++) {
+            //diff returns the time in nanosecond, here we divide it by 1000 to get time in microsecond
+            hdr = (MessageHeader*)(recvBuffer + i * (HeaderSize+ MessageSize));
+            diff = high_resolution_clock::now().time_since_epoch().count() - hdr->TimeSend;
+            BatchID = hdr->BatchId;
+            latencies[RespIndex * BatchSize + i] = diff / 1000;
+        }
         bytesCompleted += oneReceive;
-        msgIndex++;
+        RespIndex++;
 
-        if (bytesCompleted >= TotalBytes) {
+        if (RespIndex == ReadNum/BatchSize) { 
             break;
         }
 
@@ -228,11 +227,17 @@ int RunClientForLatency(
         // send another message
         //
         //
-        if (bytesSent < TotalBytes) {
-            hdr->OffloadedToDPU = isOffloaded[msgIndexForOffloading];
-            msgIndexForOffloading++;
-            hdr->TimeSend = high_resolution_clock::now().time_since_epoch().count();
-            while (oneSend < TOTAL_MESSAGE_SIZE) {
+        if (msgIndex < ReadNum/BatchSize) {
+            for (int i = 0; i != BatchSize; i++) {
+                hdr = (MessageHeader*)(sendBuffer + i * HeaderSize);
+                hdr->TimeSend = high_resolution_clock::now().time_since_epoch().count();
+                hdr->BatchId = BatchID;
+                hdr->FileId = FileIds[msgIndex * BatchSize + i];
+                hdr->Offset = Offsets[msgIndex * BatchSize + i];
+
+            }
+            msgIndex++;
+            while (oneSend < HeaderSize * BatchSize) {
                 iResult = send(clientSocket, sendBuffer + oneSend, remainingBytesToSend, 0);
                 if (iResult == SOCKET_ERROR) {
                     std::cout << "Error sending message: " << WSAGetLastError() << endl;
@@ -242,13 +247,13 @@ int RunClientForLatency(
                 }
 
                 oneSend += iResult;
-                remainingBytesToSend = TOTAL_MESSAGE_SIZE - oneSend;
+                remainingBytesToSend = HeaderSize * BatchSize - oneSend;
             }
 
             bytesSent += oneSend;
 
             oneSend = 0;
-            remainingBytesToSend = TOTAL_MESSAGE_SIZE;
+            remainingBytesToSend = HeaderSize * BatchSize;
         }
     }
     auto endTime = high_resolution_clock::now().time_since_epoch().count(); // measure end time
@@ -275,13 +280,13 @@ int RunClientForLatency(
     //
     Statistics LatencyStats;
     Percentiles PercentileStats;
-    GetStatistics(latencies, TOTAL_MESSAGES, &LatencyStats, &PercentileStats);
+    GetStatistics(latencies, ReadNum, &LatencyStats, &PercentileStats);
     printf(
         "Result for %zu requests of %d bytes (%.2lf seconds): %.2lf RPS, Min: %.2lf, Max: %.2lf, 50th: %.2lf, 90th: %.2lf, 99th: %.2lf, 99.9th: %.2lf, 99.99th: %.2lf, StdErr: %.2lf\n",
-        TOTAL_MESSAGES,
+        ReadNum,
         MessageSize,
         (duration / 1000000.0),
-        (TOTAL_MESSAGES / (duration / 1000000.0)),
+        (ReadNum / (duration / 1000000.0)),
         LatencyStats.Min,
         LatencyStats.Max,
         PercentileStats.P50,
@@ -301,6 +306,8 @@ int RunClientForLatency(
     // delete[] oneMessage;
     delete[] sendBuffer;
     delete[] recvBuffer;
+    delete[] FileIds;
+    delete[] Offsets;
 
     //
     // Close the socket and clean up
@@ -313,20 +320,26 @@ int RunClientForLatency(
 }
 
 void ThreadFunc(
-    const int TOTAL_MESSAGE_SIZE,
-    const uint64_t BytesPerConn,
+    int ThreadNum,
+    int MessageSize,
+    int BatchSize,
+    const uint64_t ReadNum,
     const int QueueDepth,
     SOCKET* ClientSocket,
     char* SendBuffer,
     char* RecvBuffer,
-    bool* IsOffloaded,
+    uint16_t* FileIds,
+    int* Offsets,
+    double* latencies,
     std::chrono::steady_clock::time_point* StartTime,
     std::chrono::steady_clock::time_point* EndTime,
     uint64_t* BytesCompleted
 ) {
     int iResult;
-    int firstMsg = TOTAL_MESSAGE_SIZE;
-    iResult = send(*ClientSocket, (const char*)&TOTAL_MESSAGE_SIZE, sizeof(int), 0);
+    const int HeaderSize = sizeof(MessageHeader);
+    const int firstMsg = HeaderSize*BatchSize;
+    const int TOTAL_MESSAGE_SIZE = BatchSize * (HeaderSize + MessageSize);
+    iResult = send(*ClientSocket, (const char*)&firstMsg, sizeof(int), 0);
     if (iResult == SOCKET_ERROR || iResult != sizeof(int)) {
         cout << "Error sending the first message: " << WSAGetLastError() << endl;
         closesocket(*ClientSocket);
@@ -338,17 +351,27 @@ void ThreadFunc(
     uint64_t bytesSent = 0;
 
     int oneSend = 0;
-    int remainingBytesToSend = TOTAL_MESSAGE_SIZE;
-    uint64_t msgIndexForOffloading = 0;
+    int remainingBytesToSend = firstMsg;
+    uint64_t msgIndex = 0;
 
-    MessageHeader* hdr = (MessageHeader*)(SendBuffer);
-
+    MessageHeader* hdr;
+    for (int i = 0; i != BatchSize; i++) {
+        hdr = (MessageHeader*)(SendBuffer + i * HeaderSize);
+        hdr->Length = MessageSize;
+    }
     *StartTime = high_resolution_clock::now();
 
     for (uint64_t q = 0; q != QueueDepth; q++) {
-        hdr->OffloadedToDPU = IsOffloaded[msgIndexForOffloading];
-        msgIndexForOffloading++;
-        while (oneSend < TOTAL_MESSAGE_SIZE) {
+        for (int i = 0; i != BatchSize; i++) {
+            hdr = (MessageHeader*)(SendBuffer + i * HeaderSize);
+            hdr->TimeSend = high_resolution_clock::now().time_since_epoch().count();
+            hdr->BatchId = (uint16_t)q;
+            hdr->FileId = FileIds[msgIndex * BatchSize + i];
+            hdr->Offset = Offsets[msgIndex * BatchSize + i];
+
+        }
+        msgIndex++;
+        while (oneSend < firstMsg) {
             iResult = send(*ClientSocket, SendBuffer + oneSend, remainingBytesToSend, 0);
             if (iResult == SOCKET_ERROR) {
                 cout << "Error sending message: " << WSAGetLastError() << endl;
@@ -358,18 +381,18 @@ void ThreadFunc(
             }
 
             oneSend += iResult;
-            remainingBytesToSend = TOTAL_MESSAGE_SIZE - oneSend;
+            remainingBytesToSend = firstMsg - oneSend;
         }
 
         bytesSent += oneSend;
 
         oneSend = 0;
-        remainingBytesToSend = TOTAL_MESSAGE_SIZE;
+        remainingBytesToSend = firstMsg;
     }
 
     int oneReceive = 0;
     int remainingBytesToReceive = TOTAL_MESSAGE_SIZE;
-    uint64_t msgIndex = 0;
+    uint64_t RespIndex = 0;
 
     while (true) {
         //
@@ -378,7 +401,6 @@ void ThreadFunc(
         //
         while (oneReceive < TOTAL_MESSAGE_SIZE) {
             iResult = recv(*ClientSocket, RecvBuffer + oneReceive, remainingBytesToReceive, 0);
-
             if (iResult == SOCKET_ERROR) {
                 cout << "Error receiving message: " << WSAGetLastError() << endl;
                 closesocket(*ClientSocket);
@@ -389,11 +411,23 @@ void ThreadFunc(
             oneReceive += iResult;
             remainingBytesToReceive = TOTAL_MESSAGE_SIZE - oneReceive;
         }
-
+        //
+        // measure latency
+        //
+        //
+        long long diff;
+        uint16_t BatchID;
+        for (int i = 0; i != BatchSize; i++) {
+            //diff returns the time in nanosecond, here we divide it by 1000 to get time in microsecond
+            hdr = (MessageHeader*)(RecvBuffer + i * (HeaderSize + MessageSize));
+            diff = high_resolution_clock::now().time_since_epoch().count() - hdr->TimeSend;
+            BatchID = hdr->BatchId;
+            latencies[RespIndex * BatchSize + i] = diff / 1000;
+        }
         bytesCompleted += oneReceive;
-        msgIndex++;
+        RespIndex++;
 
-        if (bytesCompleted >= BytesPerConn) {
+        if (RespIndex == ReadNum/BatchSize) {
             break;
         }
 
@@ -404,10 +438,17 @@ void ThreadFunc(
         // send another message
         //
         //
-        if (bytesSent < BytesPerConn) {
-            hdr->OffloadedToDPU = IsOffloaded[msgIndexForOffloading];
-            msgIndexForOffloading++;
-            while (oneSend < TOTAL_MESSAGE_SIZE) {
+        if (msgIndex < ReadNum / BatchSize) {
+            for (int i = 0; i != BatchSize; i++) {
+                hdr = (MessageHeader*)(SendBuffer + i * HeaderSize);
+                hdr->TimeSend = high_resolution_clock::now().time_since_epoch().count();
+                hdr->BatchId = BatchID;
+                hdr->FileId = FileIds[msgIndex * BatchSize + i];
+                hdr->Offset = Offsets[msgIndex * BatchSize + i];
+
+            }
+            msgIndex++;
+            while (oneSend < firstMsg) {
                 iResult = send(*ClientSocket, SendBuffer + oneSend, remainingBytesToSend, 0);
                 if (iResult == SOCKET_ERROR) {
                     std::cout << "Error sending message: " << WSAGetLastError() << endl;
@@ -417,24 +458,52 @@ void ThreadFunc(
                 }
 
                 oneSend += iResult;
-                remainingBytesToSend = TOTAL_MESSAGE_SIZE - oneSend;
+                remainingBytesToSend = firstMsg - oneSend;
             }
 
             bytesSent += oneSend;
 
             oneSend = 0;
-            remainingBytesToSend = TOTAL_MESSAGE_SIZE;
+            remainingBytesToSend = firstMsg;
         }
     }
 
     *EndTime = high_resolution_clock::now();
     *BytesCompleted = bytesCompleted;
+    auto duration = duration_cast<microseconds>(*EndTime - *StartTime).count(); // duration in microseconds
+    double throughput = (double)bytesCompleted / (double)duration * 1000000.0f / (1024.0 * 1024.0 * 1024.0); // in giga bytes per second
+
+    //
+    // Calculate latency
+    //
+    //
+    Statistics LatencyStats;
+    Percentiles PercentileStats;
+    GetStatistics(latencies, ReadNum, &LatencyStats, &PercentileStats);
+    printf(
+        "Thread %d: Result for %zu requests of %d bytes (%.2lf seconds): %.2lf RPS, Min: %.2lf, Max: %.2lf, 50th: %.2lf, 90th: %.2lf, 99th: %.2lf, 99.9th: %.2lf, 99.99th: %.2lf, StdErr: %.2lf\n",
+        ThreadNum,
+        ReadNum,
+        MessageSize,
+        (duration / 1000000.0),
+        (ReadNum / (duration / 1000000.0)),
+        LatencyStats.Min,
+        LatencyStats.Max,
+        PercentileStats.P50,
+        PercentileStats.P90,
+        PercentileStats.P99,
+        PercentileStats.P99p9,
+        PercentileStats.P99p99,
+        LatencyStats.StandardError);
+
+    cout << "Thread " << ThreadNum << ": Throughput: " << throughput << " GB / s" << endl;
 }
 
 int RunClientForThroughput(
     int MessageSize,
+    int BatchSize,
     int QueueDepth,
-    uint64_t BytesPerConn,
+    uint64_t ReadNum,
     int PortBase,
     int OffloadPercent,
     int NumConnections
@@ -504,49 +573,41 @@ int RunClientForThroughput(
     cout << "Preparing message buffers..." << endl;
 
     // Send message to the server and receive response
-    const int TOTAL_MESSAGE_SIZE = sizeof(MessageHeader) + MessageSize;
+    const int HeaderSize = sizeof(MessageHeader);
 
-    char* oneMessage = new char[MessageSize];
-    memset(oneMessage, 0, MessageSize);
-    *((int*)oneMessage) = 42;
 
     char** sendBuffers = new char* [NumConnections];
     char** recvBuffers = new char* [NumConnections];
+    int TOTAL_MESSAGE_SIZE = (HeaderSize + MessageSize) * BatchSize;
     for (int i = 0; i != NumConnections; i++) {
-        sendBuffers[i] = new char[TOTAL_MESSAGE_SIZE];
-        memset(sendBuffers[i], 0, TOTAL_MESSAGE_SIZE);
-
-        MessageHeader* hdr = (MessageHeader*)(sendBuffers[i]);
-        hdr->OffloadedToDPU = false;
-        hdr->LastMessage = false;
-        hdr->MessageSize = MessageSize;
-        memcpy(sendBuffers[i] + sizeof(MessageHeader), oneMessage, MessageSize);
-
+        sendBuffers[i] = new char[HeaderSize*BatchSize];
+        memset(sendBuffers[i], 0, HeaderSize * BatchSize);
+        MessageHeader* hdr;
+        for (int j = 0; j != BatchSize; j++) {
+            hdr = (MessageHeader*)(sendBuffers[i] + j * HeaderSize);
+            hdr->Length = MessageSize;
+        }
         recvBuffers[i] = new char[TOTAL_MESSAGE_SIZE];
         memset(recvBuffers[i], 0, TOTAL_MESSAGE_SIZE);
     }
 
-    const int TOTAL_MESSAGES = (int)((BytesPerConn / TOTAL_MESSAGE_SIZE) + (BytesPerConn % TOTAL_MESSAGE_SIZE == 0 ? 0 : 1));
-
     //
-    // Prepare offload bits
-    //
-    //
-    srand(RAND_SEED);
-
-    bool** isOffloaded = new bool* [NumConnections];
-
+    //Prepare FileId and offset for each request
+    // 
+    // 
+    uint16_t** FileIds = new uint16_t* [NumConnections];
+    int** Offsets = new int* [NumConnections];
+    double** latencies = new double* [NumConnections];
     for (int i = 0; i != NumConnections; i++) {
-        isOffloaded[i] = new bool[TOTAL_MESSAGES];
-        for (int o = 0; o != TOTAL_MESSAGES; o++) {
-            if (rand() % 100 <= OffloadPercent) {
-                isOffloaded[i][o] = true;
-            }
-            else {
-                isOffloaded[i][o] = false;
-            }
+        FileIds[i] = new uint16_t[ReadNum];
+        Offsets[i] = new int[ReadNum];
+        latencies[i] = new double[ReadNum];
+        for (int l = 0; l != ReadNum; l++) {
+            FileIds[i][l] = FILEID[rand() % 4];
+            Offsets[i][l] = rand() % (FILE_SIZE - MessageSize - 1);
+            latencies[i][l] = 0;
         }
-    }
+    }  
 
     cout << "Starting measurement..." << endl;
     std::chrono::steady_clock::time_point* startTimes = new std::chrono::steady_clock::time_point[NumConnections];
@@ -555,9 +616,9 @@ int RunClientForThroughput(
 
     thread** ioThreads = new thread * [NumConnections];
     for (int i = 0; i != NumConnections; i++) {
-        thread* worker = new thread([i, TOTAL_MESSAGE_SIZE, BytesPerConn, QueueDepth, clientSockets, sendBuffers, recvBuffers, isOffloaded, startTimes, endTimes, bytesCompleted]
+        thread* worker = new thread([i, MessageSize, BatchSize, ReadNum, QueueDepth, clientSockets, sendBuffers, recvBuffers, FileIds, Offsets, latencies, startTimes, endTimes, bytesCompleted]
             {
-                ThreadFunc(TOTAL_MESSAGE_SIZE, BytesPerConn, QueueDepth, &clientSockets[i], sendBuffers[i], recvBuffers[i], isOffloaded[i], &startTimes[i], &endTimes[i], &bytesCompleted[i]);
+                ThreadFunc(i, MessageSize, BatchSize, ReadNum, QueueDepth, &clientSockets[i], sendBuffers[i], recvBuffers[i], FileIds[i], Offsets[i], latencies[i], &startTimes[i], &endTimes[i], &bytesCompleted[i]);
             });
         ioThreads[i] = worker;
     }
@@ -603,13 +664,18 @@ int RunClientForThroughput(
     // Release buffers
     //
     //
-    delete[] oneMessage;
     for (int i = 0; i != NumConnections; i++) {
         delete[] sendBuffers[i];
         delete[] recvBuffers[i];
+        delete[] FileIds[i];
+        delete[] Offsets[i];
+        delete[] latencies[i];
     }
     delete[] sendBuffers;
     delete[] recvBuffers;
+    delete[] FileIds;
+    delete[] Offsets;
+    delete[] latencies;
 
     //
     // Close the socket and clean up
@@ -706,31 +772,34 @@ void CALLBACK FileReadCompletion(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfe
     }
 }
 
+
 int main(
     int argc,
     const char** args
 )
 {
-    if (argc == 6) {
+    if (argc == 7) {
         int msgSize = stoi(args[1]);
-        int queueDepth = stoi(args[2]);
-        uint64_t totalBytes = stoull(args[3]);
-        int port = stoi(args[4]);
-        int offloadPercent = stoi(args[5]);
-        return RunClientForLatency(msgSize, queueDepth, totalBytes, port, offloadPercent);
+        int BatchSize = stoi(args[2]);
+        int queueDepth = stoi(args[3]);
+        uint64_t ReadNum = stoull(args[4]);
+        int port = stoi(args[5]);
+        int offloadPercent = stoi(args[6]);
+        return RunClientForLatency(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent);
     }
-    else if (argc == 7) {
+    else if (argc == 8) {
         int msgSize = stoi(args[1]);
-        int queueDepth = stoi(args[2]);
-        uint64_t totalBytes = stoull(args[3]);
-        int port = stoi(args[4]);
-        int offloadPercent = stoi(args[5]);
-        int numConns = stoi(args[6]);
-        return RunClientForThroughput(msgSize, queueDepth, totalBytes, port, offloadPercent, numConns);
+        int BatchSize = stoi(args[2]);
+        int queueDepth = stoi(args[3]);
+        uint64_t ReadNum = stoull(args[4]);
+        int port = stoi(args[5]);
+        int offloadPercent = stoi(args[6]);
+        int numConns = stoi(args[7]);
+        return RunClientForThroughput(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent, numConns);
     }
     else {
-        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Queue Depth] [Total Bytes] [Port] [Offload Percentage]" << endl;
-        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Queue Depth] [Total Bytes] [Port Base] [Offload Percentage] [Num Connections]" << endl;
+        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage]" << endl;
+        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections]" << endl;
     }
 
     return 0;

@@ -10,12 +10,9 @@ using namespace std;
 using namespace std::chrono;
 
 struct MessageHeader {
-	bool OffloadedToDPU;
-	bool LastMessage;
-	int MessageSize;
-	//time_point<high_resolution_clock> TimeSend;
 	long long TimeSend;
-	char FileName[16];
+	uint16_t BatchId;
+	uint16_t FileId;
 	int Offset;
 	int Length;
 };
