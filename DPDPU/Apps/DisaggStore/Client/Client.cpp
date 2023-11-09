@@ -24,8 +24,9 @@ using std::endl;
 using std::thread;
 
 const int RAND_SEED = 0;
-const int FILEID[4] = { 0, 0, 0, 0 };
-const int FILE_SIZE = 100 * 1024 * 1024;
+const int FILEID[1] = { 0 };
+const int FILENUM = 1;
+uint64_t FILE_SIZE;
 
 int RunClientForLatency(
     int MessageSize,
@@ -123,7 +124,7 @@ int RunClientForLatency(
     uint16_t* FileIds = new uint16_t[ReadNum];
     int* Offsets = new int[ReadNum];
     for (int l = 0; l != ReadNum; l++) {
-        FileIds[l] = FILEID[rand() % 4];
+        FileIds[l] = FILEID[rand() % FILENUM];
         Offsets[l] = rand() % (FILE_SIZE - MessageSize - 1);
     }
 
@@ -603,7 +604,7 @@ int RunClientForThroughput(
         Offsets[i] = new int[ReadNum];
         latencies[i] = new double[ReadNum];
         for (int l = 0; l != ReadNum; l++) {
-            FileIds[i][l] = FILEID[rand() % 4];
+            FileIds[i][l] = FILEID[rand() % FILENUM];
             Offsets[i][l] = rand() % (FILE_SIZE - MessageSize - 1);
             latencies[i][l] = 0;
         }
@@ -778,16 +779,18 @@ int main(
     const char** args
 )
 {
-    if (argc == 7) {
+    if (argc == 8) {
         int msgSize = stoi(args[1]);
         int BatchSize = stoi(args[2]);
         int queueDepth = stoi(args[3]);
         uint64_t ReadNum = stoull(args[4]);
         int port = stoi(args[5]);
         int offloadPercent = stoi(args[6]);
+        uint64_t FileSize = stoull(args[7]);
+        FILE_SIZE = FileSize;
         return RunClientForLatency(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent);
     }
-    else if (argc == 8) {
+    else if (argc == 9) {
         int msgSize = stoi(args[1]);
         int BatchSize = stoi(args[2]);
         int queueDepth = stoi(args[3]);
@@ -795,11 +798,13 @@ int main(
         int port = stoi(args[5]);
         int offloadPercent = stoi(args[6]);
         int numConns = stoi(args[7]);
+        uint64_t FileSize = stoull(args[8]);
+        FILE_SIZE = FileSize;
         return RunClientForThroughput(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent, numConns);
     }
     else {
-        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage]" << endl;
-        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections]" << endl;
+        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage] [File Size]" << endl;
+        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections] [File Size]" << endl;
     }
 
     return 0;
