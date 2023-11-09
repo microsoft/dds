@@ -787,7 +787,7 @@ int main(
         int port = stoi(args[5]);
         int offloadPercent = stoi(args[6]);
         uint64_t FileSize = stoull(args[7]);
-        FILE_SIZE = FileSize;
+        FILE_SIZE = FileSize * 1024 * 1024 * 1024;
         return RunClientForLatency(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent);
     }
     else if (argc == 9) {
@@ -799,12 +799,12 @@ int main(
         int offloadPercent = stoi(args[6]);
         int numConns = stoi(args[7]);
         uint64_t FileSize = stoull(args[8]);
-        FILE_SIZE = FileSize;
+        FILE_SIZE = FileSize * 1024 * 1024 * 1024;
         return RunClientForThroughput(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent, numConns);
     }
     else {
-        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage] [File Size]" << endl;
-        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections] [File Size]" << endl;
+        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage] [File Size (in gigabyte)]" << endl;
+        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections] [File Size (in gigabyte)]" << endl;
     }
 
     return 0;
