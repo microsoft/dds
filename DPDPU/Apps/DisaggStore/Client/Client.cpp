@@ -122,10 +122,18 @@ int RunClientForLatency(
     // 
     // 
     uint16_t* FileIds = new uint16_t[ReadNum];
-    int* Offsets = new int[ReadNum];
+    uint64_t* Offsets = new uint64_t[ReadNum];
+    std::random_device rd;
+    std::mt19937_64 eng(rd());
+    std::uniform_int_distribution<uint64_t> distr;
+
     for (int l = 0; l != ReadNum; l++) {
         FileIds[l] = FILEID[rand() % FILENUM];
-        Offsets[l] = rand() % (FILE_SIZE - MessageSize - 1);
+        uint64_t randomValue = distr(eng);
+        randomValue %= (FILE_SIZE - MessageSize - 1);
+        // ensure offset is sector size aligned
+        randomValue = (randomValue / SECTOR_SIZE) * SECTOR_SIZE;
+        Offsets[l] = randomValue;
     }
 
     cout << "Starting measurement..." << endl;
@@ -212,7 +220,7 @@ int RunClientForLatency(
             hdr = (MessageHeader*)(recvBuffer + i * (HeaderSize+ MessageSize));
             diff = high_resolution_clock::now().time_since_epoch().count() - hdr->TimeSend;
             BatchID = hdr->BatchId;
-            latencies[RespIndex * BatchSize + i] = diff / 1000;
+            latencies[RespIndex * BatchSize + i] = ((double) diff) / 1000;
         }
         bytesCompleted += oneReceive;
         RespIndex++;
@@ -330,7 +338,7 @@ void ThreadFunc(
     char* SendBuffer,
     char* RecvBuffer,
     uint16_t* FileIds,
-    int* Offsets,
+    uint64_t* Offsets,
     double* latencies,
     std::chrono::steady_clock::time_point* StartTime,
     std::chrono::steady_clock::time_point* EndTime,
@@ -423,7 +431,10 @@ void ThreadFunc(
             hdr = (MessageHeader*)(RecvBuffer + i * (HeaderSize + MessageSize));
             diff = high_resolution_clock::now().time_since_epoch().count() - hdr->TimeSend;
             BatchID = hdr->BatchId;
-            latencies[RespIndex * BatchSize + i] = diff / 1000;
+            if (BatchID > QueueDepth) {
+                cerr << "ERROR: got wrong batchId from server: " << BatchID << endl;
+            }
+            latencies[RespIndex * BatchSize + i] = (double) diff / 1000;
         }
         bytesCompleted += oneReceive;
         RespIndex++;
@@ -561,6 +572,7 @@ int RunClientForThroughput(
     //
     //
     for (int i = NumConnections - 1; i >= 0; i--) {
+        cout << "trying connection " << i << endl;
         iResult = connect(clientSockets[i], (SOCKADDR*)&serverAddr, sizeof(serverAddr));
         if (iResult == SOCKET_ERROR) {
             cout << "Unable to connect to server: " << WSAGetLastError() << endl;
@@ -594,18 +606,27 @@ int RunClientForThroughput(
 
     //
     //Prepare FileId and offset for each request
-    // 
-    // 
+    //
+    //
+    std::random_device rd;
+    std::mt19937_64 eng(rd());
+    std::uniform_int_distribution<uint64_t> distr;
+
     uint16_t** FileIds = new uint16_t* [NumConnections];
-    int** Offsets = new int* [NumConnections];
+    uint64_t** Offsets = new uint64_t* [NumConnections];
     double** latencies = new double* [NumConnections];
     for (int i = 0; i != NumConnections; i++) {
         FileIds[i] = new uint16_t[ReadNum];
-        Offsets[i] = new int[ReadNum];
+        Offsets[i] = new uint64_t[ReadNum];
         latencies[i] = new double[ReadNum];
         for (int l = 0; l != ReadNum; l++) {
             FileIds[i][l] = FILEID[rand() % FILENUM];
-            Offsets[i][l] = rand() % (FILE_SIZE - MessageSize - 1);
+            // Offsets[i][l] = rand() % (FILE_SIZE - MessageSize - 1);
+            uint64_t randomValue = distr(eng);
+            randomValue %= (FILE_SIZE - MessageSize - 1);
+            // ensure offset is sector size aligned
+            randomValue = (randomValue / SECTOR_SIZE) * SECTOR_SIZE;
+            Offsets[i][l] = randomValue;
             latencies[i][l] = 0;
         }
     }  
@@ -803,8 +824,8 @@ int main(
         return RunClientForThroughput(msgSize, BatchSize, queueDepth, ReadNum, port, offloadPercent, numConns);
     }
     else {
-        cout << "Client (latency) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage] [File Size (in gigabyte)]" << endl;
-        cout << "Client (bandwidth) usage: " << args[0] << " [Msg Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections] [File Size (in gigabyte)]" << endl;
+        cout << "Client (latency) usage: " << args[0] << " [Read Size] [Batch Size] [Queue Depth] [ReadNum] [Port] [Offload Percentage] [File Size (in gigabyte)]" << endl;
+        cout << "Client (bandwidth) usage: " << args[0] << " [Read Size] [Batch Size] [Queue Depth] [ReadNum] [Port Base] [Offload Percentage] [Num Connections] [File Size (in gigabyte)]" << endl;
     }
 
     return 0;
