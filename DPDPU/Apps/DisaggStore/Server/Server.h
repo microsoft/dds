@@ -3,7 +3,7 @@
 #include <mutex>
 
 
-#define N_CONCURRENT_COMPLETION_THREADS 32
+// #define N_CONCURRENT_COMPLETION_THREADS 32
 #define FILE_BASE_NAME "random.txt"
 
 
@@ -25,4 +25,4 @@ struct ServerContext
 };
 
 
-int RunServer(int msgSize, int batchSize, int queueDepth, int fileSize, int nFile);
+int RunServer(int msgSize, int batchSize, int queueDepth, int fileSize, int nFile, int nCompletionThreads);

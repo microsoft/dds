@@ -332,7 +332,7 @@ void HandleCompletions(int payloadSize, int batchSize) {
     }
 }
 
-int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int nFile) {
+int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int nFile, int nCompletionThreads) {
     cout << "server starting..." << endl;
     // generate files
     GenerateFile(fileSize, nFile);
@@ -359,14 +359,14 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int 
 
 
     // setup io completion port
-    ioCompletionPort = CreateIoCompletionPort(fileHandles[0], NULL, NULL, N_CONCURRENT_COMPLETION_THREADS);
+    ioCompletionPort = CreateIoCompletionPort(fileHandles[0], NULL, NULL, nCompletionThreads);
     if (ioCompletionPort == NULL) {
         cout << "Error creating completion port: " << GetLastError() << endl;
         return -1;
     }
     cout << "IO completion port created" << endl;
     for (size_t i = 1; i < nFile; i++) {
-        HANDLE ret = CreateIoCompletionPort(fileHandles[i], ioCompletionPort, NULL, N_CONCURRENT_COMPLETION_THREADS);
+        HANDLE ret = CreateIoCompletionPort(fileHandles[i], ioCompletionPort, NULL, nCompletionThreads);
         if (ret == NULL) {
             cout << "Error associating file to completion port: " << GetLastError() << endl;
             return -1;
@@ -377,7 +377,7 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int 
     }
     
     // setup threads for polling completions
-    for (size_t i = 0; i < N_CONCURRENT_COMPLETION_THREADS; i++) {
+    for (size_t i = 0; i < nCompletionThreads; i++) {
         thread *poller = new thread([payloadSize, batchSize]
         {
             HandleCompletions(payloadSize, batchSize);
@@ -461,7 +461,7 @@ int main(
     const char** args
 )
 {
-    if (argc == 6) {
+    if (argc == 7) {
         //HANDLE hFile;
         //// create the file.
         //hFile = CreateFile(TEXT("large.TXT"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -493,11 +493,12 @@ int main(
         int queueDepth = stoi(args[3]);
         int fileSize = stoi(args[4]);
         int nFile = stoi(args[5]);
+        int nCompletionThreads = stoi(args[6]);
         cout << "queue depth: " << queueDepth << endl;
-        return RunServer(payloadSize, batchSize, queueDepth, fileSize, nFile);
+        return RunServer(payloadSize, batchSize, queueDepth, fileSize, nFile, nCompletionThreads);
     }
     else {
-        cout << "Server usage: payloadSize batchSize queueDepth fileSize(GB) nFile" << endl;
+        cout << "Server usage: payloadSize batchSize queueDepth fileSize(GB) nFile nCompletionThreads" << endl;
     }
 
     return 0;
