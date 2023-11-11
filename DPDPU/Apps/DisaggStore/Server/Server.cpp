@@ -45,7 +45,7 @@ void HandleFirstMsg(SOCKET clientSocket, int *msgSize) {
 }
 
 
-void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDepth) {
+void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDepth, int clientIndex) {
     // Initialize context and preallocate memory
     // total no. of outstanding requests is batch size * queue depth
     int responseSize = sizeof(MessageHeader) + payloadSize;
@@ -60,7 +60,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
 
     int iResult = 0;
 
-    cout << "Waiting for the first message..., using payload size: " << payloadSize << endl;
+    cout << "Thread for client " << clientIndex << " Waiting for the first message..." << endl;
 
     // Receive the first message
     int msgSize = 0;
@@ -74,8 +74,8 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
         return;
     }*/
 
-    cout << "got payload size: " << msgSize << ", got batch size: " << mbatchSize << endl;
-    cout << "using batch size: " << batchSize << endl;
+    // cout << "got payload size: " << msgSize << ", got batch size: " << mbatchSize << endl;
+    // cout << "using batch size: " << batchSize << endl;
     if (mbatchSize != batchSize) {
         cerr << "ERROR: batch size MISMATCH on server and client" << endl;
     }
@@ -122,8 +122,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
         remainingBytesToReceive = msgSize;
 
         
-        // do file read
-        // DWORD BytesRead;
+        // issue file read
         MessageHeader *requestMsg = (MessageHeader *) recvBuffer;
         for (size_t i = 0; i < batchSize; i++) {
             // cout << "requestMsg batch id " << requestMsg->BatchId << endl;
@@ -132,6 +131,8 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
             memcpy(respBuffer, requestMsg, sizeof(MessageHeader));
             respBuffer += sizeof(MessageHeader);
             ServerContext *respCtx = serverContexts + index;
+            respCtx->clientIndex = clientIndex;
+            respCtx->ReadStartTime = high_resolution_clock::now().time_since_epoch().count();
             respCtx->hSocket = clientSocket;
             respCtx->socketMutex = socketMutex;
             // respCtx->Index = index;
@@ -148,8 +149,8 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
                 DWORD err = GetLastError();
                 if (err != ERROR_IO_PENDING) {
                     cerr << "something wrong when ReadFile(), carry on regardless..., err: " << err << endl;
-                    cerr << "offset: " << (uint64_t)respCtx->Overlapped.Pointer << ", " << requestMsg->Offset << endl;
-                    cerr << "respBuffer: " << (void *)respBuffer << endl;
+                    cerr << "offset: " << requestMsg->Offset << endl;
+                    // cerr << "respBuffer: " << (void *)respBuffer << endl;
                 }
                 // else it's async
             }
@@ -202,7 +203,39 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
         remainingBytesToSend = payloadSize; */
     }
 
-    cout << "Measurement completes" << endl;
+    Statistics stats;
+    Percentiles PercentileStats;
+    GetStatistics(readLatencies[clientIndex], readNum, &stats, &PercentileStats);
+    printf(
+        "readLatencies, Thread %d:  Min: %.2lf, Max: %.2lf, 50th: %.2lf, 90th: %.2lf, 99th: %.2lf, 99.9th: %.2lf, 99.99th: %.2lf, StdErr: %.2lf\n",
+        clientIndex,
+        stats.Min,
+        stats.Max,
+        PercentileStats.P50,
+        PercentileStats.P90,
+        PercentileStats.P99,
+        PercentileStats.P99p9,
+        PercentileStats.P99p99,
+        stats.StandardError);
+    allClientsReadLatencyStats[clientIndex] = stats;
+    allClientsReadLatencyPercentiles[clientIndex] = PercentileStats;
+
+    GetStatistics(sendBackLatencies[clientIndex], readNum / batchSize, &stats, &PercentileStats);
+    printf(
+        "send back times, Thread %d:  Min: %.2lf, Max: %.2lf, 50th: %.2lf, 90th: %.2lf, 99th: %.2lf, 99.9th: %.2lf, 99.99th: %.2lf, StdErr: %.2lf\n",
+        clientIndex,
+        stats.Min,
+        stats.Max,
+        PercentileStats.P50,
+        PercentileStats.P90,
+        PercentileStats.P99,
+        PercentileStats.P99p9,
+        PercentileStats.P99p99,
+        stats.StandardError);
+    allClientsSendBackStats[clientIndex] = stats;
+    allClientsSendBackPercentiles[clientIndex] = PercentileStats;
+
+    cout << "Measurement completes for thread " << clientIndex << endl;
 
     // Clear buffer
     delete[] recvBuffer;
@@ -313,11 +346,14 @@ void HandleCompletions(int payloadSize, int batchSize) {
 
         // only send ALL responses if whole batch finished
         ctx->batchCompletionCounts[ctx->BatchId] += 1;
+        readLatencies[ctx->clientIndex][msgProcessedCount[ctx->clientIndex]] = 
+            (double) (high_resolution_clock::now().time_since_epoch().count() - ctx->ReadStartTime) / 1000;
         if (ctx->batchCompletionCounts[ctx->BatchId] == batchSize) {
             // cout << "one async completed and sending batch back, id: " << ctx->BatchId << endl;
             ctx->batchCompletionCounts[ctx->BatchId] = 0;
             char *buf = ctx->bufferMem + (ctx->BatchId * batchRespSize);
 
+            auto sendStart = high_resolution_clock::now().time_since_epoch().count();
             ctx->socketMutex->lock();  // can't have concurrent sends, other pollers may also send on same socket
             while (oneSend < batchRespSize) {
                 iResult = send(ctx->hSocket, buf + oneSend, remainingBytesToSend, 0);
@@ -331,18 +367,41 @@ void HandleCompletions(int payloadSize, int batchSize) {
                 remainingBytesToSend = batchRespSize - oneSend;
             }
             ctx->socketMutex->unlock();
+            sendBackLatencies[ctx->clientIndex][msgProcessedCount[ctx->clientIndex] / batchSize] =
+                (double) (high_resolution_clock::now().time_since_epoch().count() - sendStart) / 1000;
 
             oneSend = 0;
             remainingBytesToSend = batchRespSize;
         }
+        msgProcessedCount[ctx->clientIndex]++;
         // else nothing to do
     }
 }
 
-int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int nFile, int nCompletionThreads) {
+int RunServer(int payloadSize, int batchSize, int queueDepth, int readNum, int fileSize, int nFile, int nConnections, int nCompletionThreads) {
     cout << "server starting..." << endl;
+    allThreads = new thread* [nConnections];
     // generate files
     GenerateFile(fileSize, nFile);
+
+    // alloc for stats
+    allClientsReadLatencyStats = new Statistics[nConnections];
+    allClientsReadLatencyPercentiles = new Percentiles[nConnections];
+    allClientsSendBackStats = new Statistics[nConnections];
+    allClientsSendBackPercentiles = new Percentiles[nConnections];
+
+    msgProcessedCount = new atomic_uint64_t[nConnections];
+    readLatencies = new double* [nConnections];
+    sendBackLatencies = new double* [nConnections];
+    int batchNum = readNum / batchSize;
+    for (int i = 0; i < nConnections; i++) {
+        msgProcessedCount[i] = 0;
+        readLatencies[i] = new double[readNum];
+        memset(readLatencies[i], 0, sizeof(double) * readNum);
+        sendBackLatencies[i] = new double[batchNum];
+        memset(sendBackLatencies[i], 0, sizeof(double) * batchNum);
+    }
+
 
     // open files for read
     fileHandles = new HANDLE[nFile];
@@ -424,7 +483,8 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int 
         return 1;
     }
 
-    while (true) {
+    int clientIndex = 0;
+    while (clientIndex != nConnections) {
         cout << "Waiting for clients..." << endl;
 
         // Listen for incoming connections
@@ -442,19 +502,53 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int fileSize, int 
 
         // Accept connection
         SOCKET clientSocket = accept(listenSocket, (SOCKADDR*)&clientAddr, &clientAddrSize);
-        cout << "accepted client: " << clientSocket << endl;
+        
         if (clientSocket == INVALID_SOCKET) {
             cout << "Error accepting connection: " << WSAGetLastError() << endl;
             closesocket(listenSocket);
             WSACleanup();
             return 1;
         }
+        cout << "accepted client: " << clientSocket << endl;
 
-        thread* worker = new thread([clientSocket, payloadSize, batchSize, queueDepth]
+        thread* worker = new thread([clientSocket, payloadSize, batchSize, queueDepth, clientIndex]
             {
-                ThreadFunc(clientSocket, payloadSize, batchSize, queueDepth);
+                ThreadFunc(clientSocket, payloadSize, batchSize, queueDepth, clientIndex);
             });
+        allThreads[clientIndex] = worker;
+        clientIndex++;
     }
+    cout << "all clients connected, waiting for them to finish" << endl;
+    int i = 0;
+    for (i = 0; i < nConnections; i++) {
+        allThreads[i]->join();
+    }
+    cout << "all clients finished" << endl;
+
+    double statsMean = 0, p50Mean = 0, p99p9Mean = 0;
+    for (i = 0; i < nConnections; i++) {
+        statsMean += allClientsReadLatencyStats[i].Mean;
+        p50Mean += allClientsReadLatencyPercentiles[i].P50;
+        p99p9Mean += allClientsReadLatencyPercentiles[i].P99p9;
+    }
+    statsMean /= nConnections;
+    p50Mean /= nConnections;
+    p99p9Mean /= nConnections;
+
+    cout << "ReadLatency (avg): mean: " << statsMean << ", p50: " << p50Mean << ", p99.9: " << p99p9Mean << endl;
+    statsMean = 0; p50Mean = 0; p99p9Mean = 0;
+
+    for (i = 0; i < nConnections; i++) {
+        statsMean += allClientsSendBackStats[i].Mean;
+        p50Mean += allClientsSendBackPercentiles[i].P50;
+        p99p9Mean += allClientsSendBackPercentiles[i].P99p9;
+    }
+    statsMean /= nConnections;
+    p50Mean /= nConnections;
+    p99p9Mean /= nConnections;
+
+    cout << "SendBack time (avg): mean: " << statsMean << ", p50: " << p50Mean << ", p99.9: " << p99p9Mean << endl;
+
 
     // Close the listen socket and cleanup
     closesocket(listenSocket);
@@ -468,7 +562,7 @@ int main(
     const char** args
 )
 {
-    if (argc == 7) {
+    if (argc == 9) {
         //HANDLE hFile;
         //// create the file.
         //hFile = CreateFile(TEXT("large.TXT"), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -495,17 +589,19 @@ int main(
         //    cout << "creation failed" << endl;
         //}
         //cout << "Server usage: msgSize queueDepth, shouldn't run with 1 arg" << endl;
-        int payloadSize = stoi(args[1]);
+        int readSize = stoi(args[1]);
         int batchSize = stoi(args[2]);
         int queueDepth = stoi(args[3]);
-        int fileSize = stoi(args[4]);
-        int nFile = stoi(args[5]);
-        int nCompletionThreads = stoi(args[6]);
+        readNum = stoi(args[4]);
+        int fileSize = stoi(args[5]);
+        int nFile = stoi(args[6]);
+        int nConnections = stoi(args[7]);
+        int nCompletionThreads = stoi(args[8]);
         cout << "queue depth: " << queueDepth << endl;
-        return RunServer(payloadSize, batchSize, queueDepth, fileSize, nFile, nCompletionThreads);
+        return RunServer(readSize, batchSize, queueDepth, readNum, fileSize, nFile, nConnections, nCompletionThreads);
     }
     else {
-        cout << "Server usage: payloadSize batchSize queueDepth fileSize(GB) nFile nCompletionThreads" << endl;
+        cout << "Server usage: readSize batchSize queueDepth readNum fileSize(GB) nFile nConnections nCompletionThreads" << endl;
     }
 
     return 0;
