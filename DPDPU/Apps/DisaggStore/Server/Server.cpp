@@ -234,7 +234,7 @@ void GenerateRandomData(char* buffer, size_t size) {
 int GenerateFile(int GBSize, int nFile) {
     std::cout << "generating file, size: " << GBSize << std::endl;
     int fileSizeGB = GBSize;
-    size_t fileSizeBytes = fileSizeGB * 1024 * 1024 * 1024; // actual size
+    size_t fileSizeBytes = (size_t) fileSizeGB * 1024 * 1024 * 1024; // actual size
     string fileBaseName = FILE_BASE_NAME;
 
     for (int i = 0; i < nFile; i++) {
@@ -243,19 +243,26 @@ int GenerateFile(int GBSize, int nFile) {
         LPCWSTR createFileName = temp.c_str();
         HANDLE hFile = CreateFile(createFileName, GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
-        if (GetLastError() == ERROR_ALREADY_EXISTS) {
-            // probably created earlier, let's skip writing
-            std::cout << "file exists, not writing to it, file: " << fileName << std::endl;
-            CloseHandle(hFile);
-            continue;
-        }
-
         if (hFile == INVALID_HANDLE_VALUE) {
             std::cerr << "Error creating the file. Error code: " << GetLastError() << std::endl;
             return 1;
         }
 
-        char buffer[4096]; // Buffer size for writing (adjust as needed)
+        if (GetLastError() == ERROR_ALREADY_EXISTS) {
+            LARGE_INTEGER size;
+            BOOL ret = GetFileSizeEx(hFile, &size);
+            cout << "found file with size: " << size.QuadPart;
+
+            if (ret && (size.QuadPart == fileSizeBytes)) {
+                // probably created earlier, let's skip writing
+                std::cout << "file exists AND is of same size, not writing to it, file: " << fileName << std::endl;
+                CloseHandle(hFile);
+                continue;
+            }
+            // else still write the file
+        }
+
+        char buffer[8192]; // Buffer size for writing (adjust as needed)
 
         while (fileSizeBytes > 0) {
             size_t bytesToWrite = min(sizeof(buffer), fileSizeBytes);
@@ -282,7 +289,7 @@ int GenerateFile(int GBSize, int nFile) {
 
 // pollers will run this
 void HandleCompletions(int payloadSize, int batchSize) {
-    cout << "poller started, payload size: " << payloadSize << endl;
+    cout << "poller started, using payload size: " << payloadSize << endl;
     int iResult;
     int oneSend = 0;
     

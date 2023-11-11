@@ -14,10 +14,10 @@ struct ServerContext
 {
     OVERLAPPED Overlapped;  // must be first member, will need to cast it to context to find other members
     //atomic_bool IsAvailable;
-    // index into preallocated buffer mem
     uint16_t BatchId;
     atomic_uint16_t *batchCompletionCounts;
     // uint16_t Index; // unused
+    // the following are per socket data
     SOCKET hSocket;
     mutex *socketMutex;
     char *bufferMem;
