@@ -554,13 +554,13 @@ int RunClientForThroughput(
         clientAddrs[i].sin_port = htons(PortBase + i);
         clientAddrs[i].sin_addr.s_addr = inet_addr(CLIENT_IP);
 
-        iResult = bind(clientSockets[i], (SOCKADDR*)&clientAddrs[i], sizeof(clientAddrs[i]));
+        /* iResult = bind(clientSockets[i], (SOCKADDR*)&clientAddrs[i], sizeof(clientAddrs[i]));
         if (iResult == SOCKET_ERROR) {
             cout << "Error binding socket: " << WSAGetLastError() << endl;
             closesocket(clientSockets[i]);
             WSACleanup();
             return 1;
-        }
+        } */
     }
 
     // Set up the address of the server

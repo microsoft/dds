@@ -60,7 +60,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
 
     int iResult = -1;
 
-    cout << "Thread for client " << clientIndex << " Waiting for the first message..." << endl;
+    // cout << "Thread for client " << clientIndex << " Waiting for the first message..." << endl;
 
     // Receive the first message
     int msgSize = 0;
@@ -80,7 +80,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
         cerr << "ERROR: batch size MISMATCH on server and client" << endl;
     }
     else {
-        cout << "got batch size from client: " << mbatchSize << endl;
+        // cout << "got batch size from client: " << mbatchSize << endl;
     }
 
     char* recvBuffer = new char[msgSize];
@@ -129,7 +129,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
             }
             else if (iResult == 0) {
                 finished = true;
-                cout << "client closed socket" << endl;
+                // cout << "client closed socket" << endl;
                 break;
             }
 
@@ -258,7 +258,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
     allClientsSendBackStats[clientIndex] = stats;
     allClientsSendBackPercentiles[clientIndex] = PercentileStats;
 
-    cout << "Measurement completes for thread " << clientIndex << endl;
+    // cout << "Measurement completes for thread " << clientIndex << endl;
 
     // Clear buffer
     delete[] recvBuffer;
@@ -269,7 +269,7 @@ void ThreadFunc(SOCKET clientSocket, int payloadSize, int batchSize, int queueDe
         cout << "closing socket err: " << WSAGetLastError() << endl;;
     }
     else {
-        cout << " Thread " << clientIndex << " closing client socket completed" << endl;
+        // cout << "Thread " << clientIndex << " closing client socket completed" << endl;
     }
 }
 
@@ -313,11 +313,11 @@ int GenerateFile(int GBSize, int nFile) {
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
             LARGE_INTEGER size;
             BOOL ret = GetFileSizeEx(hFile, &size);
-            cout << "found file with size: " << size.QuadPart;
+            // cout << "found file with size: " << size.QuadPart << endl;
 
             if (ret && (size.QuadPart >= (int64_t) fileSizeBytes)) {
                 // probably created earlier, let's skip writing
-                std::cout << "file exists AND is of same size, not writing to it, file: " << fileName << std::endl;
+                std::cout << "file exists AND has size >= required size, so using as is, file: " << fileName << std::endl;
                 CloseHandle(hFile);
                 continue;
             }
@@ -325,6 +325,8 @@ int GenerateFile(int GBSize, int nFile) {
         }
 
         char buffer[8192]; // Buffer size for writing (adjust as needed)
+
+        cout << "writing to file " << fileName << endl;
 
         while (fileSizeBytes > 0) {
             size_t bytesToWrite = min(sizeof(buffer), fileSizeBytes);
@@ -351,7 +353,7 @@ int GenerateFile(int GBSize, int nFile) {
 
 // pollers will run this
 void HandleCompletions(int payloadSize, int batchSize, int readNum) {
-    cout << "poller started, using payload size: " << payloadSize << endl;
+    // cout << "poller started, using payload size: " << payloadSize << endl;
     int iResult;
     int oneSend = 0;
     
@@ -369,7 +371,7 @@ void HandleCompletions(int payloadSize, int batchSize, int readNum) {
         if (!ret) {
             DWORD err = GetLastError();
             if (err == 735) { // completion port closed
-                cout << "completion port closed, ending completion thread" << endl;
+                // cout << "completion port closed, ending completion thread" << endl;
                 break;
             }
             // this shouldn't happen
@@ -379,7 +381,7 @@ void HandleCompletions(int payloadSize, int batchSize, int readNum) {
         // cout << "one async read completed for batch id: " << ctx->BatchId << endl;
 
         // only send ALL responses if whole batch finished
-        // ctx->batchCompletionCounts[ctx->BatchId] += 1; // TODO: racy??
+        // ctx->batchCompletionCounts[ctx->BatchId] += 1; // racy!!
         uint16_t completionCount = ctx->batchCompletionCounts[ctx->BatchId].fetch_add(1);
         atomic_uint64_t processedCount = msgProcessedCount[ctx->clientIndex].fetch_add(1);
         readLatencies[ctx->clientIndex][processedCount] = 
@@ -411,14 +413,8 @@ void HandleCompletions(int payloadSize, int batchSize, int readNum) {
             remainingBytesToSend = batchRespSize;
         }
         // msgProcessedCount[ctx->clientIndex]++; // this is racy!!!
-
-        // TODO
-        if (processedCount % 100000 == 0) {
-            cout << "msgProcessedCount for client " << ctx->clientIndex << ": " << (int64_t) processedCount << endl;
-        }
         // else nothing to do
     }
-    // cout << "a completion thread ended..." << endl;
 }
 
 int RunServer(int payloadSize, int batchSize, int queueDepth, int readNum, int fileSize, int nFile, int nConnections, int nCompletionThreads) {
@@ -473,7 +469,7 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int readNum, int f
         cout << "Error creating completion port: " << GetLastError() << endl;
         return -1;
     }
-    cout << "IO completion port created" << endl;
+    // cout << "IO completion port created" << endl;
     for (size_t i = 1; i < nFile; i++) {
         HANDLE ret = CreateIoCompletionPort(fileHandles[i], ioCompletionPort, NULL, nCompletionThreads);
         if (ret == NULL) {
@@ -552,7 +548,7 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int readNum, int f
             WSACleanup();
             return 1;
         }
-        cout << "accepted client: " << clientSocket << endl;
+        cout << "accepted client " << clientIndex << endl;
 
         thread* worker = new thread([clientSocket, payloadSize, batchSize, queueDepth, clientIndex]
             {
@@ -599,7 +595,7 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int readNum, int f
         cout << "closing listen socket err: " << WSAGetLastError() << endl;;
     }
     WSACleanup();
-    cout << "closing listen socket completed" << endl;
+    // cout << "closing listen socket completed" << endl;
 
     // close files opened
     for (int i = 0; i < nFile; i++) {
@@ -608,14 +604,14 @@ int RunServer(int payloadSize, int batchSize, int queueDepth, int readNum, int f
             cerr << "closing file " << i << " failed" << endl;
         }
     }
-    cout << "closed files" << endl;
+    // cout << "closed files" << endl;
 
     // close completion port
     ret = CloseHandle(ioCompletionPort);
     if (ret == 0) {
         cerr << "closing completion port failed" << endl;
     }
-    cout << "closed completion port" << endl;
+    // cout << "closed completion port" << endl;
 
     return 0;
 }
@@ -660,7 +656,7 @@ int main(
         int nFile = stoi(args[6]);
         int nConnections = stoi(args[7]);
         int nCompletionThreads = stoi(args[8]);
-        cout << "queue depth: " << queueDepth << endl;
+        // cout << "queue depth: " << queueDepth << endl;
         return RunServer(readSize, batchSize, queueDepth, readNum, fileSize, nFile, nConnections, nCompletionThreads);
     }
     else {
