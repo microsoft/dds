@@ -68,13 +68,13 @@ int RunClientForLatency(
     clientAddr.sin_addr.s_addr = inet_addr(CLIENT_IP);
 
     // Bind the socket to the local address
-    iResult = bind(clientSocket, (SOCKADDR*)&clientAddr, sizeof(clientAddr));
+    /* iResult = bind(clientSocket, (SOCKADDR*)&clientAddr, sizeof(clientAddr));
     if (iResult == SOCKET_ERROR) {
         cout << "Error binding socket: " << WSAGetLastError() << endl;
         closesocket(clientSocket);
         WSACleanup();
         return 1;
-    }
+    } */
 
     // Set up the address of the server
     sockaddr_in serverAddr;
@@ -322,8 +322,12 @@ int RunClientForLatency(
     // Close the socket and clean up
     //
     //
-    closesocket(clientSocket);
+    int ret = closesocket(clientSocket);
+    if (ret != 0) {
+        cout << "closing socket err: " << WSAGetLastError() << endl;;
+    }
     WSACleanup();
+    cout << "closing socket completed" << endl;
 
     return 0;
 }
