@@ -145,8 +145,7 @@ void StartSPDKFileService(struct StartFileServiceCtx *StartCtx) {
         exit(-1);
     }
     FS->AppThread = spdk_get_thread();
-    SPDK_NOTICELOG("FS->AppThread id: %llu, is app thread: %d\n",
-        spdk_thread_get_id(FS->AppThread), spdk_thread_is_app_thread(FS->AppThread));
+    SPDK_NOTICELOG("FS->AppThread id: %llu\n", spdk_thread_get_id(FS->AppThread));
 
     SPDK_NOTICELOG("Calling InitializeWorkerThreadIOChannel()...\n");
     InitializeWorkerThreadIOChannel(FS);

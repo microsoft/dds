@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "ControlPlaneHandler.h"
+#include "DPUBackEnd.h"
 
 //
 // Handler for a control plane request

@@ -19,5 +19,5 @@ typedef struct ControlPlaneHandlerContext {
     struct DPUFile* File;
     struct DPUDir* NewDir; // only used in MoveFile() as NewDir pointer
     char* NewFileName; // only used in MoveFile() as new file name
-    SPDKContextT *SPDKContext;
+    void *SPDKContext;
 } ControlPlaneHandlerCtx;

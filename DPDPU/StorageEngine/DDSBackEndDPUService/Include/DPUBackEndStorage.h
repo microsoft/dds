@@ -65,16 +65,9 @@ typedef void (*DiskIOCallback)(
     ContextT Context
 );
 
-//
-// DPU Storage var should be a global singleton
-//
-//
-extern struct DPUStorage *Sto; */
-
 struct DPUStorage* BackEndStorage();
 
 void DeBackEndStorage(struct DPUStorage* Sto);
-
 
 //
 // Context used when Initializing Storage
