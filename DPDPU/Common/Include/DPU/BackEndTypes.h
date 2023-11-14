@@ -2,7 +2,6 @@
 
 #include "DDSTypes.h"
 #include "MsgTypes.h"
-#include "bdev.h"
 
 //
 // Context for a pending data plane request from the host
@@ -11,7 +10,7 @@
 typedef struct {
     BuffMsgF2BReqHeader* Request;
     BuffMsgB2FAckHeader* Response;
-    SplittableBufferT DataBuffer; // TODO: not a pointer
+    SplittableBufferT DataBuffer;
 } DataPlaneRequestContext;
 
 //
@@ -22,7 +21,7 @@ typedef struct {
     RequestIdT RequestId;
     BufferT Request;
     BufferT Response;
-    SPDKContextT *SPDKContext;  // thread specific SPDK ctx
+    void* SPDKContext;  // thread specific SPDK ctx
 } ControlPlaneRequestContext;
 
 //

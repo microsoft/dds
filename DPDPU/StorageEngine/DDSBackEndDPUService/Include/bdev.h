@@ -21,11 +21,8 @@ typedef struct SPDKContext {
 } SPDKContextT;
 
 //
-// Bdev read function, zeroCopy is used to provide different buffer
-// when it is 1, it means we will use DstBuffer in spdk_bdev_read()
-// when it is 0, it means we will use context->buff as buffer
-// position is used for async only and should belongs 
-// [0, ONE_GB). Sync read should set position = 0
+// A single SPDK read.
+// Sync read should set position = 0
 //
 //
 int bdev_read(
@@ -37,6 +34,11 @@ int bdev_read(
 	void *cb_arg
 );
 
+//
+// A scattered SPDK read.
+// Sync read should set position = 0
+//
+//
 int bdev_readv(
 	void *arg,
     struct iovec *iov,
@@ -48,7 +50,7 @@ int bdev_readv(
 );
 
 //
-// Callback function for read io completion.
+// Callback function for read io completion
 //
 //
 void write_complete(
@@ -58,7 +60,7 @@ void write_complete(
 );
 
 //
-// Bdev write function
+// A single SPDK write
 // position is used for async only and should between belongs
 // [0, ONE_GB). But the actual position will be added ONE_GB to 
 // separate space from read.
@@ -74,6 +76,14 @@ int bdev_write(
 	void *cb_arg
 );
 
+//
+// Bdev write function
+// position is used for async only and should between belongs
+// [0, ONE_GB). But the actual position will be added ONE_GB to 
+// separate space from read.
+// Sync write should set position = 0
+//
+//
 int bdev_writev(
     void *arg,
     struct iovec *iov,

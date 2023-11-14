@@ -14,7 +14,7 @@ void ControlPlaneHandler(
     // Upon completion, set Context->Response->Result as DDS_ERROR_CODE_SUCCESS
     //
     //
-    ControlPlaneRequestContext *Context = (ControlPlaneRequestContext *) ReqContext;
+    ControlPlaneRequestContext *Context = (ControlPlaneRequestContext *)ReqContext;
 
     switch (Context->RequestId) {
         case CTRL_MSG_F2B_REQ_CREATE_DIR: {
