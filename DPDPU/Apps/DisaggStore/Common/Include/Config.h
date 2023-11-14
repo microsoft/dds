@@ -2,8 +2,8 @@
 
 #include <chrono>
 
-#define CLIENT_IP "127.0.0.1"//"10.1.0.6"
-#define SERVER_IP "127.0.0.1"//"10.1.0.6"
+#define CLIENT_IP "10.1.0.6"//"10.1.0.6"
+#define SERVER_IP "10.1.0.4"//"10.1.0.6"
 #define SERVER_PORT 3232
 
 #define SECTOR_SIZE 4096

@@ -493,10 +493,10 @@ void ThreadFunc(
     // Calculate latency
     //
     //
-    Statistics LatencyStats;
+    /*Statistics LatencyStats;
     Percentiles PercentileStats;
-    GetStatistics(latencies, ReadNum, &LatencyStats, &PercentileStats);
-    printf(
+    GetStatistics(latencies, ReadNum, &LatencyStats, &PercentileStats);*/
+    /*printf(
         "Thread %d: Result for %zu requests of %d bytes (%.2lf seconds): %.2lf RPS, Min: %.2lf, Max: %.2lf, 50th: %.2lf, 90th: %.2lf, 99th: %.2lf, 99.9th: %.2lf, 99.99th: %.2lf, StdErr: %.2lf\n",
         ThreadNum,
         ReadNum,
@@ -512,7 +512,7 @@ void ThreadFunc(
         PercentileStats.P99p99,
         LatencyStats.StandardError);
 
-    cout << "Thread " << ThreadNum << ": Throughput: " << throughput << " GB / s" << endl;
+    cout << "Thread " << ThreadNum << ": Throughput: " << throughput << " GB / s" << endl;*/
 }
 
 int RunClientForThroughput(
@@ -670,8 +670,13 @@ int RunClientForThroughput(
     //
     //
     std::chrono::steady_clock::time_point aggStartTime = startTimes[0], aggEndTime = endTimes[0];
-    uint64_t aggBytesCompleted = bytesCompleted[0];
-    for (int i = 1; i != NumConnections; i++) {
+    uint64_t aggBytesCompleted = 0;
+    double P50Sum = 0;
+    double P90Sum = 0;
+    double P99Sum = 0;
+    Statistics LatencyStats;
+    Percentiles PercentileStats;
+    for (int i = 0; i != NumConnections; i++) {
         if (aggStartTime > startTimes[i]) {
             aggStartTime = startTimes[i];
         }
@@ -683,8 +688,34 @@ int RunClientForThroughput(
     }
     auto duration = duration_cast<microseconds>(aggEndTime - aggStartTime).count(); // duration in microseconds
     double throughput = (double)aggBytesCompleted / (double)duration * 1000000.0f / (1024.0 * 1024.0 * 1024.0); // in giga bytes per second
+    for (int i = 0; i != NumConnections; i++) {
+        GetStatistics(latencies[i], ReadNum, &LatencyStats, &PercentileStats);
+        printf(
+            "Thread %d: Result for %zu requests of %d bytes (%.2lf seconds): %.2lf RPS, Min: %.2lf, Max: %.2lf, 50th: %.2lf, 90th: %.2lf, 99th: %.2lf, 99.9th: %.2lf, 99.99th: %.2lf, StdErr: %.2lf\n",
+            i,
+            ReadNum,
+            MessageSize,
+            (duration / 1000000.0),
+            (ReadNum / (duration / 1000000.0)),
+            LatencyStats.Min,
+            LatencyStats.Max,
+            PercentileStats.P50,
+            PercentileStats.P90,
+            PercentileStats.P99,
+            PercentileStats.P99p9,
+            PercentileStats.P99p99,
+            LatencyStats.StandardError);
+        P50Sum += PercentileStats.P50;
+        P90Sum += PercentileStats.P90;
+        P99Sum += PercentileStats.P99;
+    }
+
 
     cout << "Throughput: " << throughput << " GB/s" << endl;
+    cout << "IOPS: " << ReadNum* NumConnections/(duration/ 1000000) << "RPS" << endl;
+    cout << "Avg P50: " << P50Sum / NumConnections << endl;
+    cout << "Avg P90: " << P90Sum / NumConnections << endl;
+    cout << "Avg P99: " << P99Sum / NumConnections << endl;
 
     //
     // Release buffers
