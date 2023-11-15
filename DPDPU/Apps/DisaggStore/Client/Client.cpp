@@ -712,7 +712,7 @@ int RunClientForThroughput(
 
 
     cout << "Throughput: " << throughput << " GB/s" << endl;
-    cout << "IOPS: " << ReadNum* NumConnections/(duration/ 1000000) << "RPS" << endl;
+    cout << "IOPS: " << ReadNum* NumConnections/((double)duration/ 1000000) << "RPS" << endl;
     cout << "Avg P50: " << P50Sum / NumConnections << endl;
     cout << "Avg P90: " << P90Sum / NumConnections << endl;
     cout << "Avg P99: " << P99Sum / NumConnections << endl;
