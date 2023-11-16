@@ -22,17 +22,17 @@ InitCacheTable() {
         return -1;
     }
     
-    CacheTable->Table = (CacheElementT**)(malloc(sizeof(CacheElementT*) * CACHE_TABLE_BUCKET_COUNT));
+    CacheTable->Table = (CacheBucketT**)(malloc(sizeof(CacheBucketT*) * CACHE_TABLE_BUCKET_COUNT));
     if (!CacheTable->Table) {
         return -1;
     }
 
     for (size_t i = 0; i != CACHE_TABLE_BUCKET_COUNT; i++) {
-        CacheTable->Table[i] = (CacheElementT*)aligned_alloc(DDS_CACHE_LINE_SIZE, CACHE_TABLE_BUCKET_SIZE * sizeof(CacheElementT));
+        CacheTable->Table[i] = (CacheBucketT*)aligned_alloc(DDS_CACHE_LINE_SIZE, sizeof(CacheBucketT));
         if (!CacheTable->Table[i]) {
             return -1;
         }
-	memset(CacheTable->Table[i], 0, CACHE_TABLE_BUCKET_SIZE * sizeof(CacheElementT));
+        memset(CacheTable->Table[i], 0, sizeof(CacheBucketT));
     }
 
     return 0;
@@ -60,37 +60,45 @@ AddToCacheTable(
     HASH_FUNCTION1(&Item->Key, sizeof(KeyT), carrier->Hash1);
     HASH_FUNCTION2(&Item->Key, sizeof(KeyT), carrier->Hash2);
     if (carrier->Hash1 == carrier->Hash2) {
-        carrier->Hash1 = ~carrier->Hash2;
+        carrier->Hash2 = ~carrier->Hash1;
     }
 
     uint32_t bucketPos;
-    CacheElementT *begin;
-    CacheElementT *end;
+    HashValueT *hashVector;
+    CacheElementT *targetElement;
     CacheElementT *tmp;
     HashValueT tmpV;
     
     for (size_t depth = 0; depth < maxDepth; ++depth) {
         bucketPos = carrier->Hash1 & mask;
 
-        begin = CacheTable->Table[bucketPos];
-        end = begin + CACHE_TABLE_BUCKET_SIZE;
-        for (CacheElementT *elem = begin; elem != end; ++elem) {
-            if (elem->Hash1 == elem->Hash2) {
+        hashVector = CacheTable->Table[bucketPos]->HashValues;
+        for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
+            if (!hashVector[e]) {
                 //
                 // This slot is available
                 //
                 //
-                memcpy(elem, carrier, sizeof(CacheElementT));
+                targetElement = &CacheTable->Table[bucketPos]->Elements[e];
+                memcpy(targetElement, carrier, sizeof(CacheElementT));
+                hashVector[e] = carrier->Hash1;
                 return 0;
             }
-            else if(memcmp(&(elem->Item.Key), &(carrier->Item.Key), sizeof(KeyT)) == 0) {
+            else if (hashVector[e] == carrier->Hash1) {
                 //
-                // Key already exists
-                // Update the value
+                // Check key
                 //
                 //
-                memcpy(&elem->Item, &carrier->Item, sizeof(CacheItemT));
-                return 0;
+                targetElement = &CacheTable->Table[bucketPos]->Elements[e];
+                if (targetElement->Item.Key == carrier->Item.Key) {
+                    //
+                    // Key already exists
+                    // Update the value
+                    //
+                    //
+                    memcpy(&targetElement->Item, &carrier->Item, sizeof(CacheItemT));
+                    return 0;
+                }
             }
         }
 
@@ -98,11 +106,12 @@ AddToCacheTable(
         // This bucket is full, so pick one element as the victim
         //
         //
-        memcpy(victim, &begin[offset], sizeof(CacheElementT));
-        memcpy(&begin[offset], carrier, sizeof(CacheElementT));
-	tmpV = victim->Hash1;
-	victim->Hash1 = victim->Hash2;
-	victim->Hash2 = tmpV;
+        targetElement = &CacheTable->Table[bucketPos]->Elements[offset];
+        memcpy(victim, targetElement, sizeof(CacheElementT));
+        memcpy(&targetElement, carrier, sizeof(CacheElementT));
+        tmpV = victim->Hash1;
+        victim->Hash1 = victim->Hash2;
+        victim->Hash2 = tmpV;
 
         //
         // Victim becomes the carrier
@@ -129,17 +138,17 @@ AddToCacheTable(
             offset = CACHE_TABLE_BUCKET_SIZE - 1;
         }
 
-        begin = CacheTable->Table[bucketPos];
+        targetElement = &CacheTable->Table[bucketPos]->Elements[offset];
 
         //
         // Swap the elements
         //
         //
-	tmpV = carrier->Hash1;
+        tmpV = carrier->Hash1;
         carrier->Hash1 = carrier->Hash2;
-	carrier->Hash2 = tmpV;
-        memcpy(victim, &begin[offset], sizeof(CacheElementT));
-        memcpy(&begin[offset], carrier, sizeof(CacheElementT));
+        carrier->Hash2 = tmpV;
+        memcpy(victim, targetElement, sizeof(CacheElementT));
+        memcpy(targetElement, carrier, sizeof(CacheElementT));
 
         //
         // Victim becomes the carrier
@@ -165,7 +174,9 @@ DeleteFromCacheTable(
 ) {
     uint32_t mask = CACHE_TABLE_BUCKET_COUNT - 1;
 
-    CacheElementT *elem, *end;
+    HashValueT *hashVector;
+    CacheBucketT *targetBucket;
+    CacheElementT *targetElement;
     HashValueT hash1, hash2;
     HASH_FUNCTION1(Key, sizeof(KeyT), hash1);
 
@@ -173,16 +184,18 @@ DeleteFromCacheTable(
     // Check the first hash function
     //
     //
-    elem = CacheTable->Table[hash1 & mask];
-    end = elem + CACHE_TABLE_BUCKET_SIZE;
-    while (elem != end) {
-        if (elem->Hash1 == hash1 &&
-            (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
-            memset(elem, 0, sizeof(CacheElementT));
-            return;
-        }
+    targetBucket = CacheTable->Table[hash1 & mask];
+    hashVector = targetBucket->HashValues;
 
-        ++elem;
+    for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
+        if (hashVector[e] == hash1) {
+            targetElement = &targetBucket->Elements[e];
+            if (targetElement->Item.Key == *Key) {
+                memset(targetElement, 0, sizeof(CacheElementT));
+                hashVector[e] = 0;
+                return;
+            }
+        }
     }
 
     //
@@ -191,19 +204,20 @@ DeleteFromCacheTable(
     //
     HASH_FUNCTION2(Key, sizeof(KeyT), hash2);
     if (hash1 == hash2) {
-        hash1 = ~hash2;
+        hash2 = ~hash1;
     }
-    elem = CacheTable->Table[hash2 & mask];
-    end = elem + CACHE_TABLE_BUCKET_SIZE;
-    while (elem != end) {
-        if (elem->Hash1 == hash1 &&
-            elem->Hash2 == hash2 &&
-            (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
-            memset(elem, 0, sizeof(CacheElementT));
-            return;
-        }
+    targetBucket = CacheTable->Table[hash2 & mask];
+    hashVector = targetBucket->HashValues;
 
-        ++elem;
+    for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
+        if (hashVector[e] == hash2) {
+            targetElement = &targetBucket->Elements[e];
+            if (targetElement->Item.Key == *Key) {
+                memset(targetElement, 0, sizeof(CacheElementT));
+                hashVector[e] = 0;
+                return;
+            }
+        }
     }
 }
 
@@ -218,22 +232,26 @@ LookUpCacheTable(
     const uint32_t mask = CACHE_TABLE_BUCKET_COUNT - 1;
     const KeyT key = *Key;
 
-    CacheElementT *elem, *end;
+    HashValueT *hashVector;
+    CacheBucketT *targetBucket;
+    CacheElementT *targetElement;
     HashValueT hash1, hash2;
-    HASH_FUNCTION1(Key, sizeof(KeyT), hash1);
 
     //
     // Check the first hash function
     //
     //
-    elem = CacheTable->Table[hash1 & mask];
-    end = elem + CACHE_TABLE_BUCKET_SIZE;
-    while (elem != end) {
-        if (elem->Hash1 == hash1 && elem->Item.Key == key) {
-            return &elem->Item;
+    HASH_FUNCTION1(Key, sizeof(KeyT), hash1);
+    targetBucket = CacheTable->Table[hash1 & mask];
+    hashVector = targetBucket->HashValues;
+    
+    for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
+        if (hash1 == hashVector[e]) {
+            targetElement = &targetBucket->Elements[e];
+            if (targetElement->Item.Key == key) {
+                return &targetElement->Item;
+            }
         }
-
-        ++elem;
     }
 
     //
@@ -242,16 +260,19 @@ LookUpCacheTable(
     //
     HASH_FUNCTION2(Key, sizeof(KeyT), hash2);
     if (hash1 == hash2) {
-        hash1 = ~hash2;
+        hash2 = ~hash1;
     }
-    elem = CacheTable->Table[hash2 & mask];
-    end = elem + CACHE_TABLE_BUCKET_SIZE;
-    while (elem != end) {
-        if (elem->Hash1 == hash2 && elem->Item.Key == key) {
-            return &elem->Item;
-        }
 
-        ++elem;
+    targetBucket = CacheTable->Table[hash2 & mask];
+    hashVector = targetBucket->HashValues;
+    
+    for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
+        if (hash2 == hashVector[e]) {
+            targetElement = &targetBucket->Elements[e];
+            if (targetElement->Item.Key == key) {
+                return &targetElement->Item;
+            }
+        }
     }
 
     return (CacheItemT*)NULL;

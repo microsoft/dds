@@ -8,9 +8,9 @@
 //
 //
 #define CACHE_TABLE_CAPACITY 33554432
-#define CACHE_TABLE_BUCKET_SIZE 4
-#define CACHE_TABLE_BUCKET_COUNT 8388608
-#define CACHE_TABLE_BUCKET_COUNT_POWER 23
+#define CACHE_TABLE_BUCKET_SIZE 16
+#define CACHE_TABLE_BUCKET_COUNT 2097152
+#define CACHE_TABLE_BUCKET_COUNT_POWER 21
 
 //
 // Define hash value type
@@ -49,12 +49,22 @@ typedef struct {
 } CacheElementT;
 
 //
-// Define cache table type
-// TODO: C++ unordered_map is faster than this on DPU
+// The header of each bucket, which contains the
+// hash values of all the items in this bucket
 //
 //
 typedef struct {
-    CacheElementT** Table;
+    HashValueT HashValues[CACHE_TABLE_BUCKET_SIZE];
+    CacheElementT Elements[CACHE_TABLE_BUCKET_SIZE];
+} CacheBucketT;
+
+//
+// Define cache table type
+// TODO: C++ unordered_map is faster than this on BF2
+//
+//
+typedef struct {
+    CacheBucketT** Table;
 } CacheTableT;
 
 //
@@ -122,6 +132,7 @@ DestroyCacheTable();
 AssertStaticCacheTable(CACHE_TABLE_CAPACITY == CACHE_TABLE_BUCKET_SIZE * CACHE_TABLE_BUCKET_COUNT, 0);
 AssertStaticCacheTable((CACHE_TABLE_BUCKET_SIZE & (CACHE_TABLE_BUCKET_SIZE - 1)) == 0, 1);
 AssertStaticCacheTable(1 << CACHE_TABLE_BUCKET_COUNT_POWER == CACHE_TABLE_BUCKET_COUNT, 2);
+AssertStaticCacheTable(CACHE_TABLE_BUCKET_SIZE == DDS_CACHE_LINE_SIZE / sizeof(HashValueT), 3);
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
