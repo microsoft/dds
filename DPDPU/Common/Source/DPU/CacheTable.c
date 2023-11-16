@@ -65,14 +65,16 @@ AddToCacheTable(
 
     uint32_t bucketPos;
     HashValueT *hashVector;
+    CacheBucketT *targetBucket;
     CacheElementT *targetElement;
     CacheElementT *tmp;
     HashValueT tmpV;
     
     for (size_t depth = 0; depth < maxDepth; ++depth) {
         bucketPos = carrier->Hash1 & mask;
+	targetBucket = CacheTable->Table[bucketPos];
 
-        hashVector = CacheTable->Table[bucketPos]->HashValues;
+        hashVector = targetBucket->HashValues;
         for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
             if (!hashVector[e]) {
                 //
@@ -106,9 +108,10 @@ AddToCacheTable(
         // This bucket is full, so pick one element as the victim
         //
         //
-        targetElement = &CacheTable->Table[bucketPos]->Elements[offset];
+        targetElement = &targetBucket->Elements[offset];
         memcpy(victim, targetElement, sizeof(CacheElementT));
-        memcpy(&targetElement, carrier, sizeof(CacheElementT));
+        memcpy(targetElement, carrier, sizeof(CacheElementT));
+	hashVector[offset] = carrier->Hash1;
         tmpV = victim->Hash1;
         victim->Hash1 = victim->Hash2;
         victim->Hash2 = tmpV;
@@ -138,7 +141,9 @@ AddToCacheTable(
             offset = CACHE_TABLE_BUCKET_SIZE - 1;
         }
 
-        targetElement = &CacheTable->Table[bucketPos]->Elements[offset];
+	targetBucket = CacheTable->Table[bucketPos];
+	hashVector = targetBucket->HashValues;
+        targetElement = &targetBucket->Elements[offset];
 
         //
         // Swap the elements
@@ -149,6 +154,7 @@ AddToCacheTable(
         carrier->Hash2 = tmpV;
         memcpy(victim, targetElement, sizeof(CacheElementT));
         memcpy(targetElement, carrier, sizeof(CacheElementT));
+	hashVector[offset] = carrier->Hash2;
 
         //
         // Victim becomes the carrier
