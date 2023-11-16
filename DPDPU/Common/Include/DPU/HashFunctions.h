@@ -6,11 +6,11 @@
 //
 
 #ifndef HASH_FUNCTION1
-#define HASH_FUNCTION1(keyptr,keylen,hashv) HASH_SFH(keyptr, keylen, hashv)
+#define HASH_FUNCTION1(keyptr,keylen,hashv) HASH_MURMUR(keyptr, keylen, hashv, 0x9747b28c)
 #endif
 
 #ifndef HASH_FUNCTION2
-#define HASH_FUNCTION2(keyptr,keylen,hashv) HASH_JEN(keyptr, keylen, hashv)
+#define HASH_FUNCTION2(keyptr,keylen,hashv) HASH_MURMUR(keyptr, keylen, hashv, 0xfeedbeef)
 #endif
 
 #ifndef HASH_KEYCMP
@@ -109,6 +109,35 @@ do {                                                                            
     default: ;                                                                   \
   }                                                                              \
   HASH_JEN_MIX(_hj_i, _hj_j, hashv);                                             \
+} while (0)
+
+#define HASH_MURMUR(key,keylen,hashv,seed)                                       \
+do {                                                                             \
+  const unsigned m = 0x5bd1e995;                                                 \
+  const int r = 24;	                                                         \
+  const unsigned char *data = (const unsigned char *)(key); 	                 \
+  unsigned len = (unsigned)keylen;                                               \
+  unsigned k; \
+  hashv = seed ^ len;                                                            \
+  while (len >= 4) {                                                             \
+    k = *(unsigned *)data;                                                       \
+    k *= m;                                                                      \
+    k ^= k >> r;                                                                 \
+    k *= m;                                                                      \
+    hashv *= m;                                                                  \
+    hashv ^= k;                                                                  \
+    data += 4;                                                                   \
+    len -= 4;                                                                    \
+  }                                                                              \
+  switch ( len ) {                                                               \
+    case 3:  hashv ^= data[2] << 16;  /* FALLTHROUGH */                          \
+    case 2:  hashv ^= data[1] << 8;   /* FALLTHROUGH */                          \
+    case 1:  hashv ^= data[0];        /* FALLTHROUGH */                          \
+             hashv *= m;                                                         \
+  }                                                                              \
+  hashv ^= hashv >> 13;                                                          \
+  hashv *= m;                                                                    \
+  hashv ^= hashv >> 15;                                                          \
 } while (0)
 
 /* The Paul Hsieh hash function */

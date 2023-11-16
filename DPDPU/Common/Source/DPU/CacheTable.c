@@ -28,10 +28,11 @@ InitCacheTable() {
     }
 
     for (size_t i = 0; i != CACHE_TABLE_BUCKET_COUNT; i++) {
-        CacheTable->Table[i] = (CacheElementT*)calloc(CACHE_TABLE_BUCKET_SIZE, sizeof(CacheElementT));
+        CacheTable->Table[i] = (CacheElementT*)aligned_alloc(DDS_CACHE_LINE_SIZE, CACHE_TABLE_BUCKET_SIZE * sizeof(CacheElementT));
         if (!CacheTable->Table[i]) {
             return -1;
         }
+	memset(CacheTable->Table[i], 0, CACHE_TABLE_BUCKET_SIZE * sizeof(CacheElementT));
     }
 
     return 0;
@@ -214,7 +215,8 @@ CacheItemT*
 LookUpCacheTable(
     KeyT* Key
 ) {
-    uint32_t mask = CACHE_TABLE_BUCKET_COUNT - 1;
+    const uint32_t mask = CACHE_TABLE_BUCKET_COUNT - 1;
+    const KeyT key = *Key;
 
     CacheElementT *elem, *end;
     HashValueT hash1, hash2;
@@ -227,8 +229,7 @@ LookUpCacheTable(
     elem = CacheTable->Table[hash1 & mask];
     end = elem + CACHE_TABLE_BUCKET_SIZE;
     while (elem != end) {
-        if (elem->Hash1 == hash1 &&
-            (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
+        if (elem->Hash1 == hash1 && elem->Item.Key == key) {
             return &elem->Item;
         }
 
@@ -246,8 +247,7 @@ LookUpCacheTable(
     elem = CacheTable->Table[hash2 & mask];
     end = elem + CACHE_TABLE_BUCKET_SIZE;
     while (elem != end) {
-        if (elem->Hash1 == hash2 &&
-            (memcmp(&(elem->Item.Key), Key, sizeof(KeyT)) == 0)) {
+        if (elem->Hash1 == hash2 && elem->Item.Key == key) {
             return &elem->Item;
         }
 
