@@ -46,6 +46,7 @@ typedef struct {
     CacheItemT Item;
     HashValueT Hash1;
     HashValueT Hash2;
+    _Atomic int8_t Occ;
 } CacheElementT;
 
 //

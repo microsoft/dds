@@ -82,8 +82,10 @@ AddToCacheTable(
                 //
                 //
                 targetElement = &CacheTable->Table[bucketPos]->Elements[e];
+                targetElement->Occ = 1;
                 memcpy(targetElement, carrier, sizeof(CacheElementT));
                 hashVector[e] = carrier->Hash1;
+                targetElement->Occ = 0;
                 return 0;
             }
             else if (hashVector[e] == carrier->Hash1) {
@@ -98,7 +100,9 @@ AddToCacheTable(
                     // Update the value
                     //
                     //
+                    targetElement->Occ = 1;
                     memcpy(&targetElement->Item, &carrier->Item, sizeof(CacheItemT));
+                    targetElement->Occ = 0;
                     return 0;
                 }
             }
@@ -109,9 +113,11 @@ AddToCacheTable(
         //
         //
         targetElement = &targetBucket->Elements[offset];
+        targetElement->Occ = 1;
         memcpy(victim, targetElement, sizeof(CacheElementT));
         memcpy(targetElement, carrier, sizeof(CacheElementT));
-	hashVector[offset] = carrier->Hash1;
+        hashVector[offset] = carrier->Hash1;
+        targetElement->Occ = 0;
         tmpV = victim->Hash1;
         victim->Hash1 = victim->Hash2;
         victim->Hash2 = tmpV;
@@ -141,8 +147,8 @@ AddToCacheTable(
             offset = CACHE_TABLE_BUCKET_SIZE - 1;
         }
 
-	targetBucket = CacheTable->Table[bucketPos];
-	hashVector = targetBucket->HashValues;
+        targetBucket = CacheTable->Table[bucketPos];
+        hashVector = targetBucket->HashValues;
         targetElement = &targetBucket->Elements[offset];
 
         //
@@ -152,9 +158,11 @@ AddToCacheTable(
         tmpV = carrier->Hash1;
         carrier->Hash1 = carrier->Hash2;
         carrier->Hash2 = tmpV;
+        targetElement->Occ = 1;
         memcpy(victim, targetElement, sizeof(CacheElementT));
         memcpy(targetElement, carrier, sizeof(CacheElementT));
-	hashVector[offset] = carrier->Hash2;
+        hashVector[offset] = carrier->Hash2;
+        targetElement->Occ = 0;
 
         //
         // Victim becomes the carrier
@@ -197,8 +205,10 @@ DeleteFromCacheTable(
         if (hashVector[e] == hash1) {
             targetElement = &targetBucket->Elements[e];
             if (targetElement->Item.Key == *Key) {
+                targetElement->Occ = 1;
                 memset(targetElement, 0, sizeof(CacheElementT));
                 hashVector[e] = 0;
+                targetElement->Occ = 0;
                 return;
             }
         }
@@ -219,8 +229,10 @@ DeleteFromCacheTable(
         if (hashVector[e] == hash2) {
             targetElement = &targetBucket->Elements[e];
             if (targetElement->Item.Key == *Key) {
+                targetElement->Occ = 1;
                 memset(targetElement, 0, sizeof(CacheElementT));
                 hashVector[e] = 0;
+                targetElement->Occ = 0;
                 return;
             }
         }
@@ -254,7 +266,7 @@ LookUpCacheTable(
     for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
         if (hash1 == hashVector[e]) {
             targetElement = &targetBucket->Elements[e];
-            if (targetElement->Item.Key == key) {
+            if (!targetElement->Occ && targetElement->Item.Key == key) {
                 return &targetElement->Item;
             }
         }
@@ -275,7 +287,7 @@ LookUpCacheTable(
     for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
         if (hash2 == hashVector[e]) {
             targetElement = &targetBucket->Elements[e];
-            if (targetElement->Item.Key == key) {
+            if (!targetElement->Occ && targetElement->Item.Key == key) {
                 return &targetElement->Item;
             }
         }
