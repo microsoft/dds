@@ -46,7 +46,9 @@ typedef struct {
     CacheItemT Item;
     HashValueT Hash1;
     HashValueT Hash2;
+#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
     _Atomic int8_t Occ;
+#endif
 } CacheElementT;
 
 //
@@ -55,6 +57,9 @@ typedef struct {
 //
 //
 typedef struct {
+#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+    _Atomic int8_t Occ;
+#endif
     HashValueT HashValues[CACHE_TABLE_BUCKET_SIZE];
     CacheElementT Elements[CACHE_TABLE_BUCKET_SIZE];
 } CacheBucketT;
