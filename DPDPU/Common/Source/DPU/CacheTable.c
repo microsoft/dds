@@ -74,7 +74,7 @@ AddToCacheTable(
         bucketPos = carrier->Hash1 & mask;
         targetBucket = CacheTable->Table[bucketPos];
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
         targetBucket->Occ = 1;
 #endif
 
@@ -86,16 +86,16 @@ AddToCacheTable(
                 //
                 //
                 targetElement = &CacheTable->Table[bucketPos]->Elements[e];
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                 targetElement->Occ = 1;
 #endif
                 memcpy(targetElement, carrier, sizeof(CacheElementT));
                 hashVector[e] = carrier->Hash1;
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                 targetElement->Occ = 0;
 #endif
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
                 targetBucket->Occ = 0;
 #endif
                 return 0;
@@ -112,15 +112,15 @@ AddToCacheTable(
                     // Update the value
                     //
                     //
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                     targetElement->Occ = 1;
 #endif
                     memcpy(&targetElement->Item, &carrier->Item, sizeof(CacheItemT));
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                     targetElement->Occ = 0;
 #endif
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
                     targetBucket->Occ = 0;
 #endif
                     return 0;
@@ -133,11 +133,15 @@ AddToCacheTable(
         //
         //
         targetElement = &targetBucket->Elements[offset];
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
         targetElement->Occ = 1;
+#endif
         memcpy(victim, targetElement, sizeof(CacheElementT));
         memcpy(targetElement, carrier, sizeof(CacheElementT));
         hashVector[offset] = carrier->Hash1;
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
         targetElement->Occ = 0;
+#endif
         tmpV = victim->Hash1;
         victim->Hash1 = victim->Hash2;
         victim->Hash2 = tmpV;
@@ -154,7 +158,7 @@ AddToCacheTable(
             offset = 0;
         }
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
         targetBucket->Occ = 0;
 #endif
     }
@@ -175,7 +179,7 @@ AddToCacheTable(
         hashVector = targetBucket->HashValues;
         targetElement = &targetBucket->Elements[offset];
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
         targetBucket->Occ = 1;
 #endif
 
@@ -186,13 +190,13 @@ AddToCacheTable(
         tmpV = carrier->Hash1;
         carrier->Hash1 = carrier->Hash2;
         carrier->Hash2 = tmpV;
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
         targetElement->Occ = 1;
 #endif
         memcpy(victim, targetElement, sizeof(CacheElementT));
         memcpy(targetElement, carrier, sizeof(CacheElementT));
         hashVector[offset] = carrier->Hash2;
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
         targetElement->Occ = 0;
 #endif
 
@@ -204,7 +208,7 @@ AddToCacheTable(
         carrier = victim;
         victim = tmp;
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
         targetBucket->Occ = 0;
 #endif
     }
@@ -237,7 +241,7 @@ DeleteFromCacheTable(
     targetBucket = CacheTable->Table[hash1 & mask];
     hashVector = targetBucket->HashValues;
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
     targetBucket->Occ = 1;
 #endif
 
@@ -245,16 +249,16 @@ DeleteFromCacheTable(
         if (hashVector[e] == hash1) {
             targetElement = &targetBucket->Elements[e];
             if (targetElement->Item.Key == *Key) {
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                 targetElement->Occ = 1;
 #endif
                 memset(targetElement, 0, sizeof(CacheElementT));
                 hashVector[e] = 0;
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                 targetElement->Occ = 0;
 #endif
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
                 targetBucket->Occ = 0;
 #endif
                 return;
@@ -262,7 +266,7 @@ DeleteFromCacheTable(
         }
     }
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
     targetBucket->Occ = 0;
 #endif
 
@@ -277,7 +281,7 @@ DeleteFromCacheTable(
     targetBucket = CacheTable->Table[hash2 & mask];
     hashVector = targetBucket->HashValues;
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
     targetBucket->Occ = 1;
 #endif
 
@@ -285,16 +289,16 @@ DeleteFromCacheTable(
         if (hashVector[e] == hash2) {
             targetElement = &targetBucket->Elements[e];
             if (targetElement->Item.Key == *Key) {
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                 targetElement->Occ = 1;
 #endif
                 memset(targetElement, 0, sizeof(CacheElementT));
                 hashVector[e] = 0;
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
                 targetElement->Occ = 0;
 #endif
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
                 targetBucket->Occ = 1;
 #endif
                 return;
@@ -302,7 +306,7 @@ DeleteFromCacheTable(
         }
     }
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
     targetBucket->Occ = 0;
 #endif
 }
@@ -330,7 +334,7 @@ LookUpCacheTable(
     HASH_FUNCTION1(Key, sizeof(KeyT), hash1);
     targetBucket = CacheTable->Table[hash1 & mask];
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
     if (targetBucket->Occ) {
         goto LookupSecondHash;
     }
@@ -341,7 +345,7 @@ LookUpCacheTable(
     for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
         if (hash1 == hashVector[e]) {
             targetElement = &targetBucket->Elements[e];
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
             if (targetElement->Occ) {
                 continue;
             }
@@ -352,7 +356,9 @@ LookUpCacheTable(
         }
     }
 
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
 LookupSecondHash:
+#endif
     //
     // Check the second hash function
     //
@@ -364,7 +370,7 @@ LookupSecondHash:
 
     targetBucket = CacheTable->Table[hash2 & mask];
 
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
     if (targetBucket->Occ) {
         goto LookupFail;
     }
@@ -375,7 +381,7 @@ LookupSecondHash:
     for (int e = 0; e != CACHE_TABLE_BUCKET_SIZE; e++) {
         if (hash2 == hashVector[e]) {
             targetElement = &targetBucket->Elements[e];
-#ifdef CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_ITEM
             if (targetElement->Occ) {
                 continue;
             }
@@ -386,7 +392,9 @@ LookupSecondHash:
         }
     }
 
+#if CACHE_TABLE_OCC_GRANULARITY == CACHE_TABLE_OCC_GRANULARITY_BUCKET
 LookupFail:
+#endif
     return (CacheItemT*)NULL;
 }
 
