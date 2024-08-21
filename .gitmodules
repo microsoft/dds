@@ -1,0 +1,4 @@
+[submodule "DPDPU/ThirdParty/spdk"]
+	path = DPDPU/ThirdParty/spdk
+	url = https://github.com/spdk/spdk.git
+	branch = v22.05
