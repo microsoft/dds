@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 #include <cstdlib>
 #include <winsock2.h>
 #include <iostream>
