@@ -7,7 +7,7 @@ Details of the system can be found in [our VLDB 2024 paper](https://fardatalab.o
 ## DPU (BlueField-2)
 - DOCA 1.5.1
 - DPDK 20.11.7.1.2 (default version in DOCA 1.5.1)
-- SPDK v22.05 (included as a submodule)
+- SPDK v22.05 (included as a submodule; can be installed with `Scripts/InstallSPDK.sh`)
 
 
 ## Host
