@@ -3,10 +3,10 @@ mkdir -p $INSTALL_PATH
 cd ../ThirdParty/spdk
 
 # Avoid duplicated DPDK init
-cp ../../StorageEngine/DDSBackEndDPUService/Patches/spdk_dpdk_init.c lib/env_dpdk/init.c
+patch lib/env_dpdk/init.c ../../StorageEngine/DDSBackEndDPUService/Patches/spdk_dpdk_init.patch
 # Avoid SPDK reactors taking all the Arm cores
-cp ../../StorageEngine/DDSBackEndDPUService/Patches/spdk_dpdk_threads.c lib/env_dpdk/threads.c
-cp ../../StorageEngine/DDSBackEndDPUService/Patches/spdk_reactor.c lib/event/reactor.c
+patch lib/env_dpdk/threads.c ../../StorageEngine/DDSBackEndDPUService/Patches/spdk_dpdk_threads.patch
+patch lib/event/reactor.c ../../StorageEngine/DDSBackEndDPUService/Patches/spdk_reactor.patch
 
 pip3 install testresources
 pip3 install --upgrade setuptools

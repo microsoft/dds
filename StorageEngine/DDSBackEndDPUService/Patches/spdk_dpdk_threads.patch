@@ -1,0 +1,6 @@
+41a42,44
+> #ifdef SINGLE_REACTOR
+> 	return 1;
+> #else
+42a46
+> #endif
