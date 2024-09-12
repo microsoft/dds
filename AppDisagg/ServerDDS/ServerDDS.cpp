@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #include "ServerDDS.h"
 
 #pragma comment(lib,"ws2_32.lib")

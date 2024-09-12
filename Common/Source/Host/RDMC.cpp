@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #include "RDMC.h"
 
 void RDMC_WaitForEventNotification(

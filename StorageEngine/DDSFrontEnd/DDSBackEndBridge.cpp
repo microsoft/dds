@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #include <string.h>
 
 #if DDS_NOTIFICATION_METHOD == DDS_NOTIFICATION_METHOD_TIMER

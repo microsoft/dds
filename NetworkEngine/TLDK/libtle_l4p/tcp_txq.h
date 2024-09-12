@@ -12,6 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Portions Copyright (c) Microsoft Corporation.
+ * Licensed under the Apache-2.0 License
+ */
 
 #ifndef _TCP_TXQ_H_
 #define _TCP_TXQ_H_

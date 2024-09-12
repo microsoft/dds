@@ -12,6 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Portions Copyright (c) Microsoft Corporation.
+ * Licensed under the Apache-2.0 License
+ */
 
 #ifndef _PORT_BITMAP_H_
 #define _PORT_BITMAP_H_

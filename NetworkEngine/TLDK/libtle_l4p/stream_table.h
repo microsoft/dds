@@ -12,6 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Portions Copyright (c) Microsoft Corporation.
+ * Licensed under the Apache-2.0 License
+ */
 
 #ifndef _STREAM_TABLE_H_
 #define _STREAM_TABLE_H_

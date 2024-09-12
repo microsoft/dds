@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>

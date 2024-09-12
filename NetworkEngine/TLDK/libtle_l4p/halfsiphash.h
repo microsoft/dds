@@ -8,6 +8,10 @@
  * with this software. If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+/*
+ * Portions Copyright (c) Microsoft Corporation.
+ * Licensed under the Apache-2.0 License
+ */
 
 #ifndef _SIPHASH_
 #define _SIPHASH_

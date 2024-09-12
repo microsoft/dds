@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #ifndef DDS_BOW_APP_SIGNATURE_H_
 #define DDS_BOW_APP_SIGNATURE_H_
 

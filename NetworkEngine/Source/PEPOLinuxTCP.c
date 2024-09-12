@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>

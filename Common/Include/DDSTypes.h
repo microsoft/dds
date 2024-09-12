@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #pragma once
 
 #if defined (_MSC_VER) || defined (__cplusplus)

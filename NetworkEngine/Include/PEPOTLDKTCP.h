@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #ifndef PEPO_TLDK_TCP_H
 #define PEPO_TLDK_TCP_H
 

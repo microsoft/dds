@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #ifndef APP_ECHO_TCP_H_
 #define APP_ECHO_TCP_H_
 

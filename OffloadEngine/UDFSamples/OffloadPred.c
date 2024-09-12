@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #include "CacheTable.h"
 #include "OffloadTypes.h"
 #include <stdio.h>

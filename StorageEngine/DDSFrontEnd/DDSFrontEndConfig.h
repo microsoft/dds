@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT License
+ */
+
 #pragma once
 
 #define BACKEND_TYPE_LOCAL_MEMORY 0
