@@ -1,0 +1,16 @@
+549a550
+> #ifndef DPDK_INIT_SUPPRESSED
+550a552
+> #endif
+551a554
+> #ifndef DPDK_INIT_SUPPRESSED
+552a556
+> #endif
+587a592
+> #ifndef DPDK_INIT_SUPPRESSED
+614a620
+> #endif
+621a628
+> #ifndef DPDK_INIT_SUPPRESSED
+624a632
+> #endif

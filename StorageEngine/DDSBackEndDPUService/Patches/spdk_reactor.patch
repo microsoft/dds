@@ -1,0 +1,125 @@
+200a201,203
+> #ifdef SINGLE_REACTOR
+> 		spdk_cpuset_set_cpu(&reactor->notify_cpuset, 0, true);
+> #else
+205a209
+> #endif
+240a245,247
+> #ifdef SINGLE_REACTOR
+> 	uint32_t current_core;
+> #else
+241a249
+> #endif
+256a265,267
+> #ifdef SINGLE_REACTOR
+> 	g_reactor_count = 1;
+> #else
+257a269
+> #endif
+279a292,294
+> #ifdef SINGLE_REACTOR
+> 	reactor_construct(&g_reactors[0], 0);
+> #else
+282a298
+> #endif
+296a313
+> #ifndef SINGLE_REACTOR
+297a315
+> #endif
+305a324,337
+> #ifdef SINGLE_REACTOR
+> 	reactor = spdk_reactor_get(0);
+> 	assert(reactor != NULL);
+> 	assert(reactor->thread_count == 0);
+> 	if (reactor->events != NULL) {
+> 		spdk_ring_free(reactor->events);
+> 	}
+> 
+> 	reactor_interrupt_fini(reactor);
+> 
+> 	if (g_core_infos != NULL) {
+> 		free(g_core_infos[0].thread_infos);
+> 	}
+> #else
+319a352
+> #endif
+702a736,738
+> #ifdef SINGLE_REACTOR
+> 	uint32_t j;
+> #else
+703a740
+> #endif
+704a742,753
+> #ifdef SINGLE_REACTOR
+> 	core = &cores_info[0];
+> 	for (j = 0; j < core->threads_count; j++) {
+> 		thread_info = &core->thread_infos[j];
+> 		if (thread_info->lcore != 0) {
+> 			_threads_reschedule_thread(thread_info);
+> 		}
+> 	}
+> 	core->threads_count = 0;
+> 	free(core->thread_infos);
+> 	core->thread_infos = NULL;
+> #else
+716a766
+> #endif
+755a806
+> #ifndef SINGLE_REACTOR
+756a808
+> #endif
+757a810,815
+> #ifdef SINGLE_REACTOR
+> 	core = &g_core_infos[0];
+> 	core->threads_count = 0;
+> 	free(core->thread_infos);
+> 	core->thread_infos = NULL;
+> #else
+763a822
+> #endif
+1035c1094,1096
+< 	uint32_t i, current_core;
+---
+> #ifdef SINGLE_REACTOR
+> 	uint32_t current_core;
+> #else
+1036a1098,1099
+> 	uint32_t i, current_core;
+> #endif
+1043a1107,1109
+> #ifdef SINGLE_REACTOR
+> 	spdk_cpuset_set_cpu(&g_reactor_core_mask, 0, true);
+> #else
+1059a1126
+> #endif
+1065a1133
+> #ifndef SINGLE_REACTOR
+1066a1135
+> #endif
+1073a1143
+> #ifndef SINGLE_REACTOR
+1074a1145
+> #endif
+1082a1154,1167
+> #ifdef SINGLE_REACTOR
+> 	/* If spdk_event_call isn't called  on a reactor, always send a notification.
+> 	 * If it is called on a reactor, send a notification if the destination reactor
+> 	 * is indicated in interrupt mode state.
+> 	 */
+> 	if (local_reactor == NULL || spdk_cpuset_get_cpu(&local_reactor->notify_cpuset, 0)) {
+> 		reactor = spdk_reactor_get(0);
+> 		assert(reactor != NULL);
+> 		rc = write(reactor->events_fd, &notify, sizeof(notify));
+> 		if (rc < 0) {
+> 			SPDK_ERRLOG("failed to notify event queue for reactor(%u): %s.\n", 0, spdk_strerror(errno));
+> 		}
+> 	}
+> #else
+1097a1183
+> #endif
+1214a1301,1303
+> #ifdef SINGLE_REACTOR
+> 		spdk_cpuset_set_cpu(&polling_cpumask, 0, true);
+> #else
+1217a1307
+> #endif
